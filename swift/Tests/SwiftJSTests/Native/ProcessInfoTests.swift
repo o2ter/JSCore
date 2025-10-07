@@ -246,22 +246,20 @@ final class ProcessInfoTests: XCTestCase {
             // Check if platform is available and reasonable
             const platform = process.platform;
             ({
-                hasPlatform: platform !== undefined,
                 platformType: typeof platform,
-                platform: platform || null,
-                isValidPlatform: platform ? ['darwin', 'linux', 'win32', 'ios', 'android'].includes(platform) : false
+                platform: platform,
+                isValidPlatform: ['darwin', 'linux', 'win32', 'ios', 'android', 'tvos', 'watchos'].includes(platform)
             })
         """
         let context = SwiftJS()
         let result = context.evaluateScript(script)
         
-        if result["hasPlatform"].boolValue == true {
-            XCTAssertEqual(result["platformType"].toString(), "string")
-            // On macOS/iOS, should be 'darwin' or 'ios'
-            let platform = result["platform"].toString()
-            XCTAssertTrue(["darwin", "ios", "linux", "win32", "android"].contains(platform), 
-                         "Platform '\(platform)' should be a known platform")
-        }
+        XCTAssertEqual(result["platformType"].toString(), "string")
+        // On macOS/iOS, should be 'darwin' or 'ios'
+        let platform = result["platform"].toString()
+        XCTAssertTrue(["darwin", "ios", "linux", "win32", "android", "tvos", "watchos"].contains(platform), 
+                     "Platform '\(platform)' should be a known platform")
+        XCTAssertTrue(result["isValidPlatform"].boolValue ?? false)
     }
     
     func testProcessArch() {

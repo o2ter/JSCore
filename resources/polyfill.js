@@ -64,6 +64,7 @@
         get env() { return this.#env; }
         get argv() { return this.#argv; }
         get pid() { return __NATIVE_BRIDGE__.processInfo.processIdentifier; }
+        get platform() { return __NATIVE_BRIDGE__.processInfo.platform; }
 
         cwd() {
             return __NATIVE_BRIDGE__.FileSystem.currentDirectoryPath();

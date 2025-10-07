@@ -24,6 +24,7 @@
 //
 
 import JavaScriptCore
+import Foundation
 
 @objc protocol JSProcessInfoExport: JSExport {
     var environment: [String: String] { get }
@@ -32,6 +33,7 @@ import JavaScriptCore
     var processIdentifier: Int32 { get }
     var globallyUniqueString: String { get }
     var hostName: String { get }
+    var platform: String { get }
     var isLowPowerModeEnabled: Bool { get }
     var deviceSpec: String { get }
     var isRealDevice: Bool { get }
@@ -73,6 +75,36 @@ extension JSProcessInfo {
 
     var hostName: String {
         return ProcessInfo.processInfo.hostName
+    }
+
+    var platform: String {
+        // Use Foundation's ProcessInfo to get OS name in a POSIX-compliant way
+        let osName = ProcessInfo.processInfo.operatingSystemVersionString.lowercased()
+        
+        #if os(macOS)
+            return "darwin"
+        #elseif os(iOS)
+            return "ios"
+        #elseif os(tvOS)
+            return "tvos"
+        #elseif os(watchOS)
+            return "watchos"
+        #elseif os(Linux)
+            return "linux"
+        #elseif os(Windows)
+            return "win32"
+        #else
+            // Fallback: try to detect from OS name string
+            if osName.contains("darwin") || osName.contains("mac") {
+                return "darwin"
+            } else if osName.contains("linux") {
+                return "linux"
+            } else if osName.contains("windows") {
+                return "win32"
+            } else {
+                return "unknown"
+            }
+        #endif
     }
 
     var isLowPowerModeEnabled: Bool {

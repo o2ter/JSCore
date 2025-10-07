@@ -87,6 +87,17 @@ class ProcessInfo(
             }
             processInfoObject.set("hostName", hostName)
             
+            // Platform
+            val platform = when {
+                System.getProperty("os.name").lowercase().contains("android") -> "android"
+                System.getProperty("os.name").lowercase().contains("linux") -> "linux"
+                System.getProperty("os.name").lowercase().contains("mac") || 
+                System.getProperty("os.name").lowercase().contains("darwin") -> "darwin"
+                System.getProperty("os.name").lowercase().contains("windows") -> "win32"
+                else -> "unknown"
+            }
+            processInfoObject.set("platform", platform)
+            
             // OS information
             processInfoObject.set("operatingSystemVersionString", System.getProperty("os.version"))
             
