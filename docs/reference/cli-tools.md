@@ -1,12 +1,16 @@
-# SwiftJSRunner CLI Documentation
+# Command Line Tools
 
-SwiftJSRunner is a command-line interface for executing JavaScript code using the SwiftJS runtime. It provides a Node.js-like environment for running JavaScript files and evaluating JavaScript expressions directly from the command line.
+Both SwiftJS and KotlinJS provide command-line tools for executing JavaScript code, testing, and development.
+
+## SwiftJSRunner
+
+SwiftJSRunner is a command-line interface for executing JavaScript code using the SwiftJS runtime on iOS/macOS platforms.
 
 **Auto-Termination**: SwiftJSRunner automatically terminates when all active operations (timers, network requests) complete, eliminating the need for explicit `process.exit()` calls in most cases.
 
-## Installation
+### Installation
 
-SwiftJSRunner is included with SwiftJS and can be built using Swift Package Manager:
+SwiftJSRunner is included with SwiftJS:
 
 ```bash
 # Build the runner
@@ -16,15 +20,13 @@ swift build
 swift run SwiftJSRunner
 ```
 
-## Usage
+### Usage
 
-### Basic Syntax
+#### Basic Syntax
 
 ```bash
 swift run SwiftJSRunner [options] [file] [arguments...]
 ```
-
-### Command Options
 
 #### Execute JavaScript Files
 
@@ -49,17 +51,53 @@ swift run SwiftJSRunner --eval "console.log('Hello, World!')"
 swift run SwiftJSRunner -e "console.log('Args:', process.argv)" arg1 arg2
 ```
 
-#### Help
+## jscore-runner
+
+jscore-runner is a command-line interface for executing JavaScript code using the KotlinJS runtime on JVM/Android platforms.
+
+### Installation
+
+jscore-runner is included with KotlinJS:
 
 ```bash
-# Show help
-swift run SwiftJSRunner -h
-swift run SwiftJSRunner --help
+# Build the runner
+./gradlew build
+
+# Test the runner
+./gradlew :java:jscore-runner:run --args="--help"
+```
+
+### Usage
+
+#### Basic Syntax
+
+```bash
+./gradlew :java:jscore-runner:run --args="[options] [file] [arguments...]"
+```
+
+#### Execute JavaScript Files
+
+```bash
+# Run a JavaScript file
+./gradlew :java:jscore-runner:run --args="script.js"
+
+# Run a file with arguments (note: arguments need proper escaping)
+./gradlew :java:jscore-runner:run --args="script.js arg1 arg2 arg3"
+```
+
+#### Evaluate JavaScript Code Directly
+
+```bash
+# Evaluate JavaScript expression
+./gradlew :java:jscore-runner:run --args="-e 'console.log(\"Hello, World!\")'"
+
+# With arguments
+./gradlew :java:jscore-runner:run --args="-e 'console.log(\"Args:\", process.argv)' arg1 arg2"
 ```
 
 ## JavaScript Environment
 
-SwiftJSRunner provides a complete JavaScript environment with:
+Both tools provide comprehensive JavaScript environments:
 
 ### Global Objects
 
@@ -73,8 +111,8 @@ SwiftJSRunner provides a complete JavaScript environment with:
 ### Node.js-like APIs
 
 - **Process**: Access to process information and control
-- **File System**: Complete file operations through `SystemFS` class
-- **Path**: Path manipulation utilities through `Path` class
+- **File System**: Complete file operations (platform-specific implementations)
+- **Path**: Path manipulation utilities
 
 ### Web Standards APIs
 
@@ -86,7 +124,9 @@ SwiftJSRunner provides a complete JavaScript environment with:
 
 ## Examples
 
-### Hello World
+### SwiftJSRunner Examples
+
+#### Hello World
 
 Create `hello.js`:
 ```javascript
@@ -100,30 +140,7 @@ Run it:
 swift run SwiftJSRunner hello.js
 ```
 
-### Command Line Arguments
-
-Create `args.js`:
-```javascript
-console.log('Script name:', process.argv[0]);
-console.log('All arguments:', process.argv);
-
-// Process arguments
-const args = process.argv.slice(1);
-if (args.length === 0) {
-    console.log('No arguments provided');
-} else {
-    args.forEach((arg, index) => {
-        console.log(`Argument ${index + 1}: ${arg}`);
-    });
-}
-```
-
-Run it:
-```bash
-swift run SwiftJSRunner args.js hello world 123
-```
-
-### File Operations
+#### File Operations
 
 Create `file-ops.js`:
 ```javascript
@@ -140,10 +157,6 @@ console.log('File content:', readContent);
 
 // Check file exists
 console.log('File exists:', SystemFS.exists(fileName));
-
-// Get file stats
-const stats = SystemFS.stat(fileName);
-console.log('File size:', stats.size, 'bytes');
 ```
 
 Run it:
@@ -151,39 +164,23 @@ Run it:
 swift run SwiftJSRunner file-ops.js
 ```
 
-### HTTP Requests
+### jscore-runner Examples
 
-Create `fetch-demo.js`:
+#### Hello World
+
+Create `hello.js`:
 ```javascript
-async function fetchData() {
-    try {
-        console.log('Fetching data...');
-        const response = await fetch('https://jsonplaceholder.typicode.com/posts/1');
-        
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-        }
-        
-        const data = await response.json();
-        console.log('Post title:', data.title);
-        console.log('Post body:', data.body);
-        
-    } catch (error) {
-        console.error('Fetch error:', error.message);
-    }
-}
-
-fetchData().then(() => {
-    console.log('Done!');
-});
+console.log('Hello from KotlinJS!');
+console.log('Process ID:', process.pid);
+console.log('Platform:', process.platform);
 ```
 
 Run it:
 ```bash
-swift run SwiftJSRunner fetch-demo.js
+./gradlew :java:jscore-runner:run --args="hello.js"
 ```
 
-### Timers and Async Operations
+#### Timer Demo
 
 Create `timers.js`:
 ```javascript
@@ -197,81 +194,184 @@ const intervalId = setInterval(() => {
     if (count >= 3) {
         clearInterval(intervalId);
         console.log('Timer completed');
-        
-        // Exit after a short delay
-        setTimeout(() => {
-            console.log('Exiting...');
-            process.exit(0);
-        }, 500);
     }
 }, 1000);
-
-console.log('Timer started, waiting for ticks...');
 ```
 
 Run it:
 ```bash
-swift run SwiftJSRunner timers.js
+./gradlew :java:jscore-runner:run --args="timers.js"
 ```
 
-### Crypto Operations
+## Platform Differences
 
-Create `crypto-demo.js`:
-```javascript
-console.log('Crypto Demo');
-console.log('===========');
+| Feature | SwiftJSRunner | jscore-runner |
+|---------|---------------|---------------|
+| **Platform** | iOS/macOS | JVM/Android |
+| **Engine** | JavaScriptCore | Javet V8 |
+| **File System** | SystemFS class | File system access varies by platform |
+| **Auto-termination** | Yes | Manual termination |
+| **Native Integration** | Swift APIs | Kotlin APIs |
+| **Build Command** | `swift run SwiftJSRunner` | `./gradlew :java:jscore-runner:run` |
 
-// Generate UUID
-const uuid = crypto.randomUUID();
-console.log('Random UUID:', uuid);
+## Advanced Usage
 
-// Generate random bytes
-const randomBytes = crypto.randomBytes(16);
-console.log('Random bytes:', Array.from(randomBytes).map(b => b.toString(16).padStart(2, '0')).join(''));
+### SwiftJSRunner Advanced Features
 
-// Fill array with random values
-const buffer = new Uint8Array(8);
-crypto.getRandomValues(buffer);
-console.log('Random buffer:', Array.from(buffer));
+#### Environment Variables
 
-// Base64 encoding
-const text = 'Hello, SwiftJS!';
-const encoded = btoa(text);
-const decoded = atob(encoded);
-console.log('Original:', text);
-console.log('Base64:', encoded);
-console.log('Decoded:', decoded);
-```
-
-Run it:
 ```bash
-swift run SwiftJSRunner crypto-demo.js
+export DEBUG=1
+swift run SwiftJSRunner -e "console.log('Debug mode:', process.env.DEBUG)"
 ```
 
-### Environment Variables
+#### Performance Measurement
 
-Create `env.js`:
 ```javascript
-console.log('Environment Variables');
-console.log('====================');
-
-// Display all environment variables
-console.log('All environment variables:');
-for (const [key, value] of Object.entries(process.env)) {
-    console.log(`${key}=${value}`);
+console.time('operation');
+for (let i = 0; i < 1000000; i++) {
+    Math.sqrt(i);
 }
-
-// Access specific variables
-console.log('\nSpecific variables:');
-console.log('PATH:', process.env.PATH || 'not set');
-console.log('HOME:', process.env.HOME || 'not set');
-console.log('USER:', process.env.USER || 'not set');
+console.timeEnd('operation');
 ```
 
-Run it:
+### jscore-runner Advanced Features
+
+#### Gradle Properties
+
+You can pass JVM options through Gradle:
+
 ```bash
-swift run SwiftJSRunner env.js
+./gradlew :java:jscore-runner:run --args="script.js" -Dorg.gradle.jvmargs="-Xmx2g"
 ```
+
+#### Platform Context
+
+The runner automatically detects and uses the appropriate platform context (JVM).
+
+## Troubleshooting
+
+### SwiftJSRunner Issues
+
+#### Script Doesn't Exit
+SwiftJSRunner features auto-termination, but if your script hangs:
+```javascript
+// Force exit if needed
+setTimeout(() => {
+    console.log('Force exit');
+    process.exit(0);
+}, 5000);
+```
+
+#### Permission Errors
+```bash
+# Check file permissions
+chmod +r script.js
+```
+
+### jscore-runner Issues
+
+#### Gradle Build Errors
+```bash
+# Clean and rebuild
+./gradlew clean build
+```
+
+#### Memory Issues
+```bash
+# Increase heap size
+./gradlew :java:jscore-runner:run --args="script.js" -Dorg.gradle.jvmargs="-Xmx4g"
+```
+
+#### Class Path Issues
+Ensure all dependencies are properly built:
+```bash
+./gradlew :java:jscore:build :java:jscore-jvm:build
+```
+
+## Best Practices
+
+### Cross-Platform Scripts
+
+Write scripts that work on both platforms:
+
+```javascript
+// Check platform capabilities
+const platform = typeof process !== 'undefined' ? process.platform : 'unknown';
+console.log('Running on:', platform);
+
+// Use common APIs
+console.log('Random UUID:', crypto.randomUUID());
+
+// Graceful timer handling
+setTimeout(() => {
+    console.log('Timer executed');
+    if (typeof process !== 'undefined' && process.exit) {
+        process.exit(0);
+    }
+}, 1000);
+```
+
+### Error Handling
+
+```javascript
+process.on('uncaughtException', (error) => {
+    console.error('Uncaught exception:', error.message);
+    process.exit(1);
+});
+
+try {
+    // Your code here
+} catch (error) {
+    console.error('Error:', error.message);
+    process.exit(1);
+}
+```
+
+### Performance
+
+1. **Use appropriate timer cleanup** for both platforms
+2. **Handle large data efficiently** with streaming APIs
+3. **Monitor memory usage** for long-running scripts
+
+## Integration with IDEs
+
+### VS Code
+
+Both runners work well with VS Code:
+
+1. **Configure tasks** in `.vscode/tasks.json`:
+   ```json
+   {
+     "version": "2.0.0",
+     "tasks": [
+       {
+         "label": "Run with SwiftJSRunner",
+         "type": "shell",
+         "command": "swift",
+         "args": ["run", "SwiftJSRunner", "${file}"],
+         "group": "build"
+       },
+       {
+         "label": "Run with jscore-runner", 
+         "type": "shell",
+         "command": "./gradlew",
+         "args": [":java:jscore-runner:run", "--args=${file}"],
+         "group": "build"
+       }
+     ]
+   }
+   ```
+
+2. **Use debugging features** with proper error output
+3. **Leverage terminal integration** for quick testing
+
+---
+
+For more information:
+- **[SwiftJS API Reference](swiftjs-api.md)** - Complete SwiftJS API documentation
+- **[KotlinJS API Reference](kotlinjs-api.md)** - Complete KotlinJS API documentation
+- **[Getting Started](../getting-started/)** - Installation and quick start guides
 
 ## Process Control
 

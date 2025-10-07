@@ -1,56 +1,106 @@
-# SwiftJS & KotlinJS
+# JSCore - Cross-Platform JavaScript Runtimes
 
-**Cross-platform JavaScript runtimes for Swift and Kotlin**
+**Execute JavaScript seamlessly from Swift and Kotlin with native performance and web standards compliance.**
 
-SwiftJS provides a seamless bridge between Swift and JavaScript, built on Apple's JavaScriptCore with Node.js-like APIs and web standards compliance. KotlinJS offers a unified JavaScript engine for Kotlin using Javet (V8) for consistent ES6+ support on JVM and Android.
-
-Execute JavaScript code from Swift with full access to native iOS/macOS capabilities, or from Kotlin with cross-platform support for JVM and Android environments.
+SwiftJS provides JavaScript execution on iOS/macOS using Apple's JavaScriptCore, while KotlinJS delivers modern JavaScript support on JVM/Android using Javet V8.
 
 [![Swift 6.0+](https://img.shields.io/badge/Swift-6.0+-orange.svg)](https://swift.org)
 [![Kotlin 1.9+](https://img.shields.io/badge/Kotlin-1.9+-purple.svg)](https://kotlinlang.org)
 [![Platforms](https://img.shields.io/badge/Platforms-iOS%2017+%20|%20macOS%2014+%20|%20Android%20|%20JVM-blue.svg)](https://developer.apple.com)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-## Features
+## Quick Start
 
 ### SwiftJS (iOS/macOS)
-- **🚀 High Performance**: Built on Apple's optimized JavaScriptCore engine
-- **🌐 Web Standards**: Implements standard web APIs (Fetch, Crypto, Streams, etc.)
-- **🔒 Security**: Full access to Swift Crypto for cryptographic operations
-- **📁 File System**: Complete file system access with Node.js-like APIs
-- **🌍 Networking**: HTTP/HTTPS requests with streaming support
-- **⏰ Timers**: Full setTimeout/setInterval support with RunLoop integration
-- **🔄 Value Bridging**: Seamless Swift ↔ JavaScript value conversion
-- **📱 Platform Integration**: Native iOS/macOS device and process information
-- **🧪 Testing**: Comprehensive test suite with performance benchmarks
+
+```swift
+import SwiftJS
+
+let js = SwiftJS()
+let result = js.evaluateScript("Math.PI * 2")
+print(result.numberValue) // 6.283185307179586
+```
 
 ### KotlinJS (JVM/Android)
-- **✅ Unified V8 Engine**: Javet provides consistent modern JavaScript (ES6+) everywhere
-- **✅ Cross-Platform**: Single engine implementation for JVM and Android
-- **✅ Modern JavaScript**: Full ES6+ support with const, class, arrow functions
-- **✅ Platform Abstraction**: Clean PlatformContext interfaces for platform-specific features
-- **✅ Async/Coroutines**: Built with Kotlin coroutines for non-blocking execution
-- **✅ VS Code Ready**: Run and test directly in VS Code
-- **✅ Simplified Architecture**: No more factory patterns or platform detection
-- **✅ Easy Native Bridges**: JSBridge API for simple Kotlin-JavaScript interop
+
+```kotlin
+import com.o2ter.jscore.JavaScriptEngine
+import com.o2ter.jscore.jvm.JvmPlatformContext
+
+val engine = JavaScriptEngine(JvmPlatformContext("MyApp"))
+val result = engine.execute("Math.PI * 2")
+println(result) // 6.283185307179586
+```
+
+## Features
+
+| Feature | SwiftJS | KotlinJS |
+|---------|---------|----------|
+| **Engine** | Apple JavaScriptCore | Javet V8 |
+| **Performance** | Native Safari engine | Native Chrome/Node.js engine |
+| **JavaScript Support** | ES6+ | ES6+ |
+| **Web APIs** | Fetch, Crypto, Streams, File | Fetch, Crypto, Streams, File |
+| **Async Support** | Promises, async/await | Promises, async/await |
+| **Platform Integration** | iOS/macOS native APIs | JVM/Android native APIs |
+| **CLI Tool** | SwiftJSRunner | jscore-runner |
+
+## Documentation
+
+### 🚀 Getting Started
+- **[Installation](docs/getting-started/installation.md)** - Setup for both platforms
+- **[SwiftJS Quick Start](docs/getting-started/quick-start-swift.md)** - iOS/macOS setup and first steps
+- **[KotlinJS Quick Start](docs/getting-started/quick-start-kotlin.md)** - JVM/Android setup and first steps
+- **[Examples](docs/getting-started/examples/)** - Simple code examples and demos
+
+### 📖 Platform Guides
+
+**SwiftJS (iOS/macOS)**
+- [Fundamentals](docs/guides/swiftjs/fundamentals.md) - Core concepts, value bridging, threading model
+- [JavaScript APIs](docs/guides/swiftjs/javascript-apis.md) - Available web standards APIs
+- [Native Integration](docs/guides/swiftjs/native-integration.md) - Swift-JavaScript integration
+- [Async Programming](docs/guides/swiftjs/async-programming.md) - Promises, timers, async patterns
+- [File Operations](docs/guides/swiftjs/file-operations.md) - File system APIs
+- [Networking](docs/guides/swiftjs/networking.md) - HTTP requests and streaming
+- [Performance](docs/guides/swiftjs/performance.md) - Optimization and best practices
+
+**KotlinJS (JVM/Android)**
+- [Fundamentals](docs/guides/kotlinjs/fundamentals.md) - JSBridge system, memory management, platform contexts
+- [JSBridge API](docs/guides/kotlinjs/jsbridge-api.md) - Native bridge creation
+- [Platform Contexts](docs/guides/kotlinjs/platform-contexts.md) - JVM vs Android differences
+- [JavaScript Environment](docs/guides/kotlinjs/javascript-environment.md) - V8 capabilities
+- [Native Bridges](docs/guides/kotlinjs/native-bridges.md) - Creating custom APIs
+- [Resource Management](docs/guides/kotlinjs/resource-management.md) - Memory and cleanup
+
+**Cross-Platform**
+- [Architecture Comparison](docs/guides/architecture-comparison.md) - Platform differences, when to choose which
+- [Migration Guide](docs/guides/migration-guide.md) - Moving code between SwiftJS and KotlinJS
+- [Shared Concepts](docs/guides/cross-platform/shared-concepts.md) - Common patterns
+
+### 📚 Reference
+- **[SwiftJS API Reference](docs/reference/swiftjs-api.md)** - Complete SwiftJS API documentation
+- **[KotlinJS API Reference](docs/reference/kotlinjs-api.md)** - Complete KotlinJS API documentation
+- **[JavaScript Globals](docs/reference/javascript-globals.md)** - All available JavaScript APIs
+- **[CLI Tools](docs/reference/cli-tools.md)** - SwiftJSRunner and jscore-runner
+
+### 🔧 Advanced Topics
+- [Performance Optimization](docs/advanced/performance-optimization.md) - Advanced performance techniques
+- [Memory Management](docs/advanced/memory-management.md) - Deep dive into memory patterns
+- [Threading Models](docs/advanced/threading-models.md) - Threading behavior and best practices
+- [Troubleshooting](docs/advanced/troubleshooting.md) - Common issues and solutions
+
+## Installation
 
 ## Installation
 
 ### SwiftJS - Swift Package Manager
 
-Add SwiftJS to your `Package.swift`:
+Add to your `Package.swift`:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/o2ter/SwiftJS.git", from: "1.0.0")
+    .package(url: "https://github.com/o2ter/JSCore.git", from: "1.0.0")
 ]
 ```
-
-#### Xcode
-
-1. File → Add Package Dependencies
-2. Enter: `https://github.com/o2ter/SwiftJS.git`
-3. Add to your target
 
 ### KotlinJS - Gradle
 
@@ -59,18 +109,56 @@ Add to your `build.gradle.kts`:
 ```kotlin
 dependencies {
     implementation("com.o2ter:jscore:1.0.0")
-    
-    // Platform-specific implementations
-    implementation("com.o2ter:jscore-jvm:1.0.0")     // For JVM projects
-    implementation("com.o2ter:jscore-android:1.0.0") // For Android projects
+    implementation("com.o2ter:jscore-jvm:1.0.0")     // For JVM
+    implementation("com.o2ter:jscore-android:1.0.0") // For Android
 }
 ```
 
-#### Prerequisites for KotlinJS
+## Command Line Tools
 
-- JDK 11 or higher
-- Gradle 8.0+
-- (Optional) Android SDK for Android module
+### SwiftJSRunner
+```bash
+# Execute JavaScript files
+swift run SwiftJSRunner script.js
+
+# Evaluate expressions
+swift run SwiftJSRunner -e "console.log('Hello World')"
+```
+
+### jscore-runner
+```bash
+# Execute JavaScript files
+./gradlew :java:jscore-runner:run --args="script.js"
+
+# Evaluate expressions  
+./gradlew :java:jscore-runner:run --args="-e 'console.log(\"Hello World\")'"
+```
+
+## Platform Support
+
+| Platform | SwiftJS | KotlinJS |
+|----------|---------|----------|
+| **iOS** | 17.0+ | ❌ |
+| **macOS** | 14.0+ | ❌ |
+| **JVM** | ❌ | Java 11+ |
+| **Android** | ❌ | API 21+ |
+
+## Contributing
+
+We welcome contributions! See [Development Setup](docs/contributing/development-setup.md) and [Testing Guidelines](docs/contributing/testing-guidelines.md) to get started.
+
+## License
+
+MIT License. See [LICENSE](LICENSE) for details.
+
+## Acknowledgments
+
+- **SwiftJS**: Built on Apple's [JavaScriptCore](https://developer.apple.com/documentation/javascriptcore)
+- **KotlinJS**: Powered by [Javet](https://github.com/caoccao/Javet) (V8)
+
+---
+
+**Get started:** Choose your platform and follow the [installation guide](docs/getting-started/installation.md)!
 
 ## Quick Start
 

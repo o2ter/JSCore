@@ -1,6 +1,6 @@
-# SwiftJS API Documentation
+# SwiftJS API Reference
 
-This document provides comprehensive API documentation for SwiftJS, covering all available JavaScript APIs, Swift integration, and value bridging.
+Complete API reference for SwiftJS, covering all JavaScript APIs, Swift integration patterns, and value bridging mechanisms.
 
 ## Table of Contents
 

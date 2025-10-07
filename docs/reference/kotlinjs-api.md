@@ -1,6 +1,6 @@
-# JSBridge API Documentation
+# KotlinJS API Reference
 
-The JSBridge API provides a simple and powerful way to create native bridges between Kotlin and JavaScript code in KotlinJS. It eliminates the complexity of working directly with the Javet V8 API and provides a clean, type-safe interface for exposing Kotlin functionality to JavaScript.
+Complete API reference for KotlinJS JSBridge, covering native bridge creation, value conversion, and Kotlin-JavaScript interop patterns.
 
 ## Table of Contents
 
