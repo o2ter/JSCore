@@ -39,6 +39,8 @@ import com.caoccao.javet.values.reference.V8ValueArray
 import com.caoccao.javet.values.reference.V8ValueFunction
 import com.caoccao.javet.values.reference.V8ValueObject
 import com.o2ter.jscore.lib.Crypto
+import com.o2ter.jscore.lib.DeviceInfo
+import com.o2ter.jscore.lib.BundleInfo
 import com.o2ter.jscore.lib.FileSystem
 import com.o2ter.jscore.lib.ProcessControl
 import com.o2ter.jscore.lib.ProcessInfo
@@ -232,6 +234,8 @@ class JavaScriptEngine(
     private lateinit var v8Runtime: V8Runtime
     private lateinit var crypto: Crypto
     private lateinit var fileSystem: FileSystem
+    private lateinit var deviceInfo: DeviceInfo
+    private lateinit var bundleInfo: BundleInfo
     private lateinit var processInfo: ProcessInfo
     private lateinit var processControl: ProcessControl
     private lateinit var timerNamespace: V8ValueObject // Timer namespace for proper cleanup
@@ -392,6 +396,8 @@ class JavaScriptEngine(
             jsBridge = JSBridge(v8Runtime)
             crypto = Crypto(v8Runtime, platformContext)
             fileSystem = FileSystem(v8Runtime, platformContext)
+            deviceInfo = DeviceInfo(v8Runtime, platformContext)
+            bundleInfo = BundleInfo(v8Runtime, platformContext)
             processInfo = ProcessInfo(v8Runtime, platformContext)
             processControl = ProcessControl(v8Runtime, platformContext)
             
@@ -407,6 +413,8 @@ class JavaScriptEngine(
         // Setup modular native bridges
         crypto.setupBridge(nativeBridge)
         fileSystem.setupBridge(nativeBridge)
+        deviceInfo.setupBridge(nativeBridge)
+        bundleInfo.setupBridge(nativeBridge)
         processInfo.setupBridge(nativeBridge)
         processControl.setupBridge(nativeBridge)
         

@@ -81,21 +81,36 @@ val jsObject = bridge.createObject {
 ### Native API Exposure via `__NATIVE_BRIDGE__`
 Both SwiftJS and KotlinJS expose native APIs to JavaScript through an internal `__NATIVE_BRIDGE__` parameter (not a global object):
 
-#### SwiftJS Native APIs
+#### Common Native APIs (Both Engines)
 - `crypto`: Cryptographic functions (randomUUID, randomBytes, hashing)
 - `processInfo`: Process information (PID, arguments, environment)
-- `deviceInfo`: Device identification
-- `FileSystem`: File operations
-- `URLSession`: HTTP requests
-
-#### KotlinJS Native APIs
-- `crypto`: Cryptographic functions (randomUUID, randomBytes, hashing)
-- `processInfo`: Process information (PID, arguments, environment)
+- `processControl`: Process control operations (exit, etc.)
 - `deviceInfo`: Device identification
 - `bundleInfo`: Application metadata
-- `secureStorage`: Persistent key-value storage
+- `FileSystem`: File operations
+- `URLSession`: HTTP requests
+- `URLRequest`: HTTP request construction
 
 **Important:** `__NATIVE_BRIDGE__` is passed as a private parameter to the polyfill system and is not exposed as a global object to user JavaScript code. User code should access these capabilities through the standard global APIs (`crypto`, `process`, etc.).
+
+#### **CRITICAL:** Native Bridge Consistency Requirements
+
+**Both engines MUST expose identical native bridge modules** to ensure the shared `polyfill.js` file works correctly across platforms:
+
+1. **Synchronized Module Set**: All native bridge modules listed above must be implemented in both SwiftJS and KotlinJS
+2. **Identical API Signatures**: Each bridge module must expose the same methods and properties with identical behavior
+3. **No Engine-Specific Modules**: Do not add native bridge modules to only one engine - either add to both or don't add at all
+4. **Shared Polyfill Dependency**: The `resources/polyfill.js` file depends on these exact module names and APIs
+
+**When adding new native bridge modules:**
+- Add the implementation to both `swift/Sources/SwiftJS/core/polyfill.swift` and `java/jscore/src/main/kotlin/com/o2ter/jscore/JavaScriptEngine.kt`
+- Update this documentation to reflect the new common API
+- Test with both SwiftJSRunner and jscore-runner to ensure compatibility
+
+**When modifying existing modules:**
+- Make equivalent changes in both engines
+- Verify the polyfill.js still works with both implementations
+- Update tests for both engines
 
 ## Critical Patterns
 
