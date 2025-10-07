@@ -51,6 +51,8 @@ dependencyResolutionManagement {
     }
 }
 
+rootProject.name="jscore"
+
 include("java:jscore")
 
 // Include jscore-android when Java 11 is detected

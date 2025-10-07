@@ -285,11 +285,5 @@ class AndroidProcessInfo : ProcessInfoProvider {
         }
     }
     
-    override fun getgroups(): IntArray {
-        return try {
-            android.system.Os.getgroups()
-        } catch (e: Exception) {
-            intArrayOf()
-        }
-    }
+    override fun getgroups(): IntArray = intArrayOf()
 }
