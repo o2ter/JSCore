@@ -65,6 +65,7 @@
         get argv() { return this.#argv; }
         get pid() { return __NATIVE_BRIDGE__.processInfo.processIdentifier; }
         get platform() { return __NATIVE_BRIDGE__.processInfo.platform; }
+        get arch() { return __NATIVE_BRIDGE__.processInfo.arch || 'x64'; }
 
         cwd() {
             return __NATIVE_BRIDGE__.FileSystem.currentDirectoryPath();
@@ -86,7 +87,7 @@
             return success;
         }
 
-        // Standard Node.js process.exit() - calls native Swift implementation
+        // Standard Node.js process.exit() - calls native implementation
         exit(code = 0) {
             // Validate exit code
             const exitCode = parseInt(code, 10);
@@ -94,7 +95,7 @@
                 throw new TypeError('Exit code must be a number');
             }
 
-            // Call the native Swift implementation directly
+            // Call the native implementation directly
             // This will terminate the process cleanly without exceptions or global pollution
             __NATIVE_BRIDGE__.processControl.exit(exitCode);
         }

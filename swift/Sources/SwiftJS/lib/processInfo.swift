@@ -34,6 +34,7 @@ import Foundation
     var globallyUniqueString: String { get }
     var hostName: String { get }
     var platform: String { get }
+    var arch: String { get }
     var isLowPowerModeEnabled: Bool { get }
     var deviceSpec: String { get }
     var isRealDevice: Bool { get }
@@ -104,6 +105,20 @@ extension JSProcessInfo {
             } else {
                 return "unknown"
             }
+        #endif
+    }
+
+    var arch: String {
+        #if arch(arm64)
+            return "arm64"
+        #elseif arch(x86_64)
+            return "x64"
+        #elseif arch(i386)
+            return "ia32"
+        #elseif arch(arm)
+            return "arm"
+        #else
+            return "unknown"
         #endif
     }
 

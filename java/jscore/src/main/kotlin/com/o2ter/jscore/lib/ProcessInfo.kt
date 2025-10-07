@@ -98,6 +98,16 @@ class ProcessInfo(
             }
             processInfoObject.set("platform", platform)
             
+            // Architecture
+            val arch = when (System.getProperty("os.arch").lowercase()) {
+                "amd64", "x86_64" -> "x64"
+                "x86", "i386", "i686" -> "ia32"
+                "aarch64", "arm64" -> "arm64"
+                "arm" -> "arm"
+                else -> System.getProperty("os.arch") // Return actual value as fallback
+            }
+            processInfoObject.set("arch", arch)
+            
             // OS information
             processInfoObject.set("operatingSystemVersionString", System.getProperty("os.version"))
             
