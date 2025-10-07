@@ -1,0 +1,22 @@
+{
+  "configurations": [
+    {
+      "type": "swift",
+      "request": "launch",
+      "args": [],
+      "cwd": "${workspaceFolder:JSCore}",
+      "name": "Debug SwiftJSRunner",
+      "program": "${workspaceFolder:JSCore}/.build/debug/SwiftJSRunner",
+      "preLaunchTask": "swift: Build Debug SwiftJSRunner"
+    },
+    {
+      "type": "swift",
+      "request": "launch",
+      "args": [],
+      "cwd": "${workspaceFolder:JSCore}",
+      "name": "Release SwiftJSRunner",
+      "program": "${workspaceFolder:JSCore}/.build/release/SwiftJSRunner",
+      "preLaunchTask": "swift: Build Release SwiftJSRunner"
+    }
+  ]
+}
