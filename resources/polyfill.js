@@ -87,6 +87,29 @@
             return success;
         }
 
+        // CPU counts
+        get cpuCount() {
+            return __NATIVE_BRIDGE__.processInfo.processorCount || 1;
+        }
+
+        get activeCpuCount() {
+            return __NATIVE_BRIDGE__.processInfo.activeProcessorCount || this.cpuCount;
+        }
+
+        // Process uptime in seconds
+        uptime() {
+            return __NATIVE_BRIDGE__.processInfo.systemUptime;
+        }
+
+        // Memory usage information
+        memoryUsage() {
+            const physicalMemory = __NATIVE_BRIDGE__.processInfo.physicalMemory || 0;
+            return {
+                rss: physicalMemory,        // Resident Set Size
+                heapTotal: physicalMemory,  // Total heap size
+            };
+        }
+
         // Standard Node.js process.exit() - calls native implementation
         exit(code = 0) {
             // Validate exit code
