@@ -1,40 +1,5 @@
 # SwiftJS & KotlinJS - Cross-Platform JavaScript Runtimes
 
-## 📋 Table of Contents
-
-### [1. Project Overview](#1-project-overview)
-- [Architecture Overview](#architecture-overview)
-- [Unified Project Structure](#unified-project-structure)
-- [Native Bridge Consistency](#native-bridge-consistency)
-
-### [2. Core Implementation Patterns](#2-core-implementation-patterns)
-- [SwiftJS Critical Patterns](#swiftjs-critical-patterns)
-- [KotlinJS Critical Patterns](#kotlinjs-critical-patterns)
-- [Threading and Memory Management](#threading-and-memory-management)
-
-### [3. Platform-Specific Details](#3-platform-specific-details)
-- [SwiftJS Implementation](#swiftjs-implementation)
-- [KotlinJS Implementation](#kotlinjs-implementation)
-- [Cross-Platform Considerations](#cross-platform-considerations)
-
-### [4. Development Guidelines](#4-development-guidelines)
-- [Code Style and Conventions](#code-style-and-conventions)
-- [Web Standards Compliance](#web-standards-compliance)
-- [Error Handling and Debugging](#error-handling-and-debugging)
-
-### [5. AI Agent Guidelines](#5-ai-agent-guidelines)
-- [Development Best Practices](#development-best-practices)
-- [Documentation Requirements](#documentation-requirements)
-- [Task Execution Guidelines](#task-execution-guidelines)
-- [Common Mistakes to Avoid](#common-mistakes-to-avoid)
-
-### [6. Testing and Quality Assurance](#6-testing-and-quality-assurance)
-- [Critical Testing Patterns](#critical-testing-patterns)
-- [Platform-Specific Testing](#platform-specific-testing)
-- [Test Quality Guidelines](#test-quality-guidelines)
-
----
-
 ## 1. Project Overview
 
 ### Architecture Overview
