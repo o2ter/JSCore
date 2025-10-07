@@ -231,6 +231,37 @@ class FileSystem(
                 }
             ))
             
+            // readFileData(path) - read entire file as binary data (Uint8Array)
+            fileSystemObject.bindFunction(JavetCallbackContext(
+                "readFileData",
+                JavetCallbackType.DirectCallNoThisAndResult,
+                IJavetDirectCallable.NoThisAndResult<Exception> { v8Values ->
+                    if (v8Values.isEmpty() || v8Values[0] !is V8ValueString) {
+                        return@NoThisAndResult v8Runtime.createV8ValueNull()
+                    }
+                    
+                    try {
+                        val path = (v8Values[0] as V8ValueString).value
+                        val file = File(path)
+                        
+                        if (!file.exists() || !file.isFile) {
+                            return@NoThisAndResult v8Runtime.createV8ValueNull()
+                        }
+                        
+                        val bytes = file.readBytes()
+                        val array = v8Runtime.createV8ValueTypedArray(
+                            com.caoccao.javet.enums.V8ValueReferenceType.Uint8Array,
+                            bytes.size
+                        )
+                        array.fromBytes(bytes)
+                        array
+                    } catch (e: Exception) {
+                        platformContext.logger.error("FileSystem", "readFileData failed: ${e.message}")
+                        v8Runtime.createV8ValueNull()
+                    }
+                }
+            ))
+            
             // readFile(path, options) - read file contents
             // options can be { encoding: 'binary', start: 0, end: 100 } for binary slice or omitted for text
             fileSystemObject.bindFunction(JavetCallbackContext(

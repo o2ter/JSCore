@@ -238,15 +238,19 @@ class XMLHttpRequestTests {
                 (async () => {
                     return new Promise((resolve) => {
                         const xhr = new XMLHttpRequest();
-                        xhr.open('GET', 'https://httpstat.us/404');
+                        xhr.open('GET', 'https://postman-echo.com/status/404');
                         xhr.onload = () => resolve({
                             status: xhr.status,
                             statusText: xhr.statusText
                         });
+                        xhr.onerror = () => resolve({
+                            status: xhr.status,
+                            statusText: xhr.statusText || 'Not Found'
+                        });
                         xhr.send();
                     });
                 })()
-            """)
+            """, 10000)
             
             assertTrue(result?.toString()?.contains("404") == true, "Should return correct status")
         } finally {
