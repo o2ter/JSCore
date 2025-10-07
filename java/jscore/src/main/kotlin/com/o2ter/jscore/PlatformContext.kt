@@ -50,6 +50,11 @@ interface PlatformContext {
     val secureStorage: SecureStorage
     
     /**
+     * Gets the process information interface
+     */
+    val processInfo: ProcessInfoProvider
+    
+    /**
      * Gets the path to ICU data file for i18n support
      * Returns null if ICU data is not available
      */
@@ -91,4 +96,15 @@ interface BundleInfo {
 interface SecureStorage {
     fun getString(key: String, defaultValue: String = ""): String
     fun putString(key: String, value: String)
+}
+
+/**
+ * Process information interface for user/group IDs (POSIX)
+ */
+interface ProcessInfoProvider {
+    fun getuid(): Int
+    fun geteuid(): Int
+    fun getgid(): Int
+    fun getegid(): Int
+    fun getgroups(): IntArray
 }

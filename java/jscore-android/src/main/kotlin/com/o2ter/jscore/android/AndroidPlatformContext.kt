@@ -40,6 +40,7 @@ class AndroidPlatformContext(private val context: Context) : PlatformContext {
     override val deviceInfo: DeviceInfo = AndroidDeviceInfo(context)
     override val bundleInfo: BundleInfo = AndroidBundleInfo(context)
     override val secureStorage: SecureStorage = AndroidSecureStorage(context)
+    override val processInfo: ProcessInfoProvider = AndroidProcessInfo()
     
     /**
      * Get ICU data path for Android
@@ -245,4 +246,50 @@ fun getFirebaseInstanceId(): String {
     val obj = method.invoke(null)
     val method1 = obj.javaClass.getMethod("getId")
     return method1.invoke(obj) as String
+}
+
+class AndroidProcessInfo : ProcessInfoProvider {
+    /**
+     * Android uses Linux kernel, so POSIX user/group IDs are available via Os class
+     * Returns actual UID/GID values from the Android system
+     */
+    override fun getuid(): Int {
+        return try {
+            android.system.Os.getuid()
+        } catch (e: Exception) {
+            -1
+        }
+    }
+    
+    override fun geteuid(): Int {
+        return try {
+            android.system.Os.geteuid()
+        } catch (e: Exception) {
+            -1
+        }
+    }
+    
+    override fun getgid(): Int {
+        return try {
+            android.system.Os.getgid()
+        } catch (e: Exception) {
+            -1
+        }
+    }
+    
+    override fun getegid(): Int {
+        return try {
+            android.system.Os.getegid()
+        } catch (e: Exception) {
+            -1
+        }
+    }
+    
+    override fun getgroups(): IntArray {
+        return try {
+            android.system.Os.getgroups()
+        } catch (e: Exception) {
+            intArrayOf()
+        }
+    }
 }

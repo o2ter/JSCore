@@ -42,11 +42,16 @@ import Foundation
     var isiOSAppOnMac: Bool { get }
     var operatingSystemVersionString: String { get }
     var operatingSystemVersion: [String: Int] { get }
-    var physicalMemory: UInt64 { get }
-    var processorCount: Int { get }
-    var activeProcessorCount: Int { get }
-    var systemUptime: TimeInterval { get }
+    func physicalMemory() -> UInt64
+    func processorCount() -> Int
+    func activeProcessorCount() -> Int
+    func systemUptime() -> TimeInterval
     var thermalState: ProcessInfo.ThermalState { get }
+    func getuid() -> UInt32
+    func geteuid() -> UInt32
+    func getgid() -> UInt32
+    func getegid() -> UInt32
+    func getgroups() -> [Int32]
 }
 
 @objc final class JSProcessInfo: NSObject, JSProcessInfoExport {
@@ -159,23 +164,53 @@ extension JSProcessInfo {
         ]
     }
 
-    var physicalMemory: UInt64 {
+    func physicalMemory() -> UInt64 {
         return ProcessInfo.processInfo.physicalMemory
     }
 
-    var processorCount: Int {
+    func processorCount() -> Int {
         return ProcessInfo.processInfo.processorCount
     }
 
-    var activeProcessorCount: Int {
+    func activeProcessorCount() -> Int {
         return ProcessInfo.processInfo.activeProcessorCount
     }
 
-    var systemUptime: TimeInterval {
+    func systemUptime() -> TimeInterval {
         return ProcessInfo.processInfo.systemUptime
     }
 
     var thermalState: ProcessInfo.ThermalState {
         return ProcessInfo.processInfo.thermalState
+    }
+    
+    // POSIX user and group IDs - delegate to Foundation
+    func getuid() -> UInt32 {
+        return Foundation.getuid()
+    }
+    
+    func geteuid() -> UInt32 {
+        return Foundation.geteuid()
+    }
+    
+    func getgid() -> UInt32 {
+        return Foundation.getgid()
+    }
+    
+    func getegid() -> UInt32 {
+        return Foundation.getegid()
+    }
+    
+    func getgroups() -> [Int32] {
+        // Get the number of groups
+        let maxGroups = Int(NGROUPS_MAX)
+        var groups = [gid_t](repeating: 0, count: maxGroups)
+        let count = Foundation.getgroups(Int32(maxGroups), &groups)
+        
+        if count < 0 {
+            return []
+        }
+        
+        return Array(groups.prefix(Int(count))).map { Int32($0) }
     }
 }

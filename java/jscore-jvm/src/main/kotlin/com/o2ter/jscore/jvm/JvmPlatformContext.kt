@@ -36,6 +36,7 @@ class JvmPlatformContext(private val appName: String = "JSCore") : PlatformConte
     override val deviceInfo: DeviceInfo = JvmDeviceInfo()
     override val bundleInfo: BundleInfo = JvmBundleInfo(appName)
     override val secureStorage: SecureStorage = PropertiesSecureStorage(appName)
+    override val processInfo: ProcessInfoProvider = JvmProcessInfo()
     
     /**
      * Get ICU data file path for i18n support
@@ -156,4 +157,16 @@ class PropertiesSecureStorage(appName: String) : SecureStorage {
             // Ignore errors saving properties
         }
     }
+}
+
+class JvmProcessInfo : ProcessInfoProvider {
+    /**
+     * POSIX user/group IDs are not available in pure JVM
+     * Return -1 to indicate unsupported (matching POSIX error convention)
+     */
+    override fun getuid(): Int = -1
+    override fun geteuid(): Int = -1
+    override fun getgid(): Int = -1
+    override fun getegid(): Int = -1
+    override fun getgroups(): IntArray = intArrayOf()
 }

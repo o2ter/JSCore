@@ -87,26 +87,50 @@
             return success;
         }
 
-        // CPU counts
-        get cpuCount() {
-            return __NATIVE_BRIDGE__.processInfo.processorCount || 1;
+        // CPU counts - functions to get fresh values
+        cpuCount() {
+            return __NATIVE_BRIDGE__.processInfo.processorCount();
         }
 
-        get activeCpuCount() {
-            return __NATIVE_BRIDGE__.processInfo.activeProcessorCount || this.cpuCount;
+        activeCpuCount() {
+            return __NATIVE_BRIDGE__.processInfo.activeProcessorCount();
+        }
+
+        // User and group IDs (POSIX)
+        getuid() {
+            return __NATIVE_BRIDGE__.processInfo.getuid();
+        }
+
+        geteuid() {
+            return __NATIVE_BRIDGE__.processInfo.geteuid();
+        }
+
+        getgid() {
+            return __NATIVE_BRIDGE__.processInfo.getgid();
+        }
+
+        getegid() {
+            return __NATIVE_BRIDGE__.processInfo.getegid();
+        }
+
+        getgroups() {
+            return __NATIVE_BRIDGE__.processInfo.getgroups();
         }
 
         // Process uptime in seconds
         uptime() {
-            return __NATIVE_BRIDGE__.processInfo.systemUptime;
+            return __NATIVE_BRIDGE__.processInfo.systemUptime();
         }
 
         // Memory usage information
         memoryUsage() {
-            const physicalMemory = __NATIVE_BRIDGE__.processInfo.physicalMemory || 0;
+            const physicalMemory = __NATIVE_BRIDGE__.processInfo.physicalMemory();
             return {
                 rss: physicalMemory,        // Resident Set Size
                 heapTotal: physicalMemory,  // Total heap size
+                heapUsed: 0,                // Used heap (not available from native)
+                external: 0,                // External memory (not available from native)
+                arrayBuffers: 0             // ArrayBuffer memory (not available from native)
             };
         }
 

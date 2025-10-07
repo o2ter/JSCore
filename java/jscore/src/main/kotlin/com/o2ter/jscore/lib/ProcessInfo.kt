@@ -122,15 +122,71 @@ class ProcessInfo(
                 osVersion.close()
             }
             
-            // System resources
-            val runtime = Runtime.getRuntime()
-            processInfoObject.set("physicalMemory", runtime.maxMemory())
-            processInfoObject.set("processorCount", runtime.availableProcessors())
-            processInfoObject.set("activeProcessorCount", runtime.availableProcessors())
+            // System resources - as functions to get fresh values
+            processInfoObject.bindFunction(JavetCallbackContext(
+                "physicalMemory",
+                JavetCallbackType.DirectCallNoThisAndResult<Long>,
+                IJavetDirectCallable.NoThisAndResult<Exception> {
+                    runtime.maxMemory()
+                }))
             
-            // System uptime
-            val uptime = java.lang.management.ManagementFactory.getRuntimeMXBean().uptime / 1000.0
-            processInfoObject.set("systemUptime", uptime)
+            processInfoObject.bindFunction(JavetCallbackContext(
+                "processorCount",
+                JavetCallbackType.DirectCallNoThisAndResult<Int>,
+                IJavetDirectCallable.NoThisAndResult<Exception> {
+                    runtime.availableProcessors()
+                }))
+            
+            processInfoObject.bindFunction(JavetCallbackContext(
+                "activeProcessorCount",
+                JavetCallbackType.DirectCallNoThisAndResult<Int>,
+                IJavetDirectCallable.NoThisAndResult<Exception> {
+                    runtime.availableProcessors()
+                }))
+            
+            // System uptime - as function to get fresh value
+            processInfoObject.bindFunction(JavetCallbackContext(
+                "systemUptime",
+                JavetCallbackType.DirectCallNoThisAndResult<Double>,
+                IJavetDirectCallable.NoThisAndResult<Exception> {
+                    java.lang.management.ManagementFactory.getRuntimeMXBean().uptime / 1000.0
+                }))
+            
+            // User and group IDs (POSIX) - delegate to platform context
+            processInfoObject.bindFunction(JavetCallbackContext(
+                "getuid",
+                JavetCallbackType.DirectCallNoThisAndResult<Int>,
+                IJavetDirectCallable.NoThisAndResult<Exception> {
+                    platformContext.processInfo.getuid()
+                }))
+            
+            processInfoObject.bindFunction(JavetCallbackContext(
+                "geteuid",
+                JavetCallbackType.DirectCallNoThisAndResult<Int>,
+                IJavetDirectCallable.NoThisAndResult<Exception> {
+                    platformContext.processInfo.geteuid()
+                }))
+            
+            processInfoObject.bindFunction(JavetCallbackContext(
+                "getgid",
+                JavetCallbackType.DirectCallNoThisAndResult<Int>,
+                IJavetDirectCallable.NoThisAndResult<Exception> {
+                    platformContext.processInfo.getgid()
+                }))
+            
+            processInfoObject.bindFunction(JavetCallbackContext(
+                "getegid",
+                JavetCallbackType.DirectCallNoThisAndResult<Int>,
+                IJavetDirectCallable.NoThisAndResult<Exception> {
+                    platformContext.processInfo.getegid()
+                }))
+            
+            processInfoObject.bindFunction(JavetCallbackContext(
+                "getgroups",
+                JavetCallbackType.DirectCallNoThisAndResult<IntArray>,
+                IJavetDirectCallable.NoThisAndResult<Exception> {
+                    platformContext.processInfo.getgroups()
+                }))
             
             // Platform-specific properties
             processInfoObject.set("deviceSpec", platformContext.deviceInfo.spec)
