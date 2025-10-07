@@ -123,69 +123,73 @@ class ProcessInfo(
             }
             
             // System resources - as functions to get fresh values
+            val runtime = Runtime.getRuntime()
+            
             processInfoObject.bindFunction(JavetCallbackContext(
                 "physicalMemory",
-                JavetCallbackType.DirectCallNoThisAndResult<Long>,
-                IJavetDirectCallable.NoThisAndResult<Exception> {
-                    runtime.maxMemory()
+                JavetCallbackType.DirectCallNoThisAndResult,
+                IJavetDirectCallable.NoThisAndResult<Exception> { _ ->
+                    v8Runtime.createV8ValueLong(runtime.maxMemory())
                 }))
             
             processInfoObject.bindFunction(JavetCallbackContext(
                 "processorCount",
-                JavetCallbackType.DirectCallNoThisAndResult<Int>,
-                IJavetDirectCallable.NoThisAndResult<Exception> {
-                    runtime.availableProcessors()
+                JavetCallbackType.DirectCallNoThisAndResult,
+                IJavetDirectCallable.NoThisAndResult<Exception> { _ ->
+                    v8Runtime.createV8ValueInteger(runtime.availableProcessors())
                 }))
             
             processInfoObject.bindFunction(JavetCallbackContext(
                 "activeProcessorCount",
-                JavetCallbackType.DirectCallNoThisAndResult<Int>,
-                IJavetDirectCallable.NoThisAndResult<Exception> {
-                    runtime.availableProcessors()
+                JavetCallbackType.DirectCallNoThisAndResult,
+                IJavetDirectCallable.NoThisAndResult<Exception> { _ ->
+                    v8Runtime.createV8ValueInteger(runtime.availableProcessors())
                 }))
             
             // System uptime - as function to get fresh value
             processInfoObject.bindFunction(JavetCallbackContext(
                 "systemUptime",
-                JavetCallbackType.DirectCallNoThisAndResult<Double>,
-                IJavetDirectCallable.NoThisAndResult<Exception> {
-                    java.lang.management.ManagementFactory.getRuntimeMXBean().uptime / 1000.0
+                JavetCallbackType.DirectCallNoThisAndResult,
+                IJavetDirectCallable.NoThisAndResult<Exception> { _ ->
+                    v8Runtime.createV8ValueDouble(
+                        java.lang.management.ManagementFactory.getRuntimeMXBean().uptime / 1000.0
+                    )
                 }))
             
             // User and group IDs (POSIX) - delegate to platform context
             processInfoObject.bindFunction(JavetCallbackContext(
                 "getuid",
-                JavetCallbackType.DirectCallNoThisAndResult<Int>,
-                IJavetDirectCallable.NoThisAndResult<Exception> {
-                    platformContext.processInfo.getuid()
+                JavetCallbackType.DirectCallNoThisAndResult,
+                IJavetDirectCallable.NoThisAndResult<Exception> { _ ->
+                    v8Runtime.createV8ValueInteger(platformContext.processInfo.getuid())
                 }))
             
             processInfoObject.bindFunction(JavetCallbackContext(
                 "geteuid",
-                JavetCallbackType.DirectCallNoThisAndResult<Int>,
-                IJavetDirectCallable.NoThisAndResult<Exception> {
-                    platformContext.processInfo.geteuid()
+                JavetCallbackType.DirectCallNoThisAndResult,
+                IJavetDirectCallable.NoThisAndResult<Exception> { _ ->
+                    v8Runtime.createV8ValueInteger(platformContext.processInfo.geteuid())
                 }))
             
             processInfoObject.bindFunction(JavetCallbackContext(
                 "getgid",
-                JavetCallbackType.DirectCallNoThisAndResult<Int>,
-                IJavetDirectCallable.NoThisAndResult<Exception> {
-                    platformContext.processInfo.getgid()
+                JavetCallbackType.DirectCallNoThisAndResult,
+                IJavetDirectCallable.NoThisAndResult<Exception> { _ ->
+                    v8Runtime.createV8ValueInteger(platformContext.processInfo.getgid())
                 }))
             
             processInfoObject.bindFunction(JavetCallbackContext(
                 "getegid",
-                JavetCallbackType.DirectCallNoThisAndResult<Int>,
-                IJavetDirectCallable.NoThisAndResult<Exception> {
-                    platformContext.processInfo.getegid()
+                JavetCallbackType.DirectCallNoThisAndResult,
+                IJavetDirectCallable.NoThisAndResult<Exception> { _ ->
+                    v8Runtime.createV8ValueInteger(platformContext.processInfo.getegid())
                 }))
             
             processInfoObject.bindFunction(JavetCallbackContext(
                 "getgroups",
-                JavetCallbackType.DirectCallNoThisAndResult<IntArray>,
-                IJavetDirectCallable.NoThisAndResult<Exception> {
-                    platformContext.processInfo.getgroups()
+                JavetCallbackType.DirectCallNoThisAndResult,
+                IJavetDirectCallable.NoThisAndResult<Exception> { _ ->
+                    v8Runtime.toV8Value(platformContext.processInfo.getgroups())
                 }))
             
             // Platform-specific properties
