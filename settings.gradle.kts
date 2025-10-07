@@ -51,7 +51,6 @@ dependencyResolutionManagement {
     }
 }
 
-group = "com.o2ter"
 rootProject.name="jscore"
 
 include("java:jscore")
