@@ -3492,7 +3492,7 @@
 
         // Create a ReadableStream for streaming multipart upload
         stream() {
-            const boundary = '----SwiftJSFormBoundary-' + crypto.randomUUID();
+            const boundary = '----JSCoreFormBoundary-' + crypto.randomUUID();
             const encoder = new TextEncoder();
             let currentFieldIndex = 0;
             let currentItemIndex = 0;
@@ -3599,7 +3599,7 @@
         }
 
         [SYMBOLS.formDataToMultipart]() {
-            const boundary = '----SwiftJSFormBoundary-' + crypto.randomUUID();
+            const boundary = '----JSCoreFormBoundary-' + crypto.randomUUID();
             let result = '';
 
             for (const [key, values] of this.#data) {
