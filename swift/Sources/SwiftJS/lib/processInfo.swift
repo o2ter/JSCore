@@ -33,6 +33,7 @@ import JavaScriptCore
     var globallyUniqueString: String { get }
     var hostName: String { get }
     var isLowPowerModeEnabled: Bool { get }
+    var deviceSpec: String { get }
     var isRealDevice: Bool { get }
     var isMacCatalystApp: Bool { get }
     var isiOSAppOnMac: Bool { get }
@@ -76,6 +77,10 @@ extension JSProcessInfo {
 
     var isLowPowerModeEnabled: Bool {
         return ProcessInfo.processInfo.isLowPowerModeEnabled
+    }
+
+    var deviceSpec: String {
+        return "apple"
     }
 
     var isRealDevice: Bool {
