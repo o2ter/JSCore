@@ -24,3 +24,7 @@
 //
 
 group = "com.o2ter"
+
+subprojects {
+    group = "com.o2ter"
+}
