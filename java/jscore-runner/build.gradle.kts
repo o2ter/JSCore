@@ -46,8 +46,8 @@ application {
 }
 
 dependencies {
-    implementation(project(":java:jscore"))
-    implementation(project(":java:jscore-jvm"))
+    implementation(project(":jscore"))
+    implementation(project(":jscore-jvm"))
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.slf4j.api)
     implementation(libs.logback.classic)

@@ -53,7 +53,8 @@ dependencyResolutionManagement {
 
 rootProject.name="jscore"
 
-include("java:jscore")
+include("jscore")
+project(":jscore").projectDir = file("java/jscore")
 
 // Include jscore-android when Java 11 is detected
 val javaVersion = System.getProperty("java.version")
@@ -70,8 +71,12 @@ println("Java version: $javaVersion (major: $javaMajorVersion)")
 println("Building with Android module: $enableAndroidBuild")
 
 if (enableAndroidBuild) {
-    include("java:jscore-android")
+    include("jscore-android")
+    project(":jscore-android").projectDir = file("java/jscore-android")
 }
 
-include("java:jscore-jvm")
-include("java:jscore-runner")
+include("jscore-jvm")
+project(":jscore-jvm").projectDir = file("java/jscore-jvm")
+
+include("jscore-runner")
+project(":jscore-runner").projectDir = file("java/jscore-runner")

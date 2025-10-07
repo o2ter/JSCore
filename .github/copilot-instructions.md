@@ -756,7 +756,7 @@ assertTrue(result.toString().contains("-"), "UUID should contain hyphens")
 ### Temporary Files for Testing
 - Place all test scripts under `<project_root>/.temp/` for organization
 - **SwiftJS**: Use SwiftJSRunner to execute: `swift run SwiftJSRunner <script.js>`
-- **KotlinJS**: Use jscore-runner: `./gradlew :java:jscore-runner:run --args="script.js"`
+- **KotlinJS**: Use jscore-runner: `./gradlew :jscore-runner:run --args="script.js"`
 - Both support eval mode: `-e "console.log('test')"`
 - **Test Case Verification**: Always examine actual test content:
   - Read test files completely to understand logic and assertions

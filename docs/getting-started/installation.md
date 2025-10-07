@@ -213,7 +213,7 @@ Test the command-line runner:
 ./gradlew build
 
 # Test the runner
-./gradlew :java:jscore-runner:run --args="-e 'console.log(\"KotlinJS is working!\")'"
+./gradlew :jscore-runner:run --args="-e 'console.log(\"KotlinJS is working!\")'"
 ```
 
 ## Local Development Setup
@@ -251,7 +251,7 @@ cd JSCore
 ./gradlew test
 
 # Test the runner
-./gradlew :java:jscore-runner:run --args="-e 'console.log(\"Development build working!\")'"
+./gradlew :jscore-runner:run --args="-e 'console.log(\"Development build working!\")'"
 ```
 
 ### Local Package References

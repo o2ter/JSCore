@@ -49,7 +49,7 @@ val icuDataFile = file("src/main/resources/com/o2ter/jscore/jvm/resource/icudtl.
 val hasIcuData = icuDataFile.exists() && icuDataFile.length() > 1_000_000
 
 dependencies {
-    api(project(":java:jscore"))
+    api(project(":jscore"))
 
     // Detect platform and architecture dynamically for Javet native library
     val os = OperatingSystem.current()
@@ -112,7 +112,7 @@ val generateIcuConfig by tasks.registering {
         val icuResourcePath = "com/o2ter/jscore/jvm/resource/icudtl.dat"
         
         val sizeMB = String.format("%.2f", icuFile.length() / 1024.0 / 1024.0)
-        println("✓ ICU data file found in source tree ($sizeMB MB) - i18n support enabled")
+        println("✓ ICU data file found in source tree ($sizeMB MB)")
         
         // Generate Kotlin source file with compile-time constants
         outputFile.writeText("""

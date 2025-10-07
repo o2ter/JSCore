@@ -64,7 +64,7 @@ jscore-runner is included with KotlinJS:
 ./gradlew build
 
 # Test the runner
-./gradlew :java:jscore-runner:run --args="--help"
+./gradlew :jscore-runner:run --args="--help"
 ```
 
 ### Usage
@@ -72,27 +72,27 @@ jscore-runner is included with KotlinJS:
 #### Basic Syntax
 
 ```bash
-./gradlew :java:jscore-runner:run --args="[options] [file] [arguments...]"
+./gradlew :jscore-runner:run --args="[options] [file] [arguments...]"
 ```
 
 #### Execute JavaScript Files
 
 ```bash
 # Run a JavaScript file
-./gradlew :java:jscore-runner:run --args="script.js"
+./gradlew :jscore-runner:run --args="script.js"
 
 # Run a file with arguments (note: arguments need proper escaping)
-./gradlew :java:jscore-runner:run --args="script.js arg1 arg2 arg3"
+./gradlew :jscore-runner:run --args="script.js arg1 arg2 arg3"
 ```
 
 #### Evaluate JavaScript Code Directly
 
 ```bash
 # Evaluate JavaScript expression
-./gradlew :java:jscore-runner:run --args="-e 'console.log(\"Hello, World!\")'"
+./gradlew :jscore-runner:run --args="-e 'console.log(\"Hello, World!\")'"
 
 # With arguments
-./gradlew :java:jscore-runner:run --args="-e 'console.log(\"Args:\", process.argv)' arg1 arg2"
+./gradlew :jscore-runner:run --args="-e 'console.log(\"Args:\", process.argv)' arg1 arg2"
 ```
 
 ## JavaScript Environment
@@ -177,7 +177,7 @@ console.log('Platform:', process.platform);
 
 Run it:
 ```bash
-./gradlew :java:jscore-runner:run --args="hello.js"
+./gradlew :jscore-runner:run --args="hello.js"
 ```
 
 #### Timer Demo
@@ -200,7 +200,7 @@ const intervalId = setInterval(() => {
 
 Run it:
 ```bash
-./gradlew :java:jscore-runner:run --args="timers.js"
+./gradlew :jscore-runner:run --args="timers.js"
 ```
 
 ## Platform Differences
@@ -212,7 +212,7 @@ Run it:
 | **File System** | SystemFS class | File system access varies by platform |
 | **Auto-termination** | Yes | Manual termination |
 | **Native Integration** | Swift APIs | Kotlin APIs |
-| **Build Command** | `swift run SwiftJSRunner` | `./gradlew :java:jscore-runner:run` |
+| **Build Command** | `swift run SwiftJSRunner` | `./gradlew :jscore-runner:run` |
 
 ## Advanced Usage
 
@@ -242,7 +242,7 @@ console.timeEnd('operation');
 You can pass JVM options through Gradle:
 
 ```bash
-./gradlew :java:jscore-runner:run --args="script.js" -Dorg.gradle.jvmargs="-Xmx2g"
+./gradlew :jscore-runner:run --args="script.js" -Dorg.gradle.jvmargs="-Xmx2g"
 ```
 
 #### Platform Context
@@ -280,13 +280,13 @@ chmod +r script.js
 #### Memory Issues
 ```bash
 # Increase heap size
-./gradlew :java:jscore-runner:run --args="script.js" -Dorg.gradle.jvmargs="-Xmx4g"
+./gradlew :jscore-runner:run --args="script.js" -Dorg.gradle.jvmargs="-Xmx4g"
 ```
 
 #### Class Path Issues
 Ensure all dependencies are properly built:
 ```bash
-./gradlew :java:jscore:build :java:jscore-jvm:build
+./gradlew :jscore:build :jscore-jvm:build
 ```
 
 ## Best Practices
@@ -356,7 +356,7 @@ Both runners work well with VS Code:
          "label": "Run with jscore-runner", 
          "type": "shell",
          "command": "./gradlew",
-         "args": [":java:jscore-runner:run", "--args=${file}"],
+         "args": [":jscore-runner:run", "--args=${file}"],
          "group": "build"
        }
      ]

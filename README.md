@@ -128,10 +128,10 @@ swift run SwiftJSRunner -e "console.log('Hello World')"
 ### jscore-runner
 ```bash
 # Execute JavaScript files
-./gradlew :java:jscore-runner:run --args="script.js"
+./gradlew :jscore-runner:run --args="script.js"
 
 # Evaluate expressions  
-./gradlew :java:jscore-runner:run --args="-e 'console.log(\"Hello World\")'"
+./gradlew :jscore-runner:run --args="-e 'console.log(\"Hello World\")'"
 ```
 
 ## Platform Support
@@ -436,14 +436,14 @@ cd KotlinJS
 ./gradlew test
 
 # Run tests for specific module
-./gradlew :java:jscore:test
-./gradlew :java:jscore-jvm:test
+./gradlew :jscore:test
+./gradlew :jscore-jvm:test
 
 # Build all modules
 ./gradlew build
 
 # Test JavaScript execution
-./gradlew :java:jscore-runner:run --args="jscore/src/test/resources/test-basic.js"
+./gradlew :jscore-runner:run --args="jscore/src/test/resources/test-basic.js"
 ```
 
 ## Available APIs
@@ -601,7 +601,7 @@ The project uses a focused testing approach:
 ./gradlew test
 
 # Specific module tests
-./gradlew :java:jscore-jvm:test  # JVM platform tests
+./gradlew :jscore-jvm:test  # JVM platform tests
 
 # With clean build
 ./gradlew clean build test
@@ -649,7 +649,7 @@ The project uses a focused testing approach:
 2. Create a feature branch
 3. Make your changes
 4. Run tests: `./gradlew test`
-5. Verify functionality: `./gradlew :java:jscore-runner:run --args="jscore/src/test/resources/test-basic.js"`
+5. Verify functionality: `./gradlew :jscore-runner:run --args="jscore/src/test/resources/test-basic.js"`
 6. Submit a pull request
 
 #### Development Guidelines for KotlinJS

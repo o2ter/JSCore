@@ -48,7 +48,7 @@ android {
     defaultConfig {
         if (hasIcuData) {
             val sizeMB = String.format("%.2f", icuFile.length() / 1024.0 / 1024.0)
-            println("✓ Android ICU data found in source tree ($sizeMB MB) - i18n support enabled")
+            println("✓ Android ICU data found in source tree ($sizeMB MB)")
         } else {
             throw GradleException("""
                 ICU data file not found or invalid in source tree!
@@ -62,7 +62,7 @@ android {
 }
 
 dependencies {
-    implementation(project(":java:jscore"))
+    implementation(project(":jscore"))
     
     // ICU data is in source tree, so only use i18n variant with getV8I18nInstance()
     implementation(libs.javet.v8.android.i18n)

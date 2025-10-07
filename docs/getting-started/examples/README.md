@@ -69,7 +69,7 @@ cd JSCore
 ./gradlew build
 
 # Run examples with jscore-runner
-./gradlew :java:jscore-runner:run --args="docs/getting-started/examples/[example-file].js"
+./gradlew :jscore-runner:run --args="docs/getting-started/examples/[example-file].js"
 ```
 
 ## Example Categories
