@@ -663,8 +663,7 @@ class FileSystem(
                         }
                         
                         // Open file for writing
-                        val mode = if (append) "rw" else "rw"
-                        val raf = RandomAccessFile(file, mode)
+                        val raf = RandomAccessFile(file, "rw")
                         
                         if (!append) {
                             // Truncate file
