@@ -729,9 +729,11 @@
     };
 
     // AbortSignal and AbortController - for cancellation
+
     globalThis.AbortSignal = class AbortSignal extends EventTarget {
         #aborted = false;
         #onabort = null;
+        reason = undefined;
 
         get aborted() { return this.#aborted; }
         get onabort() { return this.#onabort; }
@@ -746,8 +748,9 @@
             }
         }
 
-        [SYMBOLS.abortSignalMarkAborted]() {
+        [SYMBOLS.abortSignalMarkAborted](reason) {
             this.#aborted = true;
+            this.reason = reason === undefined ? new Error('AbortError') : reason;
         }
 
         // Static factory method for timeout-based AbortSignal
@@ -767,9 +770,9 @@
 
         get signal() { return this.#signal; }
 
-        abort() {
+        abort(reason) {
             if (!this.#signal.aborted) {
-                this.#signal[SYMBOLS.abortSignalMarkAborted]();
+                this.#signal[SYMBOLS.abortSignalMarkAborted](reason);
                 this.#signal.dispatchEvent(new Event('abort'));
             }
         }
