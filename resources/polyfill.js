@@ -733,10 +733,11 @@
     globalThis.AbortSignal = class AbortSignal extends EventTarget {
         #aborted = false;
         #onabort = null;
-        reason = undefined;
+        #reason = undefined;
 
         get aborted() { return this.#aborted; }
         get onabort() { return this.#onabort; }
+        get reason() { return this.#reason; }
 
         set onabort(listener) {
             if (this.#onabort) {
@@ -750,7 +751,7 @@
 
         [SYMBOLS.abortSignalMarkAborted](reason) {
             this.#aborted = true;
-            this.reason = reason === undefined ? new Error('AbortError') : reason;
+            this.#reason = reason === undefined ? new Error('AbortError') : reason;
         }
 
         // Static factory method for timeout-based AbortSignal
