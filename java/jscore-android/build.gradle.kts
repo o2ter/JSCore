@@ -79,3 +79,14 @@ dependencies {
 
     testImplementation(libs.kotlin.test)
 }
+
+tasks.preBuild {
+    val parentLocalPropertiesFile = gradle.parent?.rootProject?.file("local.properties")
+    if (parentLocalPropertiesFile?.exists() == true) {
+        val localPropertiesFile = rootProject.file("local.properties")
+        if (!localPropertiesFile.exists()) {
+            localPropertiesFile.createNewFile()
+        }
+        parentLocalPropertiesFile.copyTo(localPropertiesFile, true)
+    }
+}
