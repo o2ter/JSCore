@@ -1,3 +1,5 @@
+import com.android.build.gradle.LibraryExtension
+
 //
 //  build.gradle.kts
 //
@@ -30,19 +32,20 @@ plugins {
 
 group = "com.o2ter.jscore"
 
+var rootAndroid: LibraryExtension? = null
+do {
+    var gradle = gradle.parent
+    if (gradle?.rootProject?.extensions?.findByName("android") != null) {
+        rootAndroid = gradle.rootProject.android
+        break
+    }
+    gradle = gradle?.parent
+} while (gradle != null)
+
 android {
     namespace = "com.o2ter.jscore.android"
-    compileSdk = 36
+    compileSdk = rootAndroid?.compileSdk ?: 36
 
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
-    }
-
-    kotlinOptions {
-        jvmTarget = "11"
-    }
-    
     // Check if ICU data file is available in source tree
     val icuFile = file("src/main/resources/com/o2ter/jscore/android/resource/icudtl.dat")
     val hasIcuData = icuFile.exists() && icuFile.length() > 1_000_000
