@@ -23,8 +23,8 @@
 //  THE SOFTWARE.
 //
 
-group = "com.o2ter"
+group = "com.o2ter.jscore"
 
 subprojects {
-    group = "com.o2ter"
+    group = "com.o2ter.jscore"
 }

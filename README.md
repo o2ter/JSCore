@@ -108,9 +108,9 @@ Add to your `build.gradle.kts`:
 
 ```kotlin
 dependencies {
-    implementation("com.o2ter:jscore:1.0.0")
-    implementation("com.o2ter:jscore-jvm:1.0.0")     // For JVM
-    implementation("com.o2ter:jscore-android:1.0.0") // For Android
+    implementation("com.o2ter.jscore:jscore:1.0.0")
+    implementation("com.o2ter.jscore:jscore-jvm:1.0.0")     // For JVM
+    implementation("com.o2ter.jscore:jscore-android:1.0.0") // For Android
 }
 ```
 

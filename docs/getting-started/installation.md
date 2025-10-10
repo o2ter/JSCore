@@ -102,8 +102,8 @@ repositories {
 }
 
 dependencies {
-    implementation("com.o2ter:jscore:1.0.0")
-    implementation("com.o2ter:jscore-jvm:1.0.0")
+    implementation("com.o2ter.jscore:jscore:1.0.0")
+    implementation("com.o2ter.jscore:jscore-jvm:1.0.0")
     
     // Optional: For testing
     testImplementation(kotlin("test"))
@@ -149,8 +149,8 @@ android {
 }
 
 dependencies {
-    implementation("com.o2ter:jscore:1.0.0")
-    implementation("com.o2ter:jscore-android:1.0.0")
+    implementation("com.o2ter.jscore:jscore:1.0.0")
+    implementation("com.o2ter.jscore:jscore-android:1.0.0")
     
     // Standard Android dependencies
     implementation("androidx.core:core-ktx:1.12.0")
@@ -273,9 +273,9 @@ In `settings.gradle.kts`:
 ```kotlin
 includeBuild("../JSCore/java") {
     dependencySubstitution {
-        substitute(module("com.o2ter:jscore")).using(project(":jscore"))
-        substitute(module("com.o2ter:jscore-jvm")).using(project(":jscore-jvm"))
-        substitute(module("com.o2ter:jscore-android")).using(project(":jscore-android"))
+        substitute(module("com.o2ter.jscore:jscore")).using(project(":jscore"))
+        substitute(module("com.o2ter.jscore:jscore-jvm")).using(project(":jscore-jvm"))
+        substitute(module("com.o2ter.jscore:jscore-android")).using(project(":jscore-android"))
     }
 }
 ```
