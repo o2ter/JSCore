@@ -1,5 +1,3 @@
-import com.android.build.gradle.LibraryExtension
-
 //
 //  build.gradle.kts
 //
@@ -25,6 +23,8 @@ import com.android.build.gradle.LibraryExtension
 //  THE SOFTWARE.
 //
 
+import com.android.build.gradle.internal.dsl.BaseAppModuleExtension
+
 plugins {
     id("com.android.library")
     kotlin("android")
@@ -32,14 +32,16 @@ plugins {
 
 group = "com.o2ter.jscore"
 
-var rootAndroid: LibraryExtension? = null
+var rootAndroid: BaseAppModuleExtension? = null
 {
     println("Searching for root android project...")
     var gradle = gradle.parent
     do {
-        if (gradle?.rootProject?.extensions?.findByName("android") != null) {
-            rootAndroid = gradle.rootProject.android
-            println("✓ Found root android project: ${gradle.rootProject.name}")
+        var appProj = gradle?.rootProject?.findProject(":app")
+        var androidExt = appProj?.extensions?.findByType(BaseAppModuleExtension::class.java)
+        if (androidExt != null) {
+            rootAndroid = androidExt
+            println("✓ Found root android project: ${gradle?.rootProject?.name}")
             break
         }
         gradle = gradle?.parent
