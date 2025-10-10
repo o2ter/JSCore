@@ -28,6 +28,8 @@ plugins {
     kotlin("android")
 }
 
+group = "com.o2ter.jscore"
+
 android {
     namespace = "com.o2ter.jscore.android"
     compileSdk = 36

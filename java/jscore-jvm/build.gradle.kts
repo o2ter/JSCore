@@ -30,6 +30,8 @@ plugins {
     kotlin("jvm")
 }
 
+group = "com.o2ter.jscore"
+
 // JVM module is for development and testing
 // Use Java 11 bytecode, build with Java 21 toolchain for better Javet support
 java { 

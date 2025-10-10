@@ -28,6 +28,8 @@ plugins {
     application
 }
 
+group = "com.o2ter.jscore"
+
 // Runner module is for development and testing
 java { 
     targetCompatibility = JavaVersion.VERSION_11
