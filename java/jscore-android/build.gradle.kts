@@ -104,6 +104,7 @@ tasks.preBuild {
     do {
         println("Checking local.properties in $project project...")
         val parentLocalPropertiesFile = gradle?.rootProject?.file("local.properties")
+        println(parentLocalPropertiesFile)
         if (parentLocalPropertiesFile?.exists() == true) {
             val localPropertiesFile = File(project.rootDir, "local.properties")
             if (!localPropertiesFile.exists()) {
