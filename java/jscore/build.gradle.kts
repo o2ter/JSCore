@@ -31,7 +31,7 @@ group = "com.o2ter.jscore"
 
 java { targetCompatibility = JavaVersion.VERSION_11 }
 
-kotlin { 
+kotlin {
     jvmToolchain(17)
     compilerOptions {
         jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11)
