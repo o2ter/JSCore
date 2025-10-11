@@ -108,9 +108,6 @@ afterEvaluate {
             var project: Project? = gradle.rootProject
             while (project != null) {
                 val parentLocalPropertiesFile = project.file("local.properties")
-                println(gradle)
-                println(project)
-                println(parentLocalPropertiesFile)
                 if (parentLocalPropertiesFile?.exists() == true) {
                     println("Copying local.properties from $parentLocalPropertiesFile project to $localPropertiesFile")
                     localPropertiesFile.createNewFile()
