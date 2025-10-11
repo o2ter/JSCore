@@ -36,16 +36,16 @@ var rootAndroid: BaseAppModuleExtension? = null
 {
     println("Searching for root android project...")
     var gradle = gradle.parent
-    do {
-        var appProj = gradle?.rootProject?.findProject(":app")
+    while (gradle != null) {
+        var appProj = gradle.rootProject.findProject(":app")
         var androidExt = appProj?.extensions?.findByType(BaseAppModuleExtension::class.java)
         if (androidExt != null) {
             rootAndroid = androidExt
-            println("✓ Found root android project: ${gradle?.rootProject?.name}")
+            println("✓ Found root android project: ${gradle.rootProject.name}")
             break
         }
-        gradle = gradle?.parent
-    } while (gradle != null)
+        gradle = gradle.parent
+    }
     if (rootAndroid == null) {
         println("✗ Root android project not found, using default configuration.")
     }
@@ -108,7 +108,7 @@ afterEvaluate {
             var project: Project? = gradle.rootProject
             while (project != null) {
                 val parentLocalPropertiesFile = project.file("local.properties")
-                if (parentLocalPropertiesFile?.exists() == true) {
+                if (parentLocalPropertiesFile.exists()) {
                     println("Copying local.properties from $parentLocalPropertiesFile project to $localPropertiesFile")
                     localPropertiesFile.createNewFile()
                     parentLocalPropertiesFile.copyTo(localPropertiesFile, true)
