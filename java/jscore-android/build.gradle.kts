@@ -100,20 +100,26 @@ dependencies {
 }
 
 tasks.preBuild {
-    var gradle: Gradle? = gradle
     println("Checking local.properties in $project project...")
-    do {
-        val parentLocalPropertiesFile = gradle?.rootProject?.file("local.properties")
-        println(parentLocalPropertiesFile)
-        if (parentLocalPropertiesFile?.exists() == true) {
-            val localPropertiesFile = File(project.rootDir, "local.properties")
-            if (!localPropertiesFile.exists()) {
-                println("Copying local.properties from $parentLocalPropertiesFile project to $localPropertiesFile")
-                localPropertiesFile.createNewFile()
-                parentLocalPropertiesFile.copyTo(localPropertiesFile, true)
+    val localPropertiesFile = File(project.rootDir, "local.properties")
+    if (!localPropertiesFile.exists()) {
+        var gradle: Gradle? = gradle
+        loop@ while (gradle != null) {
+            var project: Project? = gradle.rootProject
+            while (project != null) {
+                val parentLocalPropertiesFile = project.file("local.properties")
+                println(gradle)
+                println(project)
+                println(parentLocalPropertiesFile)
+                if (parentLocalPropertiesFile?.exists() == true) {
+                    println("Copying local.properties from $parentLocalPropertiesFile project to $localPropertiesFile")
+                    localPropertiesFile.createNewFile()
+                    parentLocalPropertiesFile.copyTo(localPropertiesFile, true)
+                    break@loop
+                }
+                project = project.parent
             }
-            break
+            gradle = gradle.parent
         }
-        gradle = gradle?.parent
-    } while (gradle != null)
+    }
 }
