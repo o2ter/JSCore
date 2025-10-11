@@ -99,7 +99,7 @@ dependencies {
     testImplementation(libs.kotlin.test)
 }
 
-tasks.preBuild {
+afterEvaluate {
     println("Checking local.properties in $project project...")
     val localPropertiesFile = File(project.rootDir, "local.properties")
     if (!localPropertiesFile.exists()) {
