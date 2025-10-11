@@ -101,8 +101,8 @@ dependencies {
 
 tasks.preBuild {
     var gradle: Gradle? = gradle
+    println("Checking local.properties in $project project...")
     do {
-        println("Checking local.properties in $project project...")
         val parentLocalPropertiesFile = gradle?.rootProject?.file("local.properties")
         println(parentLocalPropertiesFile)
         if (parentLocalPropertiesFile?.exists() == true) {
