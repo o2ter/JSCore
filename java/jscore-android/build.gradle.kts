@@ -99,10 +99,10 @@ tasks.preBuild {
         if (parentLocalPropertiesFile?.exists() == true) {
             val localPropertiesFile = rootProject.file("local.properties")
             if (!localPropertiesFile.exists()) {
+                println("Copying local.properties from $parentLocalPropertiesFile project to $localPropertiesFile")
                 localPropertiesFile.createNewFile()
+                parentLocalPropertiesFile.copyTo(localPropertiesFile, true)
             }
-            println("Copying local.properties from $parentLocalPropertiesFile project to $localPropertiesFile")
-            parentLocalPropertiesFile.copyTo(localPropertiesFile, true)
             break
         }
         gradle = gradle?.parent
