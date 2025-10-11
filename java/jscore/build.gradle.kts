@@ -29,13 +29,10 @@ plugins {
 
 group = "com.o2ter.jscore"
 
-java { 
-    targetCompatibility = JavaVersion.VERSION_11
-    sourceCompatibility = JavaVersion.VERSION_11
-}
+java { targetCompatibility = JavaVersion.VERSION_11 }
 
-kotlin {
-    jvmToolchain(21)
+kotlin { 
+    jvmToolchain(17)
     compilerOptions {
         jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11)
     }
