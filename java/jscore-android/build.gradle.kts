@@ -97,7 +97,7 @@ tasks.preBuild {
     do {
         val parentLocalPropertiesFile = gradle?.rootProject?.file("local.properties")
         if (parentLocalPropertiesFile?.exists() == true) {
-            val localPropertiesFile = project.file("local.properties")
+            val localPropertiesFile = rootProject.file("local.properties")
             if (!localPropertiesFile.exists()) {
                 localPropertiesFile.createNewFile()
             }
