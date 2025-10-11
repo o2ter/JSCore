@@ -58,8 +58,11 @@ android {
     // Check if ICU data file is available in source tree
     val icuFile = file("src/main/resources/com/o2ter/jscore/android/resource/icudtl.dat")
     val hasIcuData = icuFile.exists() && icuFile.length() > 1_000_000
-    
+
     defaultConfig {
+
+        minSdk = 24
+
         if (hasIcuData) {
             val sizeMB = String.format("%.2f", icuFile.length() / 1024.0 / 1024.0)
             println("✓ Android ICU data found in source tree ($sizeMB MB)")
