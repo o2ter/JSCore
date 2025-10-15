@@ -30,12 +30,13 @@ JSCore/
 │   ├── Sources/SwiftJSRunner/ # Swift CLI runner
 │   └── Tests/                 # Swift test suite
 ├── java/                      # KotlinJS implementation
-│   ├── jscore/               # Core Kotlin module
-│   ├── jscore-android/       # Android platform context
-│   ├── jscore-jvm/           # JVM platform context
-│   └── jscore-runner/        # Kotlin CLI runner
+│   ├── jscore/                # Core Kotlin module
+│   ├── jscore-android/        # Android platform context
+│   ├── jscore-jvm/            # JVM platform context
+│   │   └──src/test/           # Kotlin test suite
+│   └── jscore-runner/         # Kotlin CLI runner
 └── resources/                 # Shared JavaScript resources
-    └── polyfill.js           # Common polyfills for both platforms
+    └── polyfill.js            # Common polyfills for both platforms
 ```
 
 **CRITICAL**: Never create circular dependencies between modules. Core abstractions in `java/jscore/` must remain platform-independent, and shared resources in `resources/` should not depend on platform-specific implementations.
