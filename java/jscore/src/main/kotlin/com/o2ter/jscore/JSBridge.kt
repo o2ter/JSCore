@@ -34,6 +34,8 @@ import kotlin.reflect.KProperty1
 import kotlin.reflect.KType
 import kotlin.reflect.full.memberFunctions
 import kotlin.reflect.full.memberProperties
+import kotlin.reflect.jvm.ExperimentalReflectionOnLambdas
+import kotlin.reflect.jvm.reflect
 
 /**
  * Helper class for easy conversion between Kotlin and JavaScript values/functions
@@ -53,7 +55,7 @@ class JSBridge(private val v8Runtime: V8Runtime) {
             is V8Value -> value // Already a JS value
             is List<*> -> createListProxy(value)
             is Map<*, *> -> createMapProxy(value)
-            is Function<*> -> createJSFunction(value)
+            is Function<*> -> createJSFunction(value, null)
             else -> createProxy(value)
         }
     }
@@ -115,25 +117,7 @@ class JSBridge(private val v8Runtime: V8Runtime) {
                 }
                 val method = value::class.memberFunctions.find { it.name == prop }
                 if (method != null) {
-                    v8Runtime.createV8ValueFunction(JavetCallbackContext(
-                        method.name,
-                        JavetCallbackType.DirectCallNoThisAndResult,
-                        IJavetDirectCallable.NoThisAndResult<Exception> { v8Values ->
-                            val args = arrayOfNulls<Any>(method.parameters.size)
-                            v8Values.forEachIndexed { index, entry ->
-                                if (index > 0 && index <= method.parameters.size) { // Skip the first argument which is 'this'
-                                    val param = method.parameters[index - 1]
-                                    if (param.isOptional && entry.isNullOrUndefined) {
-                                        args[index - 1] = null
-                                    } else {
-                                        args[index - 1] = convertNativeValue(param.type, entry)
-                                    }
-                                }
-                            }
-                            val result = method.call(value, *args)
-                            createJSObject(result)
-                        }
-                    ))
+                    return@NoThisAndResult createJSFunction(method, value)
                 }
                 v8Runtime.createV8ValueUndefined()
             }
@@ -141,9 +125,31 @@ class JSBridge(private val v8Runtime: V8Runtime) {
         return v8Runtime.invokeFunction("(function(handler) { return new Proxy({}, handler); })".trimIndent(), handler)
     }
 
-    private fun createJSFunction(value: Function<*>): V8Value {
-        // TODO: Implement function proxy
-        return v8Runtime.createV8ValueUndefined()
+    @OptIn(ExperimentalReflectionOnLambdas::class)
+    private fun createJSFunction(value: Function<*>, thisObj: Any?): V8Value {
+        val func = value.reflect()
+        if (func == null) {
+            return v8Runtime.createV8ValueUndefined()
+        }
+        v8Runtime.createV8ValueFunction(JavetCallbackContext(
+            func.name,
+            JavetCallbackType.DirectCallNoThisAndResult,
+            IJavetDirectCallable.NoThisAndResult<Exception> { v8Values ->
+                val args = arrayOfNulls<Any>(func.parameters.size)
+                v8Values.forEachIndexed { index, entry ->
+                    if (index > 0 && index <= func.parameters.size) { // Skip the first argument which is 'this'
+                        val param = func.parameters[index - 1]
+                        if (param.isOptional && entry.isNullOrUndefined) {
+                            args[index - 1] = null
+                        } else {
+                            args[index - 1] = convertNativeValue(param.type, entry)
+                        }
+                    }
+                }
+                val result = func.call(*args)
+                return@NoThisAndResult createJSObject(result)
+            }
+        ))
     }
 
     private fun convertNativeValue(type: KType, value: V8Value): Any? {
