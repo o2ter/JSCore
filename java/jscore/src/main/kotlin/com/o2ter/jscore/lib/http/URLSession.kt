@@ -381,7 +381,7 @@ class URLSession(
         
         bridge.set("url", response.url)
         bridge.set("statusCode", response.statusCode)
-        bridge.set("allHeaderFields", jsBridge.toJS(response.allHeaderFields))
+        bridge.set("allHeaderFields", response.allHeaderFields)
         
         // Add header access method
         bridge.bindFunction(JavetCallbackContext(
