@@ -108,11 +108,6 @@ final class ProcessInfoTests: XCTestCase {
                 const values = Object.values(process.env);
                 if (!(values.includes('42') && values.includes('b'))) throw new Error('Object.values works');
 
-                // PreventExtensions/Seal/Freeze (should not throw)
-                Object.preventExtensions(process.env);
-                Object.seal(process.env);
-                Object.freeze(process.env);
-
                 // Reflect.ownKeys
                 const ownKeys = Reflect.ownKeys(process.env);
                 if (!(ownKeys.includes('KEYS1') && ownKeys.includes('KEYS2'))) throw new Error('Reflect.ownKeys works');

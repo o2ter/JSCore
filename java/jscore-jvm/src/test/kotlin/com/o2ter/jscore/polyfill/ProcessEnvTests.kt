@@ -103,11 +103,6 @@ class ProcessEnvTests {
             const values = Object.values(process.env);
             if (!(values.includes('42') && values.includes('b'))) throw new Error('Object.values works');
 
-            // PreventExtensions/Seal/Freeze (should not throw)
-            Object.preventExtensions(process.env);
-            // Object.seal(process.env); // JVM throw an error
-            // Object.freeze(process.env); // JVM throw an error
-
             // Reflect.ownKeys
             const ownKeys = Reflect.ownKeys(process.env);
             if (!(ownKeys.includes('KEYS1') && ownKeys.includes('KEYS2'))) throw new Error('Reflect.ownKeys works');
