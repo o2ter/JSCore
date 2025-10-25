@@ -117,7 +117,6 @@ class JSBridge(private val v8Runtime: V8Runtime) {
                         method.name,
                         JavetCallbackType.DirectCallNoThisAndResult,
                         IJavetDirectCallable.NoThisAndResult<Exception> { v8Values ->
-                            // TODO: Implement the logic to convert V8Value arguments to Kotlin types
                             val args = arrayOfNulls<Any>(method.parameters.size)
                             v8Values.forEachIndexed { index, entry ->
                                 if (index > 0 && index <= method.parameters.size) { // Skip the first argument which is 'this'
@@ -137,7 +136,8 @@ class JSBridge(private val v8Runtime: V8Runtime) {
                                     }
                                 }
                             }
-                            v8Runtime.createV8ValueUndefined()
+                            val result = method.call(value, *args)
+                            createJSObject(result)
                         }
                     ))
                 }
