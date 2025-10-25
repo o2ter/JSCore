@@ -80,7 +80,7 @@ class JSBridge(private val v8Runtime: V8Runtime) {
                 }
                 // Convert JavaScript object to Kotlin Map
                 val map = mutableMapOf<String, Any?>()
-                val propertyNames = value.getOwnPropertyNames()
+                val propertyNames = value.ownPropertyNames
                 for (i in 0 until propertyNames.length) {
                     val key = propertyNames.getString(i)
                     map[key] = convertV8ValueToKotlin(value.get(key))
