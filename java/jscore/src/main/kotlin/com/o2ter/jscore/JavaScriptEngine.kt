@@ -703,7 +703,8 @@ class JavaScriptEngine(
     fun set(name: String, value: Any?) {
         executeOnJSThread {
             v8Runtime.globalObject.use { globalObject ->
-                globalObject.set(name, value)
+                val jsValue = jsBridge.createJSObject(value)
+                globalObject.set(name, jsValue)
             }
         }
     }
