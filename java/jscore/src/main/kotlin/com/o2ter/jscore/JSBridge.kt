@@ -53,6 +53,7 @@ class JSBridge(private val v8Runtime: V8Runtime) {
             is V8Value -> value // Already a JS value
             is List<*> -> createListProxy(value)
             is Map<*, *> -> createMapProxy(value)
+            is Function<*> -> createJSFunction(value)
             else -> createProxy(value)
         }
     }
@@ -138,6 +139,11 @@ class JSBridge(private val v8Runtime: V8Runtime) {
             }
         ))
         return v8Runtime.invokeFunction("(function(handler) { return new Proxy({}, handler); })".trimIndent(), handler)
+    }
+
+    private fun createJSFunction(value: Function<*>): V8Value {
+        // TODO: Implement function proxy
+        return v8Runtime.createV8ValueUndefined()
     }
 
     private fun convertNativeValue(type: KType, value: V8Value): Any? {
