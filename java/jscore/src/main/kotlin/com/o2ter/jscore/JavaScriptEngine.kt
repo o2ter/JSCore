@@ -665,10 +665,11 @@ class JavaScriptEngine(
         }
     }
     
-    fun execute(code: String): V8Value {
+    fun execute(code: String): Any? {
         return executeOnJSThread {
             try {
-                v8Runtime.getExecutor(code).execute<V8Value>()
+                val result = v8Runtime.getExecutor(code).execute<V8Value>()
+                result.toNative()
             } catch (e: Exception) {
                 platformContext.logger.error("JavaScriptEngine", "Execution failed: ${e.message}")
                 throw RuntimeException("JavaScript execution failed", e)
@@ -687,10 +688,11 @@ class JavaScriptEngine(
         }
     }
 
-    fun invokeFunction(code: String, vararg args: Any?): V8Value {
+    fun invokeFunction(code: String, vararg args: Any?): Any? {
         return executeOnJSThread {
             try {
-                v8Runtime.invokeFunction(code, *args)
+                val result = v8Runtime.invokeFunction(code, *args)
+                result.toNative()
             } catch (e: Exception) {
                 platformContext.logger.error("JavaScriptEngine", "Execution failed: ${e.message}")
                 throw RuntimeException("JavaScript execution failed", e)
@@ -707,10 +709,11 @@ class JavaScriptEngine(
         }
     }
     
-    fun get(name: String): V8Value {
+    fun get(name: String): Any? {
         return executeOnJSThread {
             v8Runtime.globalObject.use { globalObject ->
-                globalObject.get(name)
+                val result = globalObject.get<V8Value>(name)
+                result.toNative()
             }
         }
     }
