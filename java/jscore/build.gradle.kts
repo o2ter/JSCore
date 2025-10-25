@@ -53,6 +53,7 @@ tasks.named("processResources") {
 dependencies {
     implementation(libs.jetbrains.kotlin.stdlib)
     implementation(libs.kotlinx.coroutines.core)
+    implementation(kotlin("reflect"))
     
     // Javet - Unified V8 engine for both JVM and Android
     implementation(libs.javet)

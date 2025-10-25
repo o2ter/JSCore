@@ -30,8 +30,8 @@ import com.caoccao.javet.interop.callback.IJavetDirectCallable
 import com.caoccao.javet.interop.callback.JavetCallbackContext
 import com.caoccao.javet.interop.callback.JavetCallbackType
 import com.caoccao.javet.values.V8Value
-import com.caoccao.javet.values.primitive.*
-import com.caoccao.javet.values.reference.*
+import kotlin.reflect.KProperty1
+import kotlin.reflect.full.memberProperties
 
 /**
  * Helper class for easy conversion between Kotlin and JavaScript values/functions
@@ -39,12 +39,32 @@ import com.caoccao.javet.values.reference.*
  */
 class JSBridge(private val v8Runtime: V8Runtime) {
 
-    fun createJSObject(value: Any?): V8Value {
+    fun createJSObject(value: Any): V8Value {
         val handler = v8Runtime.createV8ValueObject()
+        handler.bindFunction(JavetCallbackContext(
+            "ownKeys",
+            JavetCallbackType.DirectCallNoThisAndResult,
+            IJavetDirectCallable.NoThisAndResult<Exception> { v8Values ->
+                val array = v8Runtime.createV8ValueArray()
+                value::class.memberProperties.forEachIndexed { index, entry ->
+                    array.set(index, entry.name)
+                }
+                array
+            }
+        ))
         handler.bindFunction(JavetCallbackContext(
             "get",
             JavetCallbackType.DirectCallNoThisAndResult,
             IJavetDirectCallable.NoThisAndResult<Exception> { v8Values ->
+                val prop = v8Values[1].toString()
+                val property = value::class.memberProperties.find { it.name == prop }
+                if (property != null) {
+                    val propValue = (property as KProperty1<Any, *>).get(value)
+                    if (propValue == null) {
+                        return@NoThisAndResult v8Runtime.createV8ValueUndefined()
+                    }
+                    return@NoThisAndResult createJSObject(propValue)
+                }
                 v8Runtime.createV8ValueUndefined()
             }
         ))
