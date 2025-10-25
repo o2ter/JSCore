@@ -31,6 +31,7 @@ import com.caoccao.javet.interop.callback.JavetCallbackContext
 import com.caoccao.javet.interop.callback.JavetCallbackType
 import com.caoccao.javet.values.V8Value
 import kotlin.reflect.KProperty1
+import kotlin.reflect.KType
 import kotlin.reflect.full.memberFunctions
 import kotlin.reflect.full.memberProperties
 
@@ -124,15 +125,7 @@ class JSBridge(private val v8Runtime: V8Runtime) {
                                     if (param.isOptional && entry.isNullOrUndefined) {
                                         args[index - 1] = null
                                     } else {
-                                        args[index - 1] = when (param.type.classifier) {
-                                            Boolean::class -> entry.asBoolean()
-                                            Int::class -> entry.asInt()
-                                            Long::class -> entry.asLong()
-                                            Float::class -> entry.asDouble().toFloat()
-                                            Double::class -> entry.asDouble()
-                                            String::class -> entry.toString()
-                                            else -> null // TODO: Handle more complex types
-                                        }
+                                        args[index - 1] = convertNativeValue(param.type, entry)
                                     }
                                 }
                             }
@@ -145,5 +138,17 @@ class JSBridge(private val v8Runtime: V8Runtime) {
             }
         ))
         return v8Runtime.invokeFunction("(function(handler) { return new Proxy({}, handler); })".trimIndent(), handler)
+    }
+
+    private fun convertNativeValue(type: KType, value: V8Value): Any? {
+        return when (type.classifier) {
+            Boolean::class -> value.asBoolean()
+            Int::class -> value.asInt()
+            Long::class -> value.asLong()
+            Float::class -> value.asDouble().toFloat()
+            Double::class -> value.asDouble()
+            String::class -> value.toString()
+            else -> null // TODO: Handle more complex types
+        }
     }
 }
