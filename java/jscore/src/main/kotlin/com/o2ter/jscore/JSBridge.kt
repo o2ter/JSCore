@@ -31,6 +31,7 @@ import com.caoccao.javet.interop.callback.JavetCallbackContext
 import com.caoccao.javet.interop.callback.JavetCallbackType
 import com.caoccao.javet.values.V8Value
 import kotlin.reflect.KProperty1
+import kotlin.reflect.full.memberFunctions
 import kotlin.reflect.full.memberProperties
 
 /**
@@ -94,6 +95,9 @@ class JSBridge(private val v8Runtime: V8Runtime) {
                 value::class.memberProperties.forEachIndexed { index, entry ->
                     array.set(index, entry.name)
                 }
+                value::class.memberFunctions.forEachIndexed { index, entry ->
+                    array.set(index, entry.name)
+                }
                 array
             }
         ))
@@ -106,6 +110,11 @@ class JSBridge(private val v8Runtime: V8Runtime) {
                 if (property != null) {
                     val propValue = (property as KProperty1<Any, *>).get(value)
                     return@NoThisAndResult createJSObject(propValue)
+                }
+                val method = value::class.memberFunctions.find { it.name == prop }
+                if (method != null) {
+                    // TODO: Handle method invocation
+                    return@NoThisAndResult v8Runtime.createV8ValueUndefined()
                 }
                 v8Runtime.createV8ValueUndefined()
             }
