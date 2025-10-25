@@ -48,10 +48,6 @@ class JSBridge(private val v8Runtime: V8Runtime) {
                 v8Runtime.createV8ValueUndefined()
             }
         ))
-        v8Runtime.invokeFunction("""
-            (function(handler) {
-                return new Proxy({}, handler);
-            })
-        """.trimIndent(), handler)
+        v8Runtime.invokeFunction("(function(handler) { return new Proxy({}, handler); })".trimIndent(), handler)
     }
 }
