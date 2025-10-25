@@ -39,12 +39,19 @@ import com.caoccao.javet.values.reference.*
  */
 class JSBridge(private val v8Runtime: V8Runtime) {
 
-//    fun createJSObject(value: Any?): V8Value {
-//        val handler = v8Runtime.createV8ValueObject()
-//        v8Runtime.invokeFunction("""
-//            (function(handler) {
-//                return new Proxy({}, handler);
-//            })
-//        """.trimIndent(), handler)
-//    }
+    fun createJSObject(value: Any?): V8Value {
+        val handler = v8Runtime.createV8ValueObject()
+        handler.bindFunction(JavetCallbackContext(
+            "get",
+            JavetCallbackType.DirectCallNoThisAndResult,
+            IJavetDirectCallable.NoThisAndResult<Exception> { v8Values ->
+                v8Runtime.createV8ValueUndefined()
+            }
+        ))
+        v8Runtime.invokeFunction("""
+            (function(handler) {
+                return new Proxy({}, handler);
+            })
+        """.trimIndent(), handler)
+    }
 }
