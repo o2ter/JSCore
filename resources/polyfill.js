@@ -59,37 +59,39 @@
     // Process API - provides Node.js-like process object
     globalThis.process = new class Process {
         #env = (() => {
-            const target = { ...__NATIVE_BRIDGE__.processInfo.environment };
+            const target = Object.create(null);
+            for (const [key, value] of Object.entries(__NATIVE_BRIDGE__.processInfo.environment)) {
+                target[key] = value;
+            }
             const handler = {
                 get(obj, prop) {
-                    if (typeof prop === 'string' && Object.prototype.hasOwnProperty.call(obj, prop)) {
-                        const val = obj[prop];
-                        return val === undefined ? undefined : String(val);
-                    }
-                    return undefined;
+                    return obj[prop];
                 },
                 set(obj, prop, value) {
                     if (typeof prop === 'string') {
-                        // Node.js: assigning undefined sets value to string 'undefined'
-                        obj[prop] = String(value);
+
+                        // Option 1
+                        // obj[prop] = String(value)
+
+                        // Option 2
+                        Object.defineProperty(obj, prop, {
+                            value: String(value),
+                            enumerable: true,
+                            writable: true,
+                            configurable: true
+                        });
                         return true;
                     }
-                    return false;
+                    return true;
                 },
                 deleteProperty(obj, prop) {
-                    if (typeof prop === 'string') {
-                        return Reflect.deleteProperty(obj, prop);
-                    }
-                    return false;
+                    return Reflect.deleteProperty(obj, prop);
                 },
                 ownKeys(obj) {
                     return Reflect.ownKeys(obj);
                 },
                 getOwnPropertyDescriptor(obj, prop) {
-                    if (typeof prop === 'string') {
-                        return Reflect.getOwnPropertyDescriptor(obj, prop);
-                    }
-                    return undefined;
+                    return Reflect.getOwnPropertyDescriptor(obj, prop);
                 }
             };
             return new Proxy(target, handler);
