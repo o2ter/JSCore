@@ -143,7 +143,7 @@ class JSBridge(private val v8Runtime: V8Runtime) {
                         if (param.isOptional && entry.isNullOrUndefined) {
                             args[index - 1] = null
                         } else {
-                            args[index - 1] = convertNativeValue(param.type, entry)
+                            args[index - 1] = convertToNativeValue(param.type, entry)
                         }
                     }
                 }
@@ -153,7 +153,7 @@ class JSBridge(private val v8Runtime: V8Runtime) {
         ))
     }
 
-    private fun convertNativeValue(type: KType, value: V8Value): Any? {
+    private fun convertToNativeValue(type: KType, value: V8Value): Any? {
         return when (type.classifier) {
             Boolean::class -> value.asBoolean()
             Int::class -> value.asInt()

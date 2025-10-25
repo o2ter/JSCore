@@ -669,8 +669,6 @@ class JavaScriptEngine(
         return executeOnJSThread {
             try {
                 val result = v8Runtime.getExecutor(code).execute<V8Value>()
-                // Process any pending microtasks (promise callbacks)
-                v8Runtime.await()
                 convertV8ValueToKotlin(result)
             } catch (e: Exception) {
                 platformContext.logger.error("JavaScriptEngine", "Execution failed: ${e.message}")
@@ -683,8 +681,18 @@ class JavaScriptEngine(
         executeOnJSThread {
             try {
                 v8Runtime.getExecutor(code).executeVoid()
-                // Process any pending microtasks (promise callbacks)
-                v8Runtime.await()
+            } catch (e: Exception) {
+                platformContext.logger.error("JavaScriptEngine", "Execution failed: ${e.message}")
+                throw RuntimeException("JavaScript execution failed", e)
+            }
+        }
+    }
+
+    fun invokeFunction(code: String, vararg args: Any?): Any? {
+        return executeOnJSThread {
+            try {
+                val result = v8Runtime.invokeFunction(code, *args)
+                convertV8ValueToKotlin(result)
             } catch (e: Exception) {
                 platformContext.logger.error("JavaScriptEngine", "Execution failed: ${e.message}")
                 throw RuntimeException("JavaScript execution failed", e)
