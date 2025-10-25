@@ -66,7 +66,7 @@
             const handler = {
                 set(obj, prop, value) {
                     if (typeof prop === 'string') {
-                        obj[prop] = String(value)
+                        obj[prop] = String(value);
                         return true;
                     }
                     return true;
