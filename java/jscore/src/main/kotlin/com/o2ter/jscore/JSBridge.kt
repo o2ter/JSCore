@@ -40,34 +40,42 @@ import kotlin.reflect.full.memberProperties
 class JSBridge(private val v8Runtime: V8Runtime) {
 
     fun createJSObject(value: Any?): V8Value {
-        if (value == null) {
-            return v8Runtime.createV8ValueNull()
+        return when (value) {
+            null -> v8Runtime.createV8ValueNull()
+            is Boolean -> v8Runtime.createV8ValueBoolean(value)
+            is Int -> v8Runtime.createV8ValueInteger(value)
+            is Long -> v8Runtime.createV8ValueLong(value)
+            is Float -> v8Runtime.createV8ValueDouble(value.toDouble())
+            is Double -> v8Runtime.createV8ValueDouble(value)
+            is String -> v8Runtime.createV8ValueString(value)
+            is V8Value -> value // Already a JS value
+            else -> {
+                val handler = v8Runtime.createV8ValueObject()
+                handler.bindFunction(JavetCallbackContext(
+                    "ownKeys",
+                    JavetCallbackType.DirectCallNoThisAndResult,
+                    IJavetDirectCallable.NoThisAndResult<Exception> { v8Values ->
+                        val array = v8Runtime.createV8ValueArray()
+                        value::class.memberProperties.forEachIndexed { index, entry ->
+                            array.set(index, entry.name)
+                        }
+                        array
+                    }
+                ))
+                handler.bindFunction(JavetCallbackContext(
+                    "get",
+                    JavetCallbackType.DirectCallNoThisAndResult,
+                    IJavetDirectCallable.NoThisAndResult<Exception> { v8Values ->
+                        val prop = v8Values[1].toString()
+                        val property = value::class.memberProperties.find { it.name == prop }
+                        if (property != null) {
+                            val propValue = (property as KProperty1<Any, *>).get(value)
+                            return@NoThisAndResult createJSObject(propValue)
+                        }
+                        v8Runtime.createV8ValueUndefined()
+                    }
+                ))
+                v8Runtime.invokeFunction("(function(handler) { return new Proxy({}, handler); })".trimIndent(), handler)}
         }
-        val handler = v8Runtime.createV8ValueObject()
-        handler.bindFunction(JavetCallbackContext(
-            "ownKeys",
-            JavetCallbackType.DirectCallNoThisAndResult,
-            IJavetDirectCallable.NoThisAndResult<Exception> { v8Values ->
-                val array = v8Runtime.createV8ValueArray()
-                value::class.memberProperties.forEachIndexed { index, entry ->
-                    array.set(index, entry.name)
-                }
-                array
-            }
-        ))
-        handler.bindFunction(JavetCallbackContext(
-            "get",
-            JavetCallbackType.DirectCallNoThisAndResult,
-            IJavetDirectCallable.NoThisAndResult<Exception> { v8Values ->
-                val prop = v8Values[1].toString()
-                val property = value::class.memberProperties.find { it.name == prop }
-                if (property != null) {
-                    val propValue = (property as KProperty1<Any, *>).get(value)
-                    return@NoThisAndResult createJSObject(propValue)
-                }
-                v8Runtime.createV8ValueUndefined()
-            }
-        ))
-        v8Runtime.invokeFunction("(function(handler) { return new Proxy({}, handler); })".trimIndent(), handler)
     }
 }
