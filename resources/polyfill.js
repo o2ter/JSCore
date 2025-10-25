@@ -58,7 +58,42 @@
 
     // Process API - provides Node.js-like process object
     globalThis.process = new class Process {
-        #env = { ...__NATIVE_BRIDGE__.processInfo.environment };
+        #env = (() => {
+            const target = { ...__NATIVE_BRIDGE__.processInfo.environment };
+            const handler = {
+                get(obj, prop) {
+                    if (typeof prop === 'string' && Object.prototype.hasOwnProperty.call(obj, prop)) {
+                        const val = obj[prop];
+                        return val === undefined ? undefined : String(val);
+                    }
+                    return undefined;
+                },
+                set(obj, prop, value) {
+                    if (typeof prop === 'string') {
+                        // Node.js: assigning undefined sets value to string 'undefined'
+                        obj[prop] = String(value);
+                        return true;
+                    }
+                    return false;
+                },
+                deleteProperty(obj, prop) {
+                    if (typeof prop === 'string') {
+                        return Reflect.deleteProperty(obj, prop);
+                    }
+                    return false;
+                },
+                ownKeys(obj) {
+                    return Reflect.ownKeys(obj);
+                },
+                getOwnPropertyDescriptor(obj, prop) {
+                    if (typeof prop === 'string') {
+                        return Reflect.getOwnPropertyDescriptor(obj, prop);
+                    }
+                    return undefined;
+                }
+            };
+            return new Proxy(target, handler);
+        })();
         #argv = [...__NATIVE_BRIDGE__.processInfo.arguments];
 
         get env() { return this.#env; }
