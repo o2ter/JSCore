@@ -113,8 +113,16 @@ class JSBridge(private val v8Runtime: V8Runtime) {
                 }
                 val method = value::class.memberFunctions.find { it.name == prop }
                 if (method != null) {
-                    // TODO: Handle method invocation
-                    return@NoThisAndResult v8Runtime.createV8ValueUndefined()
+                    v8Runtime.createV8ValueFunction(JavetCallbackContext(
+                        method.name,
+                        JavetCallbackType.DirectCallNoThisAndResult,
+                        IJavetDirectCallable.NoThisAndResult<Exception> { v8Values ->
+                            // TODO: Implement the logic to convert V8Value arguments to Kotlin types
+                            val args = arrayOfNulls<Any>(method.parameters.size)
+                            
+                            v8Runtime.createV8ValueUndefined()
+                        }
+                    ))
                 }
                 v8Runtime.createV8ValueUndefined()
             }
