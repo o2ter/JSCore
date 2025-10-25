@@ -53,6 +53,7 @@ class JSBridge(private val v8Runtime: V8Runtime) {
             is Double -> v8Runtime.createV8ValueDouble(value)
             is String -> v8Runtime.createV8ValueString(value)
             is V8Value -> value // Already a JS value
+            is JavetCallbackContext -> v8Runtime.createV8ValueFunction(value)
             is List<*> -> createListProxy(value)
             is Map<*, *> -> createMapProxy(value)
             is Function<*> -> createJSFunction(value)
