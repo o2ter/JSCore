@@ -41,7 +41,7 @@ class JSBridge(private val v8Runtime: V8Runtime) {
 
     fun createJSObject(value: Any?): V8Value {
         return when (value) {
-            null -> v8Runtime.createV8ValueNull()
+            null -> v8Runtime.createV8ValueUndefined()
             is Boolean -> v8Runtime.createV8ValueBoolean(value)
             is Int -> v8Runtime.createV8ValueInteger(value)
             is Long -> v8Runtime.createV8ValueLong(value)
@@ -49,12 +49,18 @@ class JSBridge(private val v8Runtime: V8Runtime) {
             is Double -> v8Runtime.createV8ValueDouble(value)
             is String -> v8Runtime.createV8ValueString(value)
             is V8Value -> value // Already a JS value
-            is Map<*, *> -> createProxy(value)
+            is List<*> -> createListProxy(value)
+            is Map<*, *> -> createMapProxy(value)
             else -> createProxy(value)
         }
     }
 
-    private fun createProxy(value: Map<*, *>): V8Value {
+    private fun createListProxy(value: List<*>): V8Value {
+        // TODO: Implement array proxy
+        return v8Runtime.createV8ValueUndefined()
+    }
+
+    private fun createMapProxy(value: Map<*, *>): V8Value {
         val handler = v8Runtime.createV8ValueObject()
         handler.bindFunction(JavetCallbackContext(
             "ownKeys",
