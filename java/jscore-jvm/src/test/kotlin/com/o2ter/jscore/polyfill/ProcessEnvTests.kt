@@ -35,24 +35,12 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 class ProcessEnvTests {
-    private lateinit var engine: JavaScriptEngine
-    private lateinit var context: JvmPlatformContext
-
-
-    @Before
-    fun setUp() {
-        context = JvmPlatformContext("TestApp")
-        engine = JavaScriptEngine(context)
-    }
-
-
-    @After
-    fun tearDown() {
-        engine.close()
-    }
 
     @Test
     fun testProcessEnvNodeJsBehavior() {
+        val context = JvmPlatformContext("TestApp")
+        val engine = JavaScriptEngine(context)
+        
         val script = """
             // Assignment converts to string
             process.env.TEST_VAR = 123;
