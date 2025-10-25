@@ -131,7 +131,7 @@ class JSBridge(private val v8Runtime: V8Runtime) {
         if (func == null) {
             return v8Runtime.createV8ValueUndefined()
         }
-        v8Runtime.createV8ValueFunction(JavetCallbackContext(
+        return v8Runtime.createV8ValueFunction(JavetCallbackContext(
             func.name,
             JavetCallbackType.DirectCallNoThisAndResult,
             IJavetDirectCallable.NoThisAndResult<Exception> { v8Values ->
