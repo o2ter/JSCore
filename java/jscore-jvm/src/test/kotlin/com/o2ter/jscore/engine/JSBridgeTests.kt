@@ -46,7 +46,7 @@ class JSBridgeTests {
             engine.set("kList", list)
             val result = engine.execute("Array.isArray(kList) ? kList.slice() : null")
             // Should be null since list proxy is not implemented, but test for no crash
-            assertTrue(result == null || result == list)
+            assertTrue(result == list)
         } finally {
             engine.close()
         }
@@ -75,7 +75,7 @@ class JSBridgeTests {
             engine.set("kFn", fn)
             // Should be callable from JS if reflection works, else undefined
             val result = engine.execute("typeof kFn === 'function' ? kFn(2, 3) : null")
-            assertTrue(result == null || result == 5)
+            assertTrue(result == 5)
         } finally {
             engine.close()
         }
