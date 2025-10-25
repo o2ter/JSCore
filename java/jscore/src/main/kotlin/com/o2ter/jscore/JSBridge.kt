@@ -49,34 +49,61 @@ class JSBridge(private val v8Runtime: V8Runtime) {
             is Double -> v8Runtime.createV8ValueDouble(value)
             is String -> v8Runtime.createV8ValueString(value)
             is V8Value -> value // Already a JS value
-            else -> {
-                val handler = v8Runtime.createV8ValueObject()
-                handler.bindFunction(JavetCallbackContext(
-                    "ownKeys",
-                    JavetCallbackType.DirectCallNoThisAndResult,
-                    IJavetDirectCallable.NoThisAndResult<Exception> { v8Values ->
-                        val array = v8Runtime.createV8ValueArray()
-                        value::class.memberProperties.forEachIndexed { index, entry ->
-                            array.set(index, entry.name)
-                        }
-                        array
-                    }
-                ))
-                handler.bindFunction(JavetCallbackContext(
-                    "get",
-                    JavetCallbackType.DirectCallNoThisAndResult,
-                    IJavetDirectCallable.NoThisAndResult<Exception> { v8Values ->
-                        val prop = v8Values[1].toString()
-                        val property = value::class.memberProperties.find { it.name == prop }
-                        if (property != null) {
-                            val propValue = (property as KProperty1<Any, *>).get(value)
-                            return@NoThisAndResult createJSObject(propValue)
-                        }
-                        v8Runtime.createV8ValueUndefined()
-                    }
-                ))
-                v8Runtime.invokeFunction("(function(handler) { return new Proxy({}, handler); })".trimIndent(), handler)
-            }
+            is Map<*, *> -> createProxy(value)
+            else -> createProxy(value)
         }
+    }
+
+    private fun createProxy(value: Map<*, *>): V8Value {
+        val handler = v8Runtime.createV8ValueObject()
+        handler.bindFunction(JavetCallbackContext(
+            "ownKeys",
+            JavetCallbackType.DirectCallNoThisAndResult,
+            IJavetDirectCallable.NoThisAndResult<Exception> { v8Values ->
+                val array = v8Runtime.createV8ValueArray()
+                value.keys.forEachIndexed { index, entry ->
+                    array.set(index, entry.toString())
+                }
+                array
+            }
+        ))
+        handler.bindFunction(JavetCallbackContext(
+            "get",
+            JavetCallbackType.DirectCallNoThisAndResult,
+            IJavetDirectCallable.NoThisAndResult<Exception> { v8Values ->
+                val prop = v8Values[1].toString()
+                createJSObject(value[prop])
+            }
+        ))
+        return v8Runtime.invokeFunction("(function(handler) { return new Proxy({}, handler); })".trimIndent(), handler)
+    }
+
+    private fun createProxy(value: Any): V8Value {
+        val handler = v8Runtime.createV8ValueObject()
+        handler.bindFunction(JavetCallbackContext(
+            "ownKeys",
+            JavetCallbackType.DirectCallNoThisAndResult,
+            IJavetDirectCallable.NoThisAndResult<Exception> { v8Values ->
+                val array = v8Runtime.createV8ValueArray()
+                value::class.memberProperties.forEachIndexed { index, entry ->
+                    array.set(index, entry.name)
+                }
+                array
+            }
+        ))
+        handler.bindFunction(JavetCallbackContext(
+            "get",
+            JavetCallbackType.DirectCallNoThisAndResult,
+            IJavetDirectCallable.NoThisAndResult<Exception> { v8Values ->
+                val prop = v8Values[1].toString()
+                val property = value::class.memberProperties.find { it.name == prop }
+                if (property != null) {
+                    val propValue = (property as KProperty1<Any, *>).get(value)
+                    return@NoThisAndResult createJSObject(propValue)
+                }
+                v8Runtime.createV8ValueUndefined()
+            }
+        ))
+        return v8Runtime.invokeFunction("(function(handler) { return new Proxy({}, handler); })".trimIndent(), handler)
     }
 }
