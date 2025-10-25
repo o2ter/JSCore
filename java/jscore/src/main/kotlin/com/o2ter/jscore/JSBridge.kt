@@ -55,7 +55,7 @@ class JSBridge(private val v8Runtime: V8Runtime) {
             is V8Value -> value // Already a JS value
             is List<*> -> createListProxy(value)
             is Map<*, *> -> createMapProxy(value)
-            is Function<*> -> createJSFunction(value, null)
+            is Function<*> -> createJSFunction(value)
             else -> createProxy(value)
         }
     }
@@ -117,7 +117,7 @@ class JSBridge(private val v8Runtime: V8Runtime) {
                 }
                 val method = value::class.memberFunctions.find { it.name == prop }
                 if (method != null) {
-                    return@NoThisAndResult createJSFunction(method, value)
+                    return@NoThisAndResult createJSFunction(method)
                 }
                 v8Runtime.createV8ValueUndefined()
             }
@@ -126,7 +126,7 @@ class JSBridge(private val v8Runtime: V8Runtime) {
     }
 
     @OptIn(ExperimentalReflectionOnLambdas::class)
-    private fun createJSFunction(value: Function<*>, thisObj: Any?): V8Value {
+    private fun createJSFunction(value: Function<*>): V8Value {
         val func = value.reflect()
         if (func == null) {
             return v8Runtime.createV8ValueUndefined()
