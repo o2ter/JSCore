@@ -67,6 +67,9 @@
                 defineProperty() {
                     return true;
                 },
+                preventExtensions(target) {
+                    return true;
+                },
                 set(obj, prop, value) {
                     if (typeof prop === 'string') {
                         obj[prop] = String(value)
