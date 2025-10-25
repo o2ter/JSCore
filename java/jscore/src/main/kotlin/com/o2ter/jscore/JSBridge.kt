@@ -36,6 +36,8 @@ import kotlin.reflect.full.memberFunctions
 import kotlin.reflect.full.memberProperties
 import kotlin.reflect.jvm.ExperimentalReflectionOnLambdas
 import kotlin.reflect.jvm.reflect
+import com.caoccao.javet.values.primitive.*
+import com.caoccao.javet.values.reference.*
 
 /**
  * Helper class for easy conversion between Kotlin and JavaScript values/functions
@@ -49,12 +51,12 @@ class JSBridge(private val v8Runtime: V8Runtime) {
         return when {
             value == null -> null
             value.isUndefined || value.isNullOrUndefined -> null
-            value is com.caoccao.javet.values.primitive.V8ValueInteger -> value.value
-            value is com.caoccao.javet.values.primitive.V8ValueBoolean -> value.value
-            value is com.caoccao.javet.values.primitive.V8ValueString -> value.value
-            value is com.caoccao.javet.values.primitive.V8ValueDouble -> value.value
-            value is com.caoccao.javet.values.primitive.V8ValueLong -> value.value
-            value is com.caoccao.javet.values.reference.V8ValueArray -> {
+            value is V8ValueInteger -> value.value
+            value is V8ValueBoolean -> value.value
+            value is V8ValueString -> value.value
+            value is V8ValueDouble -> value.value
+            value is V8ValueLong -> value.value
+            value is V8ValueArray -> {
                 // Convert JavaScript array to Kotlin List
                 val list = mutableListOf<Any?>()
                 for (i in 0 until value.length) {
@@ -62,7 +64,7 @@ class JSBridge(private val v8Runtime: V8Runtime) {
                 }
                 list
             }
-            value is com.caoccao.javet.values.reference.V8ValueObject -> {
+            value is V8ValueObject -> {
                 // Check if it's an Error object - get message and stack
                 val hasMessage = value.has("message")
                 val hasStack = value.has("stack")
