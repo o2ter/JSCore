@@ -39,58 +39,55 @@ import kotlin.reflect.jvm.reflect
 import com.caoccao.javet.values.primitive.*
 import com.caoccao.javet.values.reference.*
 
+fun V8Value.toNative(): Any? {
+    return when {
+        this.isUndefined || this.isNullOrUndefined -> null
+        this is V8ValueInteger -> this.value
+        this is V8ValueBoolean -> this.value
+        this is V8ValueString -> this.value
+        this is V8ValueDouble -> this.value
+        this is V8ValueLong -> this.value
+        this is V8ValueArray -> {
+            // Convert JavaScript array to Kotlin List
+            val list = mutableListOf<Any?>()
+            for (i in 0 until this.length) {
+                list.add(this.get<V8Value>(i).toNative())
+            }
+            list
+        }
+        this is V8ValueObject -> {
+            // Check if it's an Error object - get message and stack
+            val hasMessage = this.has("message")
+            val hasStack = this.has("stack")
+            if (hasMessage || hasStack) {
+                // It's likely an Error object, return string representation with message and stack
+                val message = if (hasMessage) this.getString("message") else "Unknown error"
+                val stack = if (hasStack) this.getString("stack") else ""
+                return if (stack.isNotEmpty()) {
+                    "$message\n$stack"
+                } else {
+                    message
+                }
+            }
+            // Convert JavaScript object to Kotlin Map
+            val map = mutableMapOf<String, Any?>()
+            val propertyNames = this.ownPropertyNames
+            for (i in 0 until propertyNames.length) {
+                val key = propertyNames.getString(i)
+                map[key] = this.get<V8Value>(key).toNative()
+            }
+            map
+        }
+        else -> this.toString()
+    }
+}
+
 /**
  * Helper class for easy conversion between Kotlin and JavaScript values/functions
  * Provides a simple API for creating native bridges and exposing Kotlin functionality to JavaScript
  */
 class JSBridge(private val v8Runtime: V8Runtime) {
-    /**
-     * Convert a V8Value to a native Kotlin value (used for bridging JS->Kotlin)
-     */
-    fun convertV8ValueToKotlin(value: V8Value?): Any? {
-        return when {
-            value == null -> null
-            value.isUndefined || value.isNullOrUndefined -> null
-            value is V8ValueInteger -> value.value
-            value is V8ValueBoolean -> value.value
-            value is V8ValueString -> value.value
-            value is V8ValueDouble -> value.value
-            value is V8ValueLong -> value.value
-            value is V8ValueArray -> {
-                // Convert JavaScript array to Kotlin List
-                val list = mutableListOf<Any?>()
-                for (i in 0 until value.length) {
-                    list.add(convertV8ValueToKotlin(value.get(i)))
-                }
-                list
-            }
-            value is V8ValueObject -> {
-                // Check if it's an Error object - get message and stack
-                val hasMessage = value.has("message")
-                val hasStack = value.has("stack")
-                if (hasMessage || hasStack) {
-                    // It's likely an Error object, return string representation with message and stack
-                    val message = if (hasMessage) value.getString("message") else "Unknown error"
-                    val stack = if (hasStack) value.getString("stack") else ""
-                    return if (stack.isNotEmpty()) {
-                        "$message\n$stack"
-                    } else {
-                        message
-                    }
-                }
-                // Convert JavaScript object to Kotlin Map
-                val map = mutableMapOf<String, Any?>()
-                val propertyNames = value.ownPropertyNames
-                for (i in 0 until propertyNames.length) {
-                    val key = propertyNames.getString(i)
-                    map[key] = convertV8ValueToKotlin(value.get(key))
-                }
-                map
-            }
-            else -> value.toString()
-        }
-    }
-
+    
     fun createJSObject(value: Any?): V8Value {
         return when (value) {
             null -> v8Runtime.createV8ValueUndefined()
