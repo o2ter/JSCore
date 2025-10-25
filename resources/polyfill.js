@@ -64,34 +64,12 @@
                 target[key] = value;
             }
             const handler = {
-                get(obj, prop) {
-                    return obj[prop];
-                },
                 set(obj, prop, value) {
                     if (typeof prop === 'string') {
-
-                        // Option 1
-                        // obj[prop] = String(value)
-
-                        // Option 2
-                        Object.defineProperty(obj, prop, {
-                            value: String(value),
-                            enumerable: true,
-                            writable: true,
-                            configurable: true
-                        });
+                        obj[prop] = String(value)
                         return true;
                     }
                     return true;
-                },
-                deleteProperty(obj, prop) {
-                    return Reflect.deleteProperty(obj, prop);
-                },
-                ownKeys(obj) {
-                    return Reflect.ownKeys(obj);
-                },
-                getOwnPropertyDescriptor(obj, prop) {
-                    return Reflect.getOwnPropertyDescriptor(obj, prop);
                 }
             };
             return new Proxy(target, handler);
