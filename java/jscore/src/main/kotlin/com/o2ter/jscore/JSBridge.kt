@@ -39,7 +39,10 @@ import kotlin.reflect.full.memberProperties
  */
 class JSBridge(private val v8Runtime: V8Runtime) {
 
-    fun createJSObject(value: Any): V8Value {
+    fun createJSObject(value: Any?): V8Value {
+        if (value == null) {
+            return v8Runtime.createV8ValueNull()
+        }
         val handler = v8Runtime.createV8ValueObject()
         handler.bindFunction(JavetCallbackContext(
             "ownKeys",
@@ -60,9 +63,6 @@ class JSBridge(private val v8Runtime: V8Runtime) {
                 val property = value::class.memberProperties.find { it.name == prop }
                 if (property != null) {
                     val propValue = (property as KProperty1<Any, *>).get(value)
-                    if (propValue == null) {
-                        return@NoThisAndResult v8Runtime.createV8ValueUndefined()
-                    }
                     return@NoThisAndResult createJSObject(propValue)
                 }
                 v8Runtime.createV8ValueUndefined()
