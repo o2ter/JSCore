@@ -241,13 +241,6 @@ class JavaScriptEngine(
     private lateinit var timerNamespace: V8ValueObject // Timer namespace for proper cleanup
     
     /**
-     * Public JSBridge for easy Kotlin-JavaScript interop
-     * Users can use this to create custom native bridges
-     */
-    lateinit var jsBridge: JSBridge
-        private set
-    
-    /**
      * Public logger for accessing the platform's logging functionality
      * Provides access to the same logger used internally by the engine
      */
@@ -393,7 +386,6 @@ class JavaScriptEngine(
             }
             
             // Initialize everything else
-            jsBridge = JSBridge(v8Runtime)
             crypto = Crypto(v8Runtime, platformContext)
             fileSystem = FileSystem(v8Runtime, platformContext)
             deviceInfo = DeviceInfo(v8Runtime, platformContext)
@@ -703,7 +695,7 @@ class JavaScriptEngine(
     fun set(name: String, value: Any?) {
         executeOnJSThread {
             v8Runtime.globalObject.use { globalObject ->
-                val jsValue = jsBridge.createJSObject(value)
+                val jsValue = v8Runtime.createJSObject(value)
                 globalObject.set(name, jsValue)
             }
         }

@@ -64,8 +64,7 @@ println(result) // 6.283185307179586
 - [Performance](docs/guides/swiftjs/performance.md) - Optimization and best practices
 
 **KotlinJS (JVM/Android)**
-- [Fundamentals](docs/guides/kotlinjs/fundamentals.md) - JSBridge system, memory management, platform contexts
-- [JSBridge API](docs/guides/kotlinjs/jsbridge-api.md) - Native bridge creation
+- [Fundamentals](docs/guides/kotlinjs/fundamentals.md) - Memory management, platform contexts
 - [Platform Contexts](docs/guides/kotlinjs/platform-contexts.md) - JVM vs Android differences
 - [JavaScript Environment](docs/guides/kotlinjs/javascript-environment.md) - V8 capabilities
 - [Native Bridges](docs/guides/kotlinjs/native-bridges.md) - Creating custom APIs
@@ -262,64 +261,6 @@ js.evaluateScript("var jsResult = { numbers: [1, 2, 3], text: 'Hello' }")
 let jsObject = js.globalObject["jsResult"]
 let numbers = jsObject["numbers"] // SwiftJS.Value representing the array
 let text = jsObject["text"].toString() // "Hello"
-```
-
-### KotlinJS - Creating Native APIs with JSBridge
-
-The JSBridge API makes it easy to expose Kotlin functionality to JavaScript:
-
-```kotlin
-import com.o2ter.jscore.JavaScriptEngine
-import com.o2ter.jscore.jvm.JvmPlatformContext
-
-class MathService {
-    private val platformContext = JvmPlatformContext("MathService")
-    private val jsEngine = JavaScriptEngine(platformContext)
-    
-    init {
-        val bridge = jsEngine.jsBridge
-        
-        // Create a native API object
-        val mathAPI = bridge.createObject {
-            "PI" to Math.PI
-            
-            "add".func2 { a, b ->
-                val numA = (a as? Number)?.toDouble() ?: 0.0
-                val numB = (b as? Number)?.toDouble() ?: 0.0
-                numA + numB
-            }
-            
-            "sqrt".func1 { num ->
-                val n = (num as? Number)?.toDouble() ?: 0.0
-                kotlin.math.sqrt(n)
-            }
-        }
-        
-        // Expose to JavaScript
-        bridge.setGlobal("MathAPI", mathAPI)
-    }
-    
-    fun calculate(expression: String): Any? {
-        return jsEngine.execute(expression)
-    }
-    
-    fun cleanup() {
-        jsEngine.close()
-    }
-}
-
-fun main() {
-    val mathService = MathService()
-    
-    // Now use it in JavaScript
-    val result = mathService.calculate("""
-        MathAPI.add(MathAPI.sqrt(16), MathAPI.PI)
-    """)
-    println("Result: $result") // Result: 7.141592653589793
-    
-    // Clean up when done
-    mathService.cleanup()
-}
 ```
 
 ### SwiftJS - Native APIs
@@ -619,7 +560,6 @@ The project uses a focused testing approach:
 
 ## Documentation
 
-- **[JSBridge API Guide](docs/JSBridge.md)**: Complete guide for creating native bridges between Kotlin and JavaScript (KotlinJS)
 - **[JavaScript Environment Analysis](docs/JavaScriptEnvironment.md)**: Detailed analysis of native Javet V8 environment and available APIs (KotlinJS)
 - **[SwiftJS API Reference](docs/API.md)**: Complete SwiftJS JavaScript API documentation
 - **[Performance Guide](docs/Performance.md)**: Benchmarks and optimization tips for both engines

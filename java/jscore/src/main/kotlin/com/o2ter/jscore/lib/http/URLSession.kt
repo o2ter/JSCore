@@ -32,7 +32,6 @@ import com.caoccao.javet.interop.callback.JavetCallbackType
 import com.caoccao.javet.values.V8Value
 import com.caoccao.javet.values.reference.V8ValueFunction
 import com.caoccao.javet.values.reference.V8ValueObject
-import com.o2ter.jscore.JSBridge
 import com.o2ter.jscore.JavaScriptEngine
 import com.o2ter.jscore.invokeFunction
 import com.o2ter.jscore.PlatformContext
@@ -48,7 +47,6 @@ import java.net.URL
 class URLSession(
     private val v8Runtime: V8Runtime,
     private val platformContext: PlatformContext,
-    private val jsBridge: JSBridge,
     private val engine: JavaScriptEngine
 ) {
     // Store native URLRequest objects by ID to avoid serialization issues
@@ -60,8 +58,7 @@ class URLSession(
     
     companion object {
         fun register(engine: JavaScriptEngine, v8Runtime: V8Runtime, platformContext: PlatformContext, nativeBridge: V8ValueObject) {
-            val jsBridge = JSBridge(v8Runtime)
-            val session = URLSession(v8Runtime, platformContext, jsBridge, engine)
+            val session = URLSession(v8Runtime, platformContext, engine)
             
             // Create URLSession bridge object
             val urlSessionBridge = v8Runtime.createV8ValueObject()

@@ -17,7 +17,7 @@ SwiftJS is a JavaScript runtime built on Apple's JavaScriptCore, providing a bri
 KotlinJS is a JavaScript runtime built on Javet (Java + V8), providing a bridge between Kotlin and JavaScript with Node.js-like APIs:
 
 - **Core Layer** (`java/jscore/`): JavaScript execution engine and value marshaling using Javet V8
-- **Library Layer** (`java/jscore/`): Native Kotlin implementations of JS APIs via JSBridge
+- **Library Layer** (`java/jscore/`): Native Kotlin implementations of JS APIs
 - **Platform Layer** (`java/jscore-android/`, `java/jscore-jvm/`): Platform-specific context implementations
 - **Polyfill Layer** (`resources/polyfill.js`): Shared JavaScript polyfills for missing APIs
 
@@ -131,24 +131,6 @@ let result = object.invokeMethod("methodName", withArguments: [])
 - Implements `AutoCloseable` for proper resource management
 - **Long-lived pattern (most apps)**: Create once, reuse throughout application lifetime
 - **Short-lived pattern (CLI tools)**: Use `.use {}` block for automatic cleanup
-
-#### JSBridge Value Marshaling
-```kotlin
-// Use JSBridge for creating JavaScript objects
-val bridge = engine.jsBridge
-val mathAPI = bridge.createObject {
-    "PI" to Math.PI
-    
-    "add".func2 { a, b ->
-        val numA = (a as? Number)?.toDouble() ?: 0.0
-        val numB = (b as? Number)?.toDouble() ?: 0.0
-        numA + numB
-    }
-}
-
-// Expose to JavaScript global scope
-bridge.setGlobal("MathAPI", mathAPI)
-```
 
 #### **CRITICAL:** V8ValueObject Property Binding Behavior
 **V8ValueObject properties created with `.set()` are read-only by default and do not sync with Kotlin object fields.**
