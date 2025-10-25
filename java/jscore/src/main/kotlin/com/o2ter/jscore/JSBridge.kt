@@ -119,7 +119,24 @@ class JSBridge(private val v8Runtime: V8Runtime) {
                         IJavetDirectCallable.NoThisAndResult<Exception> { v8Values ->
                             // TODO: Implement the logic to convert V8Value arguments to Kotlin types
                             val args = arrayOfNulls<Any>(method.parameters.size)
-                            
+                            v8Values.forEachIndexed { index, entry ->
+                                if (index > 0 && index <= method.parameters.size) { // Skip the first argument which is 'this'
+                                    val param = method.parameters[index - 1]
+                                    if (param.isOptional && entry.isNullOrUndefined) {
+                                        args[index - 1] = null
+                                    } else {
+                                        args[index - 1] = when (param.type.classifier) {
+                                            Boolean::class -> entry.asBoolean()
+                                            Int::class -> entry.asInt()
+                                            Long::class -> entry.asLong()
+                                            Float::class -> entry.asDouble().toFloat()
+                                            Double::class -> entry.asDouble()
+                                            String::class -> entry.toString()
+                                            else -> null // TODO: Handle more complex types
+                                        }
+                                    }
+                                }
+                            }
                             v8Runtime.createV8ValueUndefined()
                         }
                     ))
