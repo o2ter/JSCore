@@ -41,11 +41,9 @@ class JSBridgeTests {
         val engine = JavaScriptEngine(JvmPlatformContext("TestApp"))
         val jsBridge = getJSBridge(engine)
         try {
-            // createJSObject for list returns undefined (not implemented), so test via engine.set
             val list = listOf(10, 20, 30)
             engine.set("kList", list)
             val result = engine.execute("Array.isArray(kList) ? kList.slice() : null")
-            // Should be null since list proxy is not implemented, but test for no crash
             assertTrue(result == list)
         } finally {
             engine.close()
