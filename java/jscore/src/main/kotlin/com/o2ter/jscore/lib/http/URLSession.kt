@@ -32,6 +32,7 @@ import com.caoccao.javet.interop.callback.JavetCallbackType
 import com.caoccao.javet.values.V8Value
 import com.caoccao.javet.values.reference.V8ValueFunction
 import com.caoccao.javet.values.reference.V8ValueObject
+import com.caoccao.javet.values.reference.V8ValuePromise
 import com.o2ter.jscore.JavaScriptEngine
 import com.o2ter.jscore.invokeFunction
 import com.o2ter.jscore.PlatformContext
@@ -158,7 +159,7 @@ class URLSession(
         return bridge
     }
     
-    private fun httpRequestWithRequest(v8Values: Array<out com.caoccao.javet.values.V8Value>): com.caoccao.javet.values.reference.V8ValuePromise {
+    private fun httpRequestWithRequest(v8Values: Array<out com.caoccao.javet.values.V8Value>): V8ValuePromise {
         if (v8Values.isEmpty()) {
             throw IllegalArgumentException("httpRequestWithRequest requires at least 1 argument")
         }
