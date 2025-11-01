@@ -62,7 +62,9 @@ import java.util.concurrent.Callable
  * @return The result of the function invocation
  */
 internal fun V8Runtime.invokeFunction(code: String, vararg args: Any?): V8Value {
-    return this.getExecutor(code).execute<V8ValueFunction>().call(null, *args)
+    return this.getExecutor(code).execute<V8ValueFunction>().use { fn ->
+        fn.call(null, *args)
+    }
 }
 
 /**
@@ -495,6 +497,7 @@ class JavaScriptEngine(
         """
         
         // Get the timer namespace object directly and store it for cleanup
+        // Don't use .use {} here because we need to keep the reference for the engine lifetime
         timerNamespace = v8Runtime.getExecutor(timerNamespaceCode).execute<V8ValueObject>()
         
         // Timer bridges - setTimeout
@@ -503,7 +506,7 @@ class JavaScriptEngine(
             
             // Store callback using the timer namespace directly
             if (v8Values.isNotEmpty() && v8Values[0] is V8ValueFunction) {
-                timerNamespace.invoke<V8Value>("setCallback", id, v8Values[0])
+                timerNamespace.invoke<V8Value>("setCallback", id, v8Values[0]).close()
             }
             
             val delay = if (v8Values.size > 1) {
@@ -518,7 +521,7 @@ class JavaScriptEngine(
                 override fun run() {
                     try {
                         // Execute callback using the timer namespace directly
-                        timerNamespace.invoke<V8Value>("executeCallback", id)
+                        timerNamespace.invoke<V8Value>("executeCallback", id).close()
                     } catch (e: Exception) {
                         platformContext.logger.error("JSCore", "Timer execution failed: ${e.message}")
                     } finally {
@@ -539,7 +542,7 @@ class JavaScriptEngine(
                 (v8Values[0] as V8ValueInteger).value
             } else 0
             activeTimers.remove(id)?.cancel()
-            timerNamespace.invoke<V8Value>("clearCallback", id)
+            timerNamespace.invoke<V8Value>("clearCallback", id).close()
         }
         nativeBridge.bindFunction(JavetCallbackContext("clearTimeout", JavetCallbackType.DirectCallNoThisAndNoResult, clearTimeoutCallback))
         
@@ -549,7 +552,7 @@ class JavaScriptEngine(
             
             // Store callback using the timer namespace directly
             if (v8Values.isNotEmpty() && v8Values[0] is V8ValueFunction) {
-                timerNamespace.invoke<V8Value>("setCallback", id, v8Values[0])
+                timerNamespace.invoke<V8Value>("setCallback", id, v8Values[0]).close()
             }
             
             val delay = if (v8Values.size > 1) {
@@ -564,7 +567,7 @@ class JavaScriptEngine(
                 override fun run() {
                     try {
                         // For intervals, callback stays in the registry
-                        timerNamespace.invoke<V8Value>("executeIntervalCallback", id)
+                        timerNamespace.invoke<V8Value>("executeIntervalCallback", id).close()
                     } catch (e: Exception) {
                         platformContext.logger.error("JSCore", "Interval execution failed: ${e.message}")
                     }
@@ -583,7 +586,7 @@ class JavaScriptEngine(
                 (v8Values[0] as V8ValueInteger).value
             } else 0
             activeTimers.remove(id)?.cancel()
-            timerNamespace.invoke<V8Value>("clearCallback", id)
+            timerNamespace.invoke<V8Value>("clearCallback", id).close()
         }
         nativeBridge.bindFunction(JavetCallbackContext("clearInterval", JavetCallbackType.DirectCallNoThisAndNoResult, clearIntervalCallback))
         
@@ -660,8 +663,9 @@ class JavaScriptEngine(
     fun execute(code: String): Any? {
         return executeOnJSThread {
             try {
-                val result = v8Runtime.getExecutor(code).execute<V8Value>()
-                result.toNative()
+                v8Runtime.getExecutor(code).execute<V8Value>().use { result ->
+                    result.toNative()
+                }
             } catch (e: Exception) {
                 platformContext.logger.error("JavaScriptEngine", "Execution failed: ${e.message}")
                 throw RuntimeException("JavaScript execution failed", e)
@@ -683,8 +687,9 @@ class JavaScriptEngine(
     fun invokeFunction(code: String, vararg args: Any?): Any? {
         return executeOnJSThread {
             try {
-                val result = v8Runtime.invokeFunction(code, *args)
-                result.toNative()
+                v8Runtime.invokeFunction(code, *args).use { result ->
+                    result.toNative()
+                }
             } catch (e: Exception) {
                 platformContext.logger.error("JavaScriptEngine", "Execution failed: ${e.message}")
                 throw RuntimeException("JavaScript execution failed", e)
@@ -695,8 +700,9 @@ class JavaScriptEngine(
     fun set(name: String, value: Any?) {
         executeOnJSThread {
             v8Runtime.globalObject.use { globalObject ->
-                val jsValue = v8Runtime.createJSObject(value)
-                globalObject.set(name, jsValue)
+                v8Runtime.createJSObject(value).use { jsValue ->
+                    globalObject.set(name, jsValue)
+                }
             }
         }
     }
@@ -704,8 +710,9 @@ class JavaScriptEngine(
     fun get(name: String): Any? {
         return executeOnJSThread {
             v8Runtime.globalObject.use { globalObject ->
-                val result = globalObject.get<V8Value>(name)
-                result.toNative()
+                globalObject.get<V8Value>(name).use { result ->
+                    result.toNative()
+                }
             }
         }
     }
@@ -763,9 +770,8 @@ class JavaScriptEngine(
             // Clear all timer callbacks from the namespace to prevent memory leaks
             if (::timerNamespace.isInitialized && !timerNamespace.isClosed) {
                 try {
-                    val callbacks = timerNamespace.get("callbacks") as? V8ValueObject
-                    if (callbacks != null) {
-                        callbacks.invoke<V8Value>("clear", *emptyArray<Any>())
+                    timerNamespace.get<V8ValueObject>("callbacks")?.use { callbacks ->
+                        callbacks.invoke<V8Value>("clear", *emptyArray<Any>()).close()
                     }
                 } catch (e: Exception) {
                     // Ignore cleanup errors - engine is shutting down
@@ -791,10 +797,7 @@ class JavaScriptEngine(
                                             "processInfo", "processControl", "URLSession")
                     moduleNames.forEach { moduleName ->
                         try {
-                            val moduleObj = nativeBridge.get<V8ValueObject>(moduleName)
-                            if (moduleObj != null && !moduleObj.isClosed) {
-                                moduleObj.close()
-                            }
+                            nativeBridge.get<V8ValueObject>(moduleName)?.close()
                         } catch (e: Exception) {
                             // Ignore errors - object might not exist or already closed
                         }

@@ -489,6 +489,7 @@ try {
 - **"Runtime is already closed"** in KotlinJS: Engine may still be running JavaScript successfully after this error
 - **"Type error"** in SwiftJS: Often indicates lost `this` context in method calls, not actual type issues
 - **Memory errors**: May indicate threading violations rather than actual memory problems
+- **Memory warnings**: V8 object leak warnings in KotlinJS tests require immediate investigation (see Memory Warning Monitoring section)
 - **Network timeouts**: Could be caused by blocking operations on wrong threads
 
 **Root Cause Investigation Process:**
@@ -592,6 +593,94 @@ console.log("[DEBUG-MEMORY] Object created:", object.constructor.name);
   - Create test files in `.temp/` directory
   - Always wait for test completion before analyzing results
 
+#### **CRITICAL:** Memory Warning Monitoring and Debugging
+**Always check for memory warnings during test execution and debugging:**
+
+**For KotlinJS/Javet V8 Tests:**
+- **Monitor V8 object warnings**: Look for "警告: X V8 object(s) not recycled" in test output
+- **Check callback context leaks**: Look for "警告: X V8 callback context object(s) not recycled"
+- **Count total warnings**: Use `grep -E "警告.*V8 object" | wc -l` to track progress
+- **Identify leaking tests**: Use `grep -B 5 "警告.*V8 object"` to find which tests leak
+
+**Common V8 Memory Leak Patterns:**
+```kotlin
+// ❌ WRONG - V8Value created but never closed
+val result = v8Runtime.createV8ValueObject()
+result.set("key", "value")
+// Memory leak!
+
+// ✅ CORRECT - Use .use {} for automatic cleanup
+v8Runtime.createV8ValueObject().use { result ->
+    result.set("key", "value")
+    // Automatically closed
+}
+
+// ❌ WRONG - Intermediate objects in conversion leak
+val array = v8Runtime.createV8ValueArray()
+for (i in 0 until jsArray.length) {
+    val element = jsArray.get(i)  // Created but never closed!
+    array.push(element.toNative())
+}
+
+// ✅ CORRECT - Close intermediate objects
+val array = v8Runtime.createV8ValueArray()
+for (i in 0 until jsArray.length) {
+    jsArray.get(i).use { element ->
+        array.push(element.toNative())
+    }
+}
+
+// ❌ WRONG - Function invoke result not closed
+timerNamespace.invoke<V8Value>("setTimeout", callback, delay)
+// Return value leaks!
+
+// ✅ CORRECT - Close invoke results
+timerNamespace.invoke<V8Value>("setTimeout", callback, delay).close()
+```
+
+**Memory Warning Investigation Process:**
+1. **Baseline measurement**: Run tests and count total warnings
+2. **Isolate leaking tests**: Use grep to identify specific test classes
+3. **Review V8Value lifecycle**: Check all V8Value creation points
+4. **Apply .use {} pattern**: Wrap V8Value usage in .use {} blocks
+5. **Verify fix**: Re-run tests and confirm warning reduction
+6. **Target zero warnings**: Continue until all V8 object leaks eliminated
+
+**Memory Warning Success Criteria:**
+- **Zero tolerance for V8 object leaks**: All tests should pass without V8 object warnings
+- **Track progress**: Document warning count before/after fixes (e.g., "reduced from 200+ to 19")
+- **Test-specific validation**: Run individual test classes to verify zero warnings
+- **Don't suppress warnings**: Fix the root cause, never disable warning output
+
+**Example Memory Leak Investigation:**
+```bash
+# 1. Count total warnings
+./gradlew :jscore-jvm:test 2>&1 | grep -E "警告.*V8 object" | wc -l
+# Output: 200+ warnings
+
+# 2. Identify leaking tests
+./gradlew :jscore-jvm:test 2>&1 | grep -B 5 "警告.*V8 object" | grep "Tests >"
+# Output: FetchAPITests, XMLHttpRequestTests show 2-3 objects each
+
+# 3. Fix leaks (apply .use {} pattern)
+# [Apply fixes to bridge.kt and JavaScriptEngine.kt]
+
+# 4. Verify specific test class is clean
+./gradlew :jscore-jvm:test --tests "com.o2ter.jscore.webapis.CryptoTests"
+# Output: All tests pass, 0 warnings ✓
+
+# 5. Re-count total warnings
+./gradlew :jscore-jvm:test 2>&1 | grep -E "警告.*V8 object" | wc -l
+# Output: 19 warnings (90%+ improvement)
+```
+
+**When Fixing Memory Leaks:**
+- **Don't guess**: Use grep to identify exact source of warnings
+- **Fix systematically**: Apply .use {} pattern to all V8Value creation points
+- **Test incrementally**: Verify fixes on small test suites first (e.g., CryptoTests)
+- **Document progress**: Track warning count reduction as validation metric
+- **Aim for zero**: Continue until no V8 object warnings remain
+
 #### Task Status Verification
 - If task appears stuck, ask user to confirm completion status
 - **Never assume** task completed without explicit confirmation
@@ -622,6 +711,13 @@ console.log("[DEBUG-MEMORY] Object created:", object.constructor.name);
 13. **❌ NEVER mix Javet V8 API patterns with other JavaScript engine patterns**
 14. **❌ NEVER ignore ICU data requirements**
 15. **❌ NEVER create circular module dependencies**
+
+#### KotlinJS Memory Management Mistakes
+16. **❌ NEVER ignore V8 object memory leak warnings in test output**
+17. **❌ NEVER suppress memory warnings instead of fixing root cause**
+18. **❌ NEVER create V8Values without proper .use {} or .close() lifecycle**
+19. **❌ NEVER assume invoke() results are automatically cleaned up**
+20. **❌ NEVER leave intermediate V8Values unclosed in conversions**
 
 #### Key Lessons
 - **KISS Principle**: Keep implementations as simple as possible

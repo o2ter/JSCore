@@ -51,7 +51,9 @@ fun V8Value.toNative(): Any? {
             // Convert JavaScript array to Kotlin List
             val list = mutableListOf<Any?>()
             for (i in 0 until this.length) {
-                list.add(this.get<V8Value>(i).toNative())
+                this.get<V8Value>(i).use { element ->
+                    list.add(element.toNative())
+                }
             }
             list
         }
@@ -71,10 +73,13 @@ fun V8Value.toNative(): Any? {
             }
             // Convert JavaScript object to Kotlin Map
             val map = mutableMapOf<String, Any?>()
-            val propertyNames = this.ownPropertyNames
-            for (i in 0 until propertyNames.length) {
-                val key = propertyNames.getString(i)
-                map[key] = this.get<V8Value>(key).toNative()
+            this.ownPropertyNames.use { propertyNames ->
+                for (i in 0 until propertyNames.length) {
+                    val key = propertyNames.getString(i)
+                    this.get<V8Value>(key).use { value ->
+                        map[key] = value.toNative()
+                    }
+                }
             }
             map
         }
@@ -169,7 +174,11 @@ private fun V8Runtime.createListProxy(value: List<*>): V8Value {
         }
     ))
     
-    return this.invokeFunction("(function(handler) { return new Proxy([], handler); })".trimIndent(), handler)
+    return try {
+        this.invokeFunction("(function(handler) { return new Proxy([], handler); })".trimIndent(), handler)
+    } finally {
+        handler.close()
+    }
 }
 
 private fun V8Runtime.createMapProxy(value: Map<*, *>): V8Value {
@@ -193,7 +202,11 @@ private fun V8Runtime.createMapProxy(value: Map<*, *>): V8Value {
             createJSObject(value[prop])
         }
     ))
-    return this.invokeFunction("(function(handler) { return new Proxy({}, handler); })".trimIndent(), handler)
+    return try {
+        this.invokeFunction("(function(handler) { return new Proxy({}, handler); })".trimIndent(), handler)
+    } finally {
+        handler.close()
+    }
 }
 
 private fun V8Runtime.createProxy(value: Any): V8Value {
@@ -229,7 +242,11 @@ private fun V8Runtime.createProxy(value: Any): V8Value {
             this.createV8ValueUndefined()
         }
     ))
-    return this.invokeFunction("(function(handler) { return new Proxy({}, handler); })".trimIndent(), handler)
+    return try {
+        this.invokeFunction("(function(handler) { return new Proxy({}, handler); })".trimIndent(), handler)
+    } finally {
+        handler.close()
+    }
 }
 
 @OptIn(ExperimentalReflectionOnLambdas::class)
@@ -317,7 +334,15 @@ fun V8Runtime.createJSObject(
     
     // Set static properties
     properties.forEach { (key, value) ->
-        obj.set(key, createJSObject(value))
+        val jsValue = createJSObject(value)
+        try {
+            obj.set(key, jsValue)
+        } finally {
+            // Close primitive values, but keep references for non-primitives
+            if (jsValue !is V8ValueObject && jsValue !is com.caoccao.javet.values.reference.V8ValueArray) {
+                jsValue.close()
+            }
+        }
     }
     
     // Bind methods
