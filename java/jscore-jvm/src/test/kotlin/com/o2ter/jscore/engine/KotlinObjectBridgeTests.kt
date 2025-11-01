@@ -407,4 +407,148 @@ class KotlinObjectBridgeTests {
             assertEquals(true, map["personAdult"])
         }
     }
+
+    @Test
+    fun testMutablePropertySet() {
+        val context = JvmPlatformContext("TestApp")
+        JavaScriptEngine(context).use { engine ->
+            val config = MutableConfig()
+            
+            val result = engine.execute(
+                mapOf("config" to config),
+                """
+                ({
+                    originalName: config.name,
+                    originalTimeout: config.timeout,
+                    setNameResult: (function() {
+                        config.name = "updated";
+                        return true;
+                    })(),
+                    newName: config.name,
+                    setTimeoutResult: (function() {
+                        config.timeout = 60;
+                        return true;
+                    })(),
+                    newTimeout: config.timeout,
+                    getNameMethod: config.getName(),
+                    getTimeoutMethod: config.getTimeout()
+                })
+                """
+            )
+            
+            assertTrue(result is Map<*, *>)
+            val map = result as Map<*, *>
+            assertEquals("default", map["originalName"])
+            assertEquals(30, map["originalTimeout"])
+            assertEquals(true, map["setNameResult"])
+            assertEquals("updated", map["newName"])
+            assertEquals(true, map["setTimeoutResult"])
+            assertEquals(60, map["newTimeout"])
+            assertEquals("updated", map["getNameMethod"])
+            assertEquals(60, map["getTimeoutMethod"])
+            
+            // Verify the actual Kotlin object was modified
+            assertEquals("updated", config.name)
+            assertEquals(60, config.timeout)
+        }
+    }
+
+    @Test
+    fun testImmutablePropertySet() {
+        val context = JvmPlatformContext("TestApp")
+        JavaScriptEngine(context).use { engine ->
+            val config = MutableConfig()
+            
+            val result = engine.execute(
+                mapOf("config" to config),
+                """
+                ({
+                    originalValue: config.readOnly,
+                    setResult: (function() {
+                        try {
+                            config.readOnly = "modified";
+                            return true;
+                        } catch (e) {
+                            return false;
+                        }
+                    })(),
+                    finalValue: config.readOnly
+                })
+                """
+            )
+            
+            assertTrue(result is Map<*, *>)
+            val map = result as Map<*, *>
+            assertEquals("immutable", map["originalValue"])
+            assertEquals(false, map["setResult"]) // Setting should fail
+            assertEquals("immutable", map["finalValue"]) // Value should be unchanged
+        }
+    }
+
+    @Test
+    fun testDeleteProperty() {
+        val context = JvmPlatformContext("TestApp")
+        JavaScriptEngine(context).use { engine ->
+            val person = Person("Bob", 25)
+            
+            val result = engine.execute(
+                mapOf("person" to person),
+                """
+                ({
+                    hasNameBefore: 'name' in person,
+                    deleteResult: delete person.name,
+                    hasNameAfter: 'name' in person,
+                    nameValue: person.name
+                })
+                """
+            )
+            
+            assertTrue(result is Map<*, *>)
+            val map = result as Map<*, *>
+            assertEquals(true, map["hasNameBefore"])
+            assertEquals(false, map["deleteResult"]) // Delete should fail
+            assertEquals(true, map["hasNameAfter"]) // Property should still exist
+            assertEquals("Bob", map["nameValue"]) // Value should be unchanged
+        }
+    }
+
+    @Test
+    fun testPropertyWritableDescriptor() {
+        val context = JvmPlatformContext("TestApp")
+        JavaScriptEngine(context).use { engine ->
+            val config = MutableConfig()
+            
+            val result = engine.execute(
+                mapOf("config" to config),
+                """
+                ({
+                    nameDescriptor: Object.getOwnPropertyDescriptor(config, 'name'),
+                    readOnlyDescriptor: Object.getOwnPropertyDescriptor(config, 'readOnly'),
+                    methodDescriptor: Object.getOwnPropertyDescriptor(config, 'getName')
+                })
+                """
+            )
+            
+            assertTrue(result is Map<*, *>)
+            val map = result as Map<*, *>
+            
+            val nameDesc = map["nameDescriptor"] as? Map<*, *>
+            assertNotNull(nameDesc)
+            assertEquals(true, nameDesc["writable"]) // Mutable property is writable
+            assertEquals(true, nameDesc["enumerable"])
+            assertEquals(true, nameDesc["configurable"])
+            
+            val readOnlyDesc = map["readOnlyDescriptor"] as? Map<*, *>
+            assertNotNull(readOnlyDesc)
+            assertEquals(false, readOnlyDesc["writable"]) // Immutable property is not writable
+            assertEquals(true, readOnlyDesc["enumerable"])
+            assertEquals(true, readOnlyDesc["configurable"])
+            
+            val methodDesc = map["methodDescriptor"] as? Map<*, *>
+            assertNotNull(methodDesc)
+            assertEquals(false, methodDesc["writable"]) // Methods are not writable
+            assertEquals(true, methodDesc["enumerable"])
+            assertEquals(true, methodDesc["configurable"])
+        }
+    }
 }
