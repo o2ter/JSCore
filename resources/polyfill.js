@@ -2124,8 +2124,13 @@
             this.#method = method.toUpperCase();
             this.#url = url;
             this.#async = async;
-            this.#request = new __NATIVE_BRIDGE__.URLRequest(url);
-            this.#request.httpMethod = this.#method;
+            this.#request = {
+                url: url,
+                httpMethod: this.#method,
+                headers: {},
+                httpBody: null,
+                timeoutInterval: 60.0
+            };
             this.#setReadyState(XMLHttpRequest.OPENED);
         }
 
@@ -2134,7 +2139,7 @@
                 throw new Error('InvalidStateError: The object is in an invalid state.');
             }
             this.#requestHeaders[name] = value;
-            this.#request.setValueForHTTPHeaderField(value, name);
+            this.#request.headers[name] = value;
         }
 
         send(body = null) {
@@ -2148,7 +2153,7 @@
 
             const session = __NATIVE_BRIDGE__.URLSession.shared();
 
-            // Set timeout on the URLRequest if specified
+            // Set timeout on the request if specified
             if (this.timeout > 0) {
                 this.#request.timeoutInterval = this.timeout / 1000; // Convert ms to seconds
             }
@@ -3030,8 +3035,13 @@
             throw abortError;
         }
 
-        const urlRequest = new __NATIVE_BRIDGE__.URLRequest(request.url);
-        urlRequest.httpMethod = request.method;
+        const urlRequest = {
+            url: request.url,
+            httpMethod: request.method,
+            headers: {},
+            httpBody: null,
+            timeoutInterval: 30.0
+        };
 
         // Set timeout based on AbortSignal.timeout() or default
         if (request.signal && request.signal[SYMBOLS.abortSignalTimeoutMs]) {
@@ -3044,7 +3054,7 @@
 
         // Set headers
         for (const [key, value] of request.headers) {
-            urlRequest.setValueForHTTPHeaderField(value, key);
+            urlRequest.headers[key] = value;
         }
 
         // Set body and determine if we need streaming
@@ -3086,42 +3096,30 @@
                     // Set Content-Type header with the boundary from the stream
                     const boundary = formStream[SYMBOLS.formDataBoundary];
                     if (boundary) {
-                        urlRequest.setValueForHTTPHeaderField(
-                            `multipart/form-data; boundary=${boundary}`,
-                            'Content-Type'
-                        );
+                        urlRequest.headers['Content-Type'] = `multipart/form-data; boundary=${boundary}`;
                     }
                 } else {
                     // Use traditional multipart conversion for FormData without streams
                     const multipart = request.body[SYMBOLS.formDataToMultipart]();
                     urlRequest.httpBody = multipart.body;
-                    urlRequest.setValueForHTTPHeaderField(
-                        `multipart/form-data; boundary=${multipart.boundary}`,
-                        'Content-Type'
-                    );
+                    urlRequest.headers['Content-Type'] = `multipart/form-data; boundary=${multipart.boundary}`;
                 }
             } else if (request[SYMBOLS.requestOriginalBody] instanceof URLSearchParams) {
                 urlRequest.httpBody = request[SYMBOLS.requestOriginalBody].toString();
                 if (!request.headers.has('Content-Type')) {
-                    urlRequest.setValueForHTTPHeaderField(
-                        'application/x-www-form-urlencoded',
-                        'Content-Type'
-                    );
+                    urlRequest.headers['Content-Type'] = 'application/x-www-form-urlencoded';
                 }
             } else if (request.body instanceof URLSearchParams) {
                 urlRequest.httpBody = request.body.toString();
                 if (!request.headers.has('Content-Type')) {
-                    urlRequest.setValueForHTTPHeaderField(
-                        'application/x-www-form-urlencoded',
-                        'Content-Type'
-                    );
+                    urlRequest.headers['Content-Type'] = 'application/x-www-form-urlencoded';
                 }
             } else if (request.body instanceof Blob) {
                 // Stream Blob bodies to native. Wrap the blob.stream() so the
                 // produced stream yields Uint8Array chunks (native bridge expects typed arrays).
                 const blob = request.body;
                 if (!request.headers.has('Content-Type') && blob.type) {
-                    urlRequest.setValueForHTTPHeaderField(blob.type, 'Content-Type');
+                    urlRequest.headers['Content-Type'] = blob.type;
                 }
 
                 // Wrap the blob's native stream and copy each chunk before enqueueing

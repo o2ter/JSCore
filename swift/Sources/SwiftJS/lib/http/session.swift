@@ -31,7 +31,7 @@ import NIOHTTP1
     func shared() -> JSURLSession
     
     func httpRequestWithRequest(
-        _ request: JSURLRequest,
+        _ requestConfig: JSValue,
         _ bodyStream: JSValue,
         _ progressHandler: JSValue
     ) -> JSValue?
@@ -51,9 +51,9 @@ import NIOHTTP1
         return self
     }
 
-    /// Unified HTTP request method using JSURLRequest
+    /// Unified HTTP request method using plain JavaScript request config object
     func httpRequestWithRequest(
-        _ request: JSURLRequest,
+        _ requestConfig: JSValue,
         _ bodyStream: JSValue,
         _ progressHandler: JSValue
     ) -> JSValue? {
@@ -91,21 +91,19 @@ import NIOHTTP1
 
                     if !bodyStream.isNull && !bodyStream.isUndefined {
                         // Upload with body stream
-                        request.httpBody = bodyStream
-
                         // Create AsyncStream from JavaScript stream
                         let streamReader = JSStreamReader(stream: bodyStream, context: context)
                         let dataStream = streamReader.createAsyncStream()
 
                         responseHead = try await NIOHTTPClient.shared.executeStreamingUpload(
-                            request,
+                            requestConfig,
                             bodyStream: dataStream,
                             streamController: streamController
                         )
                     } else {
                         // Regular request (GET/POST without streaming body)
                         responseHead = try await NIOHTTPClient.shared.executeStreamingRequest(
-                            request,
+                            requestConfig,
                             streamController: streamController
                         )
                     }
@@ -123,10 +121,13 @@ import NIOHTTP1
                         }
                     }
 
+                    // Extract URL from request config
+                    let urlString = requestConfig.forProperty("url").toString() ?? ""
+
                     let jsResponse = JSURLResponse(
                         statusCode: Int(responseHead.status.code),
                         headers: headersDict,
-                        url: request.url
+                        url: urlString
                     )
 
                     // resolve with JSURLResponse directly

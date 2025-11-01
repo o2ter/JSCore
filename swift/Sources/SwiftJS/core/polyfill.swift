@@ -411,8 +411,7 @@ extension SwiftJS {
                     "bundleInfo": .init(JSBundleInfo.main, in: self),
                     "FileSystem": .init(
                         JSFileSystem(context: self.context, runloop: self.runloop), in: self),
-                    "URLSession": .init(JSURLSession(context: self.context), in: self),
-                    "URLRequest": .init(JSURLRequest.self, in: self)
+                    "URLSession": .init(JSURLSession(context: self.context), in: self)
                 ]
             ])
         }

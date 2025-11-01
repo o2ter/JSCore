@@ -101,29 +101,34 @@ final class NIOHTTPClient: @unchecked Sendable {
     
     /// Execute a streaming HTTP request
     func executeStreamingRequest(
-        _ request: JSURLRequest,
+        _ requestConfig: JSValue,
         streamController: StreamController
     ) async throws -> HTTPResponseHead {
         
-        // Convert JSURLRequest to HTTPClient.Request
-        guard let urlString = request.url else {
+        // Extract request properties from plain JavaScript object
+        guard let urlString = requestConfig.forProperty("url").toString(), !urlString.isEmpty else {
             throw HTTPClientError.invalidURL
         }
         
         var httpRequest = HTTPClientRequest(url: urlString)
-        httpRequest.method = HTTPMethod(rawValue: request.httpMethod.uppercased())
         
-        // Add headers
-        for (key, value) in request.allHTTPHeaderFields {
-            httpRequest.headers.add(name: key, value: value)
+        let httpMethod = requestConfig.forProperty("httpMethod").toString() ?? "GET"
+        httpRequest.method = HTTPMethod(rawValue: httpMethod.uppercased())
+
+        // Add headers from headers dictionary
+        if let headersObj = requestConfig.forProperty("headers"),
+            !headersObj.isUndefined && !headersObj.isNull,
+            let headersDict = headersObj.toDictionary() as? [String: String]
+        {
+            for (key, value) in headersDict {
+                httpRequest.headers.add(name: key, value: value)
+            }
         }
         
         // Handle request body
-        // First check the bodyData property directly
-        if let httpBodyData = request.bodyData {
-            httpRequest.body = .bytes(httpBodyData)
-        } else if let httpBody = request.httpBody {
-            // Fallback to JSValue property if no body data
+        if let httpBody = requestConfig.forProperty("httpBody"),
+            !httpBody.isUndefined && !httpBody.isNull
+        {
             if httpBody.isTypedArray {
                 let bodyData = httpBody.typedArrayBytes
                 let data = Data(bodyData.bindMemory(to: UInt8.self))
@@ -134,10 +139,13 @@ final class NIOHTTPClient: @unchecked Sendable {
             }
         }
         
+        // Get timeout interval
+        let timeoutInterval = requestConfig.forProperty("timeoutInterval").toDouble()
+
         // Execute request and stream response
         let response = try await httpClient.execute(
             httpRequest,
-            deadline: .now() + .seconds(Int64(request.timeoutInterval))
+            deadline: .now() + .seconds(Int64(timeoutInterval))
         )
         
         // Stream response body in a detached task to avoid data races
@@ -163,21 +171,29 @@ final class NIOHTTPClient: @unchecked Sendable {
     
     /// Execute a streaming upload request with body stream
     func executeStreamingUpload(
-        _ request: JSURLRequest,
+        _ requestConfig: JSValue,
         bodyStream: AsyncStream<Data>,
         streamController: StreamController
     ) async throws -> HTTPResponseHead {
         
-        guard let urlString = request.url else {
+        // Extract request properties from plain JavaScript object
+        guard let urlString = requestConfig.forProperty("url").toString(), !urlString.isEmpty else {
             throw HTTPClientError.invalidURL
         }
         
         var httpRequest = HTTPClientRequest(url: urlString)
-        httpRequest.method = HTTPMethod(rawValue: request.httpMethod.uppercased())
         
-        // Add headers
-        for (key, value) in request.allHTTPHeaderFields {
-            httpRequest.headers.add(name: key, value: value)
+        let httpMethod = requestConfig.forProperty("httpMethod").toString() ?? "GET"
+        httpRequest.method = HTTPMethod(rawValue: httpMethod.uppercased())
+
+        // Add headers from headers dictionary
+        if let headersObj = requestConfig.forProperty("headers"),
+            !headersObj.isUndefined && !headersObj.isNull,
+            let headersDict = headersObj.toDictionary() as? [String: String]
+        {
+            for (key, value) in headersDict {
+                httpRequest.headers.add(name: key, value: value)
+            }
         }
         
         // Create streaming body from AsyncStream
@@ -186,10 +202,13 @@ final class NIOHTTPClient: @unchecked Sendable {
             length: .unknown
         )
         
+        // Get timeout interval
+        let timeoutInterval = requestConfig.forProperty("timeoutInterval").toDouble()
+
         // Execute request and stream response
         let response = try await httpClient.execute(
             httpRequest,
-            deadline: .now() + .seconds(Int64(request.timeoutInterval))
+            deadline: .now() + .seconds(Int64(timeoutInterval))
         )
         
         // Stream response body in a detached task to avoid data races

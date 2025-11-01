@@ -52,8 +52,6 @@ class URLSession(
     private val platformContext: PlatformContext,
     private val engine: JavaScriptEngine
 ) {
-    // Store native URLRequest objects by ID to avoid serialization issues
-    private val requestRegistry = mutableMapOf<String, URLRequest>()
     private var nextRequestId = 0
     
     // Store progress handler functions by request ID (prevents GC and avoids global pollution)
@@ -81,53 +79,7 @@ class URLSession(
         } finally {
             urlSessionBridge.close() // Close to release callback contexts
         }
-            
-            // Register URLRequest constructor using helper
-            nativeBridge.bindFunction(JavetCallbackContext(
-                "URLRequest",
-                JavetCallbackType.DirectCallNoThisAndResult,
-                IJavetDirectCallable.NoThisAndResult<Exception> { v8Values ->
-                    if (v8Values.isEmpty()) {
-                        throw IllegalArgumentException("URLRequest requires a URL argument")
-                    }
-                    val url = v8Values[0].toString()
-                    session.createURLRequestBridge(url)
-                }
-            ))
         }
-    }
-    
-    private fun createURLRequestBridge(url: String): V8ValueObject {
-        val request = URLRequest(url)
-        
-        // Generate unique ID for this request
-        val requestId = "req_${nextRequestId++}"
-        requestRegistry[requestId] = request
-        
-        // Create bridge with properties, dynamic properties (getter/setter), and methods
-        return v8Runtime.createJSObject(
-            properties = mapOf(
-                "url" to url,
-                "timeoutInterval" to request.timeoutInterval,
-                "_requestId" to requestId
-            ),
-            dynamicProperties = mapOf(
-                "httpMethod" to JSProperty(
-                    getter = { request.httpMethod },
-                    setter = { value -> request.httpMethod = value }
-                )
-            ),
-            methods = mapOf(
-                "setValueForHTTPHeaderField" to IJavetDirectCallable.NoThisAndResult<Exception> { args ->
-                    if (args.size >= 2) {
-                        val value = args[0].toString()
-                        val field = args[1].toString()
-                        request.setValueForHTTPHeaderField(value, field)
-                    }
-                    v8Runtime.createV8ValueUndefined()
-                }
-            )
-        )
     }
     
     private fun httpRequestWithRequest(v8Values: Array<out com.caoccao.javet.values.V8Value>): V8ValuePromise {
@@ -135,13 +87,51 @@ class URLSession(
             throw IllegalArgumentException("httpRequestWithRequest requires at least 1 argument")
         }
         
-        val requestBridge = v8Values[0] as? V8ValueObject
-            ?: throw IllegalArgumentException("First argument must be a URLRequest")
+        val requestConfig = v8Values[0] as? V8ValueObject
+            ?: throw IllegalArgumentException("First argument must be a request config object")
         
-        // Extract request ID and retrieve native request from registry
-        val requestId = requestBridge.getString("_requestId")
-        val nativeRequest = requestRegistry[requestId]
-            ?: throw IllegalStateException("Invalid URLRequest bridge: request not found in registry")
+        // Extract request properties from plain JavaScript object
+        val url = requestConfig.getString("url")
+        val httpMethod = requestConfig.getString("httpMethod") ?: "GET"
+        val timeoutInterval = requestConfig.getDouble("timeoutInterval")
+        
+        // Extract headers
+        val headersObj = requestConfig.get("headers") as? V8ValueObject
+        val headers = mutableMapOf<String, String>()
+        if (headersObj != null) {
+            try {
+                val headerKeys = headersObj.ownKeys
+                for (key in headerKeys) {
+                    val value = headersObj.getString(key)
+                    if (value != null) {
+                        headers[key] = value
+                    }
+                }
+            } finally {
+                headersObj.close()
+            }
+        }
+        
+        // Extract http body (may be string or typed array)
+        val httpBodyValue = requestConfig.get("httpBody")
+        val httpBody: Any? = when {
+            httpBodyValue == null || httpBodyValue.isNullOrUndefined -> null
+            httpBodyValue.isString -> httpBodyValue.toString()
+            httpBodyValue is V8ValueTypedArray -> {
+                try {
+                    httpBodyValue.toBytes()
+                } finally {
+                    httpBodyValue.close()
+                }
+            }
+            else -> {
+                httpBodyValue.close()
+                null
+            }
+        }
+        
+        // Generate unique request ID for progress handler tracking
+        val requestId = "req_${nextRequestId++}"
         
         // Get optional body stream and progress handler
         val hasProgressHandler = v8Values.size > 2 && v8Values[2] is V8ValueFunction
@@ -164,36 +154,36 @@ class URLSession(
         val httpThread = Thread {
             try {
                 // Execute the request and get response headers immediately
-                val url = URL(nativeRequest.url)
-                val connection = url.openConnection() as HttpURLConnection
+                val urlObj = URL(url)
+                val connection = urlObj.openConnection() as HttpURLConnection
                 
                 try {
                     // Configure request
-                    connection.requestMethod = nativeRequest.httpMethod
-                    connection.connectTimeout = (nativeRequest.timeoutInterval * 1000).toInt()
-                    connection.readTimeout = (nativeRequest.timeoutInterval * 1000).toInt()
+                    connection.requestMethod = httpMethod
+                    connection.connectTimeout = (timeoutInterval * 1000).toInt()
+                    connection.readTimeout = (timeoutInterval * 1000).toInt()
                     connection.instanceFollowRedirects = true
                     
                     // Set doOutput for POST/PUT/PATCH methods before setting headers
-                    if (nativeRequest.httpMethod in listOf("POST", "PUT", "PATCH")) {
+                    if (httpMethod in listOf("POST", "PUT", "PATCH")) {
                         connection.doOutput = true
                     }
                     
                     // Set headers
-                    nativeRequest.getAllHeaders().forEach { (key, value) ->
+                    headers.forEach { (key, value) ->
                         connection.setRequestProperty(key, value)
                     }
                     
                     // Handle request body
-                    if (nativeRequest.httpBody != null) {
+                    if (httpBody != null) {
                         val outputStream = connection.outputStream
                         
-                        when (val body = nativeRequest.httpBody) {
+                        when (httpBody) {
                             is String -> {
-                                outputStream.write(body.toByteArray(Charsets.UTF_8))
+                                outputStream.write(httpBody.toByteArray(Charsets.UTF_8))
                             }
                             is ByteArray -> {
-                                outputStream.write(body)
+                                outputStream.write(httpBody)
                             }
                         }
                         
@@ -232,7 +222,6 @@ class URLSession(
                         val responseBridge = createResponseBridge(response)
                         resolver.resolve(responseBridge)
                         responseBridge.close()
-                        requestRegistry.remove(requestId)
                     }
                     
                     // Stream response body if progress handler is provided

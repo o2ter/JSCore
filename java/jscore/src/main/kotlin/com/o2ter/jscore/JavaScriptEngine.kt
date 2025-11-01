@@ -817,7 +817,6 @@ class JavaScriptEngine(
                     nativeBridge.delete("processInfo")
                     nativeBridge.delete("processControl")
                     nativeBridge.delete("URLSession")
-                    nativeBridge.delete("URLRequest")
                 } catch (e: Exception) {
                     // Ignore errors during cleanup
                 }
