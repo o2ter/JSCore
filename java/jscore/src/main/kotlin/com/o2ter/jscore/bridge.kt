@@ -105,8 +105,44 @@ fun V8Runtime.createJSObject(value: Any?): V8Value {
 }
 
 private fun V8Runtime.createListProxy(value: List<*>): V8Value {
-    // TODO: Implement array proxy
-    return this.createV8ValueUndefined()
+    val handler = this.createV8ValueObject()
+    
+    // get trap - access array elements
+    handler.bindFunction(JavetCallbackContext(
+        "get",
+        JavetCallbackType.DirectCallNoThisAndResult,
+        IJavetDirectCallable.NoThisAndResult<Exception> { v8Values ->
+            val prop = v8Values[1].toString()
+            when (prop) {
+                "length" -> this.createV8ValueInteger(value.size)
+                else -> {
+                    // Try to parse as array index
+                    val index = prop.toIntOrNull()
+                    if (index != null && index >= 0 && index < value.size) {
+                        createJSObject(value[index])
+                    } else {
+                        this.createV8ValueUndefined()
+                    }
+                }
+            }
+        }
+    ))
+    
+    // ownKeys trap - enumerate array indices and length
+    handler.bindFunction(JavetCallbackContext(
+        "ownKeys",
+        JavetCallbackType.DirectCallNoThisAndResult,
+        IJavetDirectCallable.NoThisAndResult<Exception> { _ ->
+            val array = this.createV8ValueArray()
+            for (i in value.indices) {
+                array.set(i, i.toString())
+            }
+            array.set(value.size, "length")
+            array
+        }
+    ))
+    
+    return this.invokeFunction("(function(handler) { return new Proxy([], handler); })".trimIndent(), handler)
 }
 
 private fun V8Runtime.createMapProxy(value: Map<*, *>): V8Value {
@@ -206,4 +242,130 @@ private fun V8Runtime.convertToNativeValue(type: KType, value: V8Value): Any? {
         String::class -> value.toString()
         else -> null // TODO: Handle more complex types
     }
+}
+
+/**
+ * Represents a JavaScript property with custom getter and optional setter
+ * 
+ * @property getter Returns the property value (can return any type convertible to V8Value)
+ * @property setter Optional setter that receives the new value as String
+ */
+data class JSProperty(
+    val getter: () -> Any?,
+    val setter: ((String) -> Unit)? = null
+)
+
+/**
+ * Creates a JavaScript object with properties, methods, and custom getter/setter properties
+ * This combines all functionality and automatically handles property descriptors
+ * 
+ * Example:
+ * ```kotlin
+ * val obj = v8Runtime.createJSObject(
+ *     properties = mapOf(
+ *         "url" to "https://example.com",
+ *         "timeout" to 30
+ *     ),
+ *     dynamicProperties = mapOf(
+ *         "httpMethod" to JSProperty(
+ *             getter = { request.httpMethod },
+ *             setter = { value -> request.httpMethod = value }
+ *         )
+ *     ),
+ *     methods = mapOf(
+ *         "setHeader" to IJavetDirectCallable.NoThisAndResult<Exception> { args ->
+ *             // implementation
+ *             v8Runtime.createV8ValueUndefined()
+ *         }
+ *     )
+ * )
+ * ```
+ */
+fun V8Runtime.createJSObject(
+    properties: Map<String, Any?> = emptyMap(),
+    dynamicProperties: Map<String, JSProperty> = emptyMap(),
+    methods: Map<String, IJavetDirectCallable.NoThisAndResult<Exception>> = emptyMap()
+): V8ValueObject {
+    val obj = this.createV8ValueObject()
+    
+    // Set static properties
+    properties.forEach { (key, value) ->
+        obj.set(key, createJSObject(value))
+    }
+    
+    // Bind methods
+    methods.forEach { (name, handler) ->
+        obj.bindFunction(JavetCallbackContext(
+            name,
+            JavetCallbackType.DirectCallNoThisAndResult,
+            handler
+        ))
+    }
+    
+    // Setup dynamic properties with getters/setters
+    if (dynamicProperties.isNotEmpty()) {
+        // For each dynamic property, create a native getter/setter callback
+        dynamicProperties.forEach { (propName, property) ->
+            // Bind getter
+            val getterName = "__get_$propName"
+            obj.bindFunction(JavetCallbackContext(
+                getterName,
+                JavetCallbackType.DirectCallNoThisAndResult,
+                IJavetDirectCallable.NoThisAndResult<Exception> { _ ->
+                    createJSObject(property.getter())
+                }
+            ))
+            
+            // Bind setter if provided
+            if (property.setter != null) {
+                val setterName = "__set_$propName"
+                obj.bindFunction(JavetCallbackContext(
+                    setterName,
+                    JavetCallbackType.DirectCallNoThisAndNoResult,
+                    IJavetDirectCallable.NoThisAndNoResult<Exception> { args ->
+                        if (args.isNotEmpty()) {
+                            property.setter.invoke(args[0].toString())
+                        }
+                    }
+                ))
+            }
+        }
+        
+        // Build JavaScript code to define all properties with Object.defineProperty
+        val propertyDefinitions = dynamicProperties.map { (propName, property) ->
+            val setterCode = if (property.setter != null) {
+                """
+                set: function(value) {
+                    this.__set_$propName(value);
+                },
+                """.trimIndent()
+            } else {
+                ""
+            }
+            
+            """
+            Object.defineProperty(target, '$propName', {
+                get: function() {
+                    return this.__get_$propName();
+                },
+                $setterCode
+                enumerable: true,
+                configurable: true
+            });
+            """.trimIndent()
+        }.joinToString("\n")
+        
+        // Execute the property setup code
+        val setupFunc = this.getExecutor("""
+            (function(target) {
+                $propertyDefinitions
+            })
+        """.trimIndent()).execute<V8ValueFunction>()
+        
+        setupFunc.use {
+            setupFunc.callVoid(null, obj)
+        }
+    }
+    
+    return obj
 }

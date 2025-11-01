@@ -27,12 +27,11 @@ package com.o2ter.jscore.lib
 
 import com.caoccao.javet.interop.V8Runtime
 import com.caoccao.javet.interop.callback.IJavetDirectCallable
-import com.caoccao.javet.interop.callback.JavetCallbackContext
-import com.caoccao.javet.interop.callback.JavetCallbackType
 import com.caoccao.javet.values.primitive.V8ValueInteger
 import com.caoccao.javet.values.reference.V8ValueObject
 import com.caoccao.javet.values.reference.V8ValueTypedArray
 import com.o2ter.jscore.PlatformContext
+import com.o2ter.jscore.createJSObject
 import java.security.SecureRandom
 
 /**
@@ -46,28 +45,26 @@ class Crypto(
     private val secureRandom = SecureRandom()
     
     fun setupBridge(nativeBridge: V8ValueObject) {
-        val cryptoObject = v8Runtime.createV8ValueObject()
-        
-        try {
-            // randomUUID() - generate UUID v4
-            cryptoObject.bindFunction(JavetCallbackContext(
-                "randomUUID",
-                JavetCallbackType.DirectCallNoThisAndResult,
-                IJavetDirectCallable.NoThisAndResult<Exception> { _ ->
-                    v8Runtime.createV8ValueString(java.util.UUID.randomUUID().toString())
-                }
-            ))
-            
-            // randomBytes(length) - generate random bytes
-            cryptoObject.bindFunction(JavetCallbackContext(
-                "randomBytes",
-                JavetCallbackType.DirectCallNoThisAndResult,
-                IJavetDirectCallable.NoThisAndResult<Exception> { v8Values ->
-                    if (v8Values.isEmpty() || v8Values[0] !is V8ValueInteger) {
+        platformContext.logger.debug("Crypto", "Setting up Crypto bridge")
+        val cryptoObject = v8Runtime.createJSObject(
+            methods = mapOf(
+                "randomUUID" to IJavetDirectCallable.NoThisAndResult<Exception> { _ ->
+                    platformContext.logger.debug("Crypto", "randomUUID called")
+                    try {
+                        val uuid = java.util.UUID.randomUUID().toString()
+                        platformContext.logger.debug("Crypto", "Generated UUID: $uuid")
+                        v8Runtime.createV8ValueString(uuid)
+                    } catch (e: Exception) {
+                        platformContext.logger.error("Crypto", "Error in randomUUID: ${e.message}")
+                        throw e
+                    }
+                },
+                "randomBytes" to IJavetDirectCallable.NoThisAndResult<Exception> { args ->
+                    if (args.isEmpty() || args[0] !is V8ValueInteger) {
                         throw RuntimeException("randomBytes requires a length argument")
                     }
                     
-                    val length = (v8Values[0] as V8ValueInteger).value
+                    val length = (args[0] as V8ValueInteger).value
                     
                     if (length <= 0 || length > 65536) {
                         throw RuntimeException("Invalid length for randomBytes: $length")
@@ -82,19 +79,13 @@ class Crypto(
                     )
                     array.fromBytes(bytes)
                     array
-                }
-            ))
-            
-            // getRandomValues(buffer) - fill TypedArray with random values
-            cryptoObject.bindFunction(JavetCallbackContext(
-                "getRandomValues",
-                JavetCallbackType.DirectCallNoThisAndResult,
-                IJavetDirectCallable.NoThisAndResult<Exception> { v8Values ->
-                    if (v8Values.isEmpty() || v8Values[0] !is V8ValueTypedArray) {
+                },
+                "getRandomValues" to IJavetDirectCallable.NoThisAndResult<Exception> { args ->
+                    if (args.isEmpty() || args[0] !is V8ValueTypedArray) {
                         throw RuntimeException("getRandomValues requires a TypedArray argument")
                     }
                     
-                    val array = v8Values[0] as V8ValueTypedArray
+                    val array = args[0] as V8ValueTypedArray
                     val length = array.length
                     
                     if (length > 65536) {
@@ -107,13 +98,11 @@ class Crypto(
                     
                     array
                 }
-            ))
-            
-            // Register with __NATIVE_BRIDGE__
-            nativeBridge.set("crypto", cryptoObject)
-            
-        } finally {
-            cryptoObject.close()
-        }
+            )
+        )
+        
+        // Register with __NATIVE_BRIDGE__
+        // Note: Don't close cryptoObject - it needs to remain alive for the duration of the engine
+        nativeBridge.set("crypto", cryptoObject)
     }
 }

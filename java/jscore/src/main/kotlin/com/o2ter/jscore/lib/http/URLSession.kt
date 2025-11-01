@@ -36,6 +36,8 @@ import com.caoccao.javet.values.reference.V8ValuePromise
 import com.o2ter.jscore.JavaScriptEngine
 import com.o2ter.jscore.invokeFunction
 import com.o2ter.jscore.PlatformContext
+import com.o2ter.jscore.createJSObject
+import com.o2ter.jscore.JSProperty
 import java.io.InputStream
 import java.net.HttpURLConnection
 import java.net.URL
@@ -61,30 +63,22 @@ class URLSession(
         fun register(engine: JavaScriptEngine, v8Runtime: V8Runtime, platformContext: PlatformContext, nativeBridge: V8ValueObject) {
             val session = URLSession(v8Runtime, platformContext, engine)
             
-            // Create URLSession bridge object
-            val urlSessionBridge = v8Runtime.createV8ValueObject()
-            
-            // shared() method - returns the shared session instance
-            urlSessionBridge.bindFunction(JavetCallbackContext(
-                "shared",
-                JavetCallbackType.DirectCallNoThisAndResult,
-                IJavetDirectCallable.NoThisAndResult<Exception> { _ ->
-                    urlSessionBridge
+        // Create URLSession bridge object with methods using helper
+        val urlSessionBridge = v8Runtime.createJSObject(
+            methods = mapOf(
+                "shared" to IJavetDirectCallable.NoThisAndResult<Exception> { _ ->
+                    // Return self reference
+                    nativeBridge.get("URLSession")
+                },
+                "httpRequestWithRequest" to IJavetDirectCallable.NoThisAndResult<Exception> { args ->
+                    session.httpRequestWithRequest(args)
                 }
-            ))
+            )
+        )
+        
+        nativeBridge.set("URLSession", urlSessionBridge)
             
-            // httpRequestWithRequest() method
-            urlSessionBridge.bindFunction(JavetCallbackContext(
-                "httpRequestWithRequest",
-                JavetCallbackType.DirectCallNoThisAndResult,
-                IJavetDirectCallable.NoThisAndResult<Exception> { v8Values ->
-                    session.httpRequestWithRequest(v8Values)
-                }
-            ))
-            
-            nativeBridge.set("URLSession", urlSessionBridge)
-            
-            // Register URLRequest constructor
+            // Register URLRequest constructor using helper
             nativeBridge.bindFunction(JavetCallbackContext(
                 "URLRequest",
                 JavetCallbackType.DirectCallNoThisAndResult,
@@ -101,62 +95,35 @@ class URLSession(
     
     private fun createURLRequestBridge(url: String): V8ValueObject {
         val request = URLRequest(url)
-        val bridge = v8Runtime.createV8ValueObject()
         
         // Generate unique ID for this request
         val requestId = "req_${nextRequestId++}"
         requestRegistry[requestId] = request
         
-        // Properties
-        bridge.set("url", url)
-        bridge.set("timeoutInterval", request.timeoutInterval)
-        bridge.set("_requestId", requestId) // Store ID instead of object
-        
-        // Internal method to update Kotlin httpMethod field
-        bridge.bindFunction(JavetCallbackContext(
-            "_setHttpMethod",
-            JavetCallbackType.DirectCallNoThisAndNoResult,
-            IJavetDirectCallable.NoThisAndNoResult<Exception> { v8Values ->
-                if (v8Values.isNotEmpty()) {
-                    request.httpMethod = v8Values[0].toString()
+        // Create bridge with properties, dynamic properties (getter/setter), and methods
+        return v8Runtime.createJSObject(
+            properties = mapOf(
+                "url" to url,
+                "timeoutInterval" to request.timeoutInterval,
+                "_requestId" to requestId
+            ),
+            dynamicProperties = mapOf(
+                "httpMethod" to JSProperty(
+                    getter = { request.httpMethod },
+                    setter = { value -> request.httpMethod = value }
+                )
+            ),
+            methods = mapOf(
+                "setValueForHTTPHeaderField" to IJavetDirectCallable.NoThisAndResult<Exception> { args ->
+                    if (args.size >= 2) {
+                        val value = args[0].toString()
+                        val field = args[1].toString()
+                        request.setValueForHTTPHeaderField(value, field)
+                    }
+                    v8Runtime.createV8ValueUndefined()
                 }
-            }
-        ))
-        
-        // Create property interceptor for httpMethod using IIFE with parameter (no global pollution)
-        val propertySetupFunc = v8Runtime.getExecutor("""
-            (function(urlRequest) {
-                // Define httpMethod property with getter/setter
-                Object.defineProperty(urlRequest, 'httpMethod', {
-                    get: function() {
-                        return '${request.httpMethod}';
-                    },
-                    set: function(value) {
-                        // Call native bridge to update Kotlin field
-                        urlRequest._setHttpMethod(value);
-                    },
-                    enumerable: true,
-                    configurable: true
-                });
-            })
-        """.trimIndent()).execute<V8ValueFunction>()
-        propertySetupFunc.callVoid(null, bridge)
-        propertySetupFunc.close()
-        
-        // setValueForHTTPHeaderField method
-        bridge.bindFunction(JavetCallbackContext(
-            "setValueForHTTPHeaderField",
-            JavetCallbackType.DirectCallNoThisAndNoResult,
-            IJavetDirectCallable.NoThisAndNoResult<Exception> { v8Values ->
-                if (v8Values.size >= 2) {
-                    val value = v8Values[0].toString()
-                    val field = v8Values[1].toString()
-                    request.setValueForHTTPHeaderField(value, field)
-                }
-            }
-        ))
-        
-        return bridge
+            )
+        )
     }
     
     private fun httpRequestWithRequest(v8Values: Array<out com.caoccao.javet.values.V8Value>): V8ValuePromise {
@@ -375,31 +342,27 @@ class URLSession(
     }
     
     private fun createResponseBridge(response: URLResponse): V8ValueObject {
-        val bridge = v8Runtime.createV8ValueObject()
-        
-        bridge.set("url", response.url)
-        bridge.set("statusCode", response.statusCode)
-        bridge.set("allHeaderFields", response.allHeaderFields)
-        
-        // Add header access method
-        bridge.bindFunction(JavetCallbackContext(
-            "valueForHTTPHeaderField",
-            JavetCallbackType.DirectCallNoThisAndResult,
-            IJavetDirectCallable.NoThisAndResult<Exception> { v8Values ->
-                if (v8Values.isNotEmpty()) {
-                    val field = v8Values[0].toString()
-                    val value = response.valueForHTTPHeaderField(field)
-                    if (value != null) {
-                        v8Runtime.createV8ValueString(value)
+        return v8Runtime.createJSObject(
+            properties = mapOf(
+                "url" to response.url,
+                "statusCode" to response.statusCode,
+                "allHeaderFields" to response.allHeaderFields
+            ),
+            methods = mapOf(
+                "valueForHTTPHeaderField" to IJavetDirectCallable.NoThisAndResult<Exception> { args ->
+                    if (args.isNotEmpty()) {
+                        val field = args[0].toString()
+                        val value = response.valueForHTTPHeaderField(field)
+                        if (value != null) {
+                            v8Runtime.createV8ValueString(value)
+                        } else {
+                            v8Runtime.createV8ValueNull()
+                        }
                     } else {
                         v8Runtime.createV8ValueNull()
                     }
-                } else {
-                    v8Runtime.createV8ValueNull()
                 }
-            }
-        ))
-        
-        return bridge
+            )
+        )
     }
 }

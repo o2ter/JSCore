@@ -394,10 +394,10 @@ class JavaScriptEngine(
             processControl = ProcessControl(v8Runtime, platformContext)
             
             // Create the __NATIVE_BRIDGE__ global object
-            v8Runtime.createV8ValueObject().use { nativeBridge ->
-                setupNativeBridges(nativeBridge)
-                loadPolyfill(nativeBridge)
-            }
+            // Note: Don't close this - it needs to remain alive for the duration of the engine
+            val nativeBridge = v8Runtime.createV8ValueObject()
+            setupNativeBridges(nativeBridge)
+            loadPolyfill(nativeBridge)
         }
     }
     
