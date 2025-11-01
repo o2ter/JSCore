@@ -898,47 +898,116 @@
         }
     };
 
-    // TextDecoder - decode UTF-8 to strings
+    // TextDecoder - decode UTF-8 to strings with proper streaming support
     globalThis.TextDecoder = class TextDecoder {
-        encoding = 'utf-8';
+        #encoding = 'utf-8';
+        #buffer = [];  // Buffer for incomplete multi-byte sequences
 
-        decode(input) {
+        constructor(encoding = 'utf-8', options = {}) {
+            this.#encoding = encoding.toLowerCase();
+            if (!['utf-8', 'utf8'].includes(this.#encoding)) {
+                this.#encoding = 'utf-8';  // Fallback to UTF-8 for unsupported encodings
+            }
+        }
+
+        get encoding() {
+            return this.#encoding;
+        }
+
+        decode(input, options = {}) {
+            const stream = options?.stream || false;
+
             if (!input) return '';
 
             const bytes = input instanceof Uint8Array
                 ? input
                 : new Uint8Array(input);
 
+            // Prepend any buffered bytes from previous decode call
+            const allBytes = this.#buffer.length > 0
+                ? new Uint8Array([...this.#buffer, ...bytes])
+                : bytes;
+
+            // Clear buffer if not streaming or starting fresh
+            if (!stream) {
+                this.#buffer = [];
+            }
+
             let result = '';
             let i = 0;
 
-            while (i < bytes.length) {
-                const byte1 = bytes[i++];
+            while (i < allBytes.length) {
+                const byte1 = allBytes[i];
 
+                // Single-byte character (ASCII)
                 if (byte1 < 128) {
                     result += String.fromCharCode(byte1);
-                } else if ((byte1 >> 5) === 6) {
-                    const byte2 = bytes[i++];
-                    result += String.fromCharCode(((byte1 & 31) << 6) | (byte2 & 63));
-                } else if ((byte1 >> 4) === 14) {
-                    const byte2 = bytes[i++];
-                    const byte3 = bytes[i++];
-                    result += String.fromCharCode(
-                        ((byte1 & 15) << 12) | ((byte2 & 63) << 6) | (byte3 & 63)
-                    );
-                } else if ((byte1 >> 3) === 30) {
-                    const byte2 = bytes[i++];
-                    const byte3 = bytes[i++];
-                    const byte4 = bytes[i++];
-                    let codePoint = ((byte1 & 7) << 18) | ((byte2 & 63) << 12) |
-                        ((byte3 & 63) << 6) | (byte4 & 63);
-                    codePoint -= 0x10000;
-                    result += String.fromCharCode(
-                        0xD800 + (codePoint >> 10),
-                        0xDC00 + (codePoint & 1023)
-                    );
+                    i++;
+                }
+                // Two-byte character
+                else if ((byte1 >> 5) === 6) {
+                    if (i + 1 < allBytes.length) {
+                        const byte2 = allBytes[i + 1];
+                        result += String.fromCharCode(((byte1 & 31) << 6) | (byte2 & 63));
+                        i += 2;
+                    } else {
+                        // Incomplete sequence - buffer it if streaming
+                        if (stream) {
+                            this.#buffer = Array.from(allBytes.slice(i));
+                        }
+                        break;
+                    }
+                }
+                // Three-byte character
+                else if ((byte1 >> 4) === 14) {
+                    if (i + 2 < allBytes.length) {
+                        const byte2 = allBytes[i + 1];
+                        const byte3 = allBytes[i + 2];
+                        result += String.fromCharCode(
+                            ((byte1 & 15) << 12) | ((byte2 & 63) << 6) | (byte3 & 63)
+                        );
+                        i += 3;
+                    } else {
+                        // Incomplete sequence - buffer it if streaming
+                        if (stream) {
+                            this.#buffer = Array.from(allBytes.slice(i));
+                        }
+                        break;
+                    }
+                }
+                // Four-byte character
+                else if ((byte1 >> 3) === 30) {
+                    if (i + 3 < allBytes.length) {
+                        const byte2 = allBytes[i + 1];
+                        const byte3 = allBytes[i + 2];
+                        const byte4 = allBytes[i + 3];
+                        let codePoint = ((byte1 & 7) << 18) | ((byte2 & 63) << 12) |
+                            ((byte3 & 63) << 6) | (byte4 & 63);
+                        codePoint -= 0x10000;
+                        result += String.fromCharCode(
+                            0xD800 + (codePoint >> 10),
+                            0xDC00 + (codePoint & 1023)
+                        );
+                        i += 4;
+                    } else {
+                        // Incomplete sequence - buffer it if streaming
+                        if (stream) {
+                            this.#buffer = Array.from(allBytes.slice(i));
+                        }
+                        break;
+                    }
+                }
+                else {
+                    // Invalid byte - skip it
+                    i++;
                 }
             }
+
+            // Clear buffer on final decode (stream: false)
+            if (!stream) {
+                this.#buffer = [];
+            }
+
             return result;
         }
     };
