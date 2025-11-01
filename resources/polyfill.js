@@ -823,6 +823,14 @@
             __NATIVE_BRIDGE__.crypto.getRandomValues(bytes);
             return buffer;
         }
+
+        createHash(algorithm) {
+            return __NATIVE_BRIDGE__.crypto.createHash(algorithm);
+        }
+
+        createHmac(algorithm, secret) {
+            return __NATIVE_BRIDGE__.crypto.createHmac(algorithm, secret);
+        }
     };
 
     // TextEncoder - encode strings to UTF-8
