@@ -171,11 +171,12 @@ private fun V8Runtime.createProxy(value: Any): V8Value {
         JavetCallbackType.DirectCallNoThisAndResult,
         IJavetDirectCallable.NoThisAndResult<Exception> { v8Values ->
             val array = this.createV8ValueArray()
-            value::class.memberProperties.forEachIndexed { index, entry ->
-                array.set(index, entry.name)
+            var index = 0
+            value::class.memberProperties.forEach { property ->
+                array.set(index++, property.name)
             }
-            value::class.memberFunctions.forEachIndexed { index, entry ->
-                array.set(index, entry.name)
+            value::class.memberFunctions.forEach { function ->
+                array.set(index++, function.name)
             }
             array
         }
@@ -185,15 +186,41 @@ private fun V8Runtime.createProxy(value: Any): V8Value {
         JavetCallbackType.DirectCallNoThisAndResult,
         IJavetDirectCallable.NoThisAndResult<Exception> { v8Values ->
             val prop = v8Values[1].toString()
+            
+            // Try to find property first
             val property = value::class.memberProperties.find { it.name == prop }
             if (property != null) {
                 val propValue = (property as KProperty1<Any, *>).get(value)
                 return@NoThisAndResult createJSObject(propValue)
             }
+            
+            // Try to find member function
             val method = value::class.memberFunctions.find { it.name == prop }
             if (method != null) {
-                return@NoThisAndResult createJSFunction(method)
+                // Create a callback that binds the method to the object instance
+                return@NoThisAndResult this.createV8ValueFunction(JavetCallbackContext(
+                    method.name,
+                    JavetCallbackType.DirectCallNoThisAndResult,
+                    IJavetDirectCallable.NoThisAndResult<Exception> { args ->
+                        try {
+                            // Handle null args array (when JavaScript calls function with no arguments)
+                            val safeArgs = args ?: emptyArray()
+                            
+                            // Convert V8 arguments to native types using toNative()
+                            val nativeArgs = safeArgs.map { arg -> arg.toNative() }
+                            
+                            // Use call() - first argument is the receiver (instance), followed by method arguments
+                            val allArgs = arrayOf(value, *nativeArgs.toTypedArray())
+                            val result = method.call(*allArgs)
+                            createJSObject(result)
+                        } catch (e: Exception) {
+                            // Return error message on failure
+                            this.createV8ValueString("Error calling ${method.name}: ${e::class.simpleName}: ${e.message ?: "no message"}")
+                        }
+                    }
+                ))
             }
+            
             this.createV8ValueUndefined()
         }
     ))
