@@ -83,6 +83,33 @@ fun V8Value.toNative(): Any? {
 }
 
 /**
+ * Convert a V8ValueObject to a Map<String, String> by extracting all own properties.
+ * This is useful for extracting headers, configuration objects, etc. from JavaScript.
+ * 
+ * @return Map of string keys to string values, or empty map if extraction fails
+ */
+fun V8ValueObject.toStringMap(): Map<String, String> {
+    val result = mutableMapOf<String, String>()
+    try {
+        this.use {
+            val propertyNames = it.getOwnPropertyNames()
+            propertyNames.use { names ->
+                for (i in 0 until names.length) {
+                    val key = names.getString(i)
+                    val value = it.getString(key)
+                    if (key != null && value != null) {
+                        result[key] = value
+                    }
+                }
+            }
+        }
+    } catch (e: Exception) {
+        // Return empty map on any error
+    }
+    return result
+}
+
+/**
  * Helper class for easy conversion between Kotlin and JavaScript values/functions
  * Provides a simple API for creating native bridges and exposing Kotlin functionality to JavaScript
  */

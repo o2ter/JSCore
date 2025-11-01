@@ -40,6 +40,7 @@ import com.o2ter.jscore.invokeFunction
 import com.o2ter.jscore.PlatformContext
 import com.o2ter.jscore.createJSObject
 import com.o2ter.jscore.JSProperty
+import com.o2ter.jscore.toStringMap
 import java.io.InputStream
 import java.net.HttpURLConnection
 import java.net.URL
@@ -97,27 +98,8 @@ class URLSession(
         val httpMethod = requestConfig.getString("httpMethod") ?: "GET"
         val timeoutInterval = requestConfig.getDouble("timeoutInterval")
         
-        // Extract headers - convert V8ValueObject to Map
-        val headers = mutableMapOf<String, String>()
-        try {
-            val headersObj = requestConfig.get("headers") as? V8ValueObject
-            if (headersObj != null) {
-                headersObj.use {
-                    val headerNames = it.getOwnPropertyNames()
-                    headerNames.use { names ->
-                        for (i in 0 until names.length) {
-                            val key = names.getString(i)
-                            val value = it.getString(key)
-                            if (key != null && value != null) {
-                                headers[key] = value
-                            }
-                        }
-                    }
-                }
-            }
-        } catch (e: Exception) {
-            // Ignore header parsing errors
-        }
+        // Extract headers - convert V8ValueObject to Map using utility function
+        val headers = (requestConfig.get("headers") as? V8ValueObject)?.toStringMap() ?: emptyMap()
         
         // Extract http body (may be string or typed array)
         val httpBodyValue: V8Value? = requestConfig.get("httpBody")
