@@ -30,9 +30,11 @@ import com.caoccao.javet.interop.callback.IJavetDirectCallable
 import com.caoccao.javet.interop.callback.JavetCallbackContext
 import com.caoccao.javet.interop.callback.JavetCallbackType
 import com.caoccao.javet.values.V8Value
+import com.caoccao.javet.values.primitive.V8ValueString
 import com.caoccao.javet.values.reference.V8ValueFunction
 import com.caoccao.javet.values.reference.V8ValueObject
 import com.caoccao.javet.values.reference.V8ValuePromise
+import com.caoccao.javet.values.reference.V8ValueTypedArray
 import com.o2ter.jscore.JavaScriptEngine
 import com.o2ter.jscore.invokeFunction
 import com.o2ter.jscore.PlatformContext
@@ -95,28 +97,33 @@ class URLSession(
         val httpMethod = requestConfig.getString("httpMethod") ?: "GET"
         val timeoutInterval = requestConfig.getDouble("timeoutInterval")
         
-        // Extract headers
-        val headersObj = requestConfig.get("headers") as? V8ValueObject
+        // Extract headers - convert V8ValueObject to Map
         val headers = mutableMapOf<String, String>()
-        if (headersObj != null) {
-            try {
-                val headerKeys = headersObj.ownKeys
-                for (key in headerKeys) {
-                    val value = headersObj.getString(key)
-                    if (value != null) {
-                        headers[key] = value
+        try {
+            val headersObj = requestConfig.get("headers") as? V8ValueObject
+            if (headersObj != null) {
+                headersObj.use {
+                    val headerNames = it.getOwnPropertyNames()
+                    headerNames.use { names ->
+                        for (i in 0 until names.length) {
+                            val key = names.getString(i)
+                            val value = it.getString(key)
+                            if (key != null && value != null) {
+                                headers[key] = value
+                            }
+                        }
                     }
                 }
-            } finally {
-                headersObj.close()
             }
+        } catch (e: Exception) {
+            // Ignore header parsing errors
         }
         
         // Extract http body (may be string or typed array)
-        val httpBodyValue = requestConfig.get("httpBody")
+        val httpBodyValue: V8Value? = requestConfig.get("httpBody")
         val httpBody: Any? = when {
-            httpBodyValue == null || httpBodyValue.isNullOrUndefined -> null
-            httpBodyValue.isString -> httpBodyValue.toString()
+            httpBodyValue == null || (httpBodyValue.isUndefined || httpBodyValue.isNull) -> null
+            httpBodyValue is V8ValueString -> httpBodyValue.toString().also { httpBodyValue.close() }
             httpBodyValue is V8ValueTypedArray -> {
                 try {
                     httpBodyValue.toBytes()
@@ -125,7 +132,11 @@ class URLSession(
                 }
             }
             else -> {
-                httpBodyValue.close()
+                try {
+                    httpBodyValue.close()
+                } catch (e: Exception) {
+                    // Ignore close errors
+                }
                 null
             }
         }
