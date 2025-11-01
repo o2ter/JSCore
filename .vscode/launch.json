@@ -6,8 +6,9 @@
       "args": [],
       "cwd": "${workspaceFolder:JSCore}",
       "name": "Debug SwiftJSRunner",
-      "program": "${workspaceFolder:JSCore}/.build/debug/SwiftJSRunner",
-      "preLaunchTask": "swift: Build Debug SwiftJSRunner"
+      "preLaunchTask": "swift: Build Debug SwiftJSRunner",
+      "target": "SwiftJSRunner",
+      "configuration": "debug"
     },
     {
       "type": "swift",
@@ -15,8 +16,9 @@
       "args": [],
       "cwd": "${workspaceFolder:JSCore}",
       "name": "Release SwiftJSRunner",
-      "program": "${workspaceFolder:JSCore}/.build/release/SwiftJSRunner",
-      "preLaunchTask": "swift: Build Release SwiftJSRunner"
+      "preLaunchTask": "swift: Build Release SwiftJSRunner",
+      "target": "SwiftJSRunner",
+      "configuration": "release"
     }
   ]
 }
