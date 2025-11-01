@@ -101,8 +101,11 @@ class Crypto(
             )
         )
         
-        // Register with __NATIVE_BRIDGE__
-        // Note: Don't close cryptoObject - it needs to remain alive for the duration of the engine
-        nativeBridge.set("crypto", cryptoObject)
+        try {
+            // Register with __NATIVE_BRIDGE__
+            nativeBridge.set("crypto", cryptoObject)
+        } finally {
+            cryptoObject.close()
+        }
     }
 }

@@ -239,6 +239,7 @@ class JavaScriptEngine(
     private lateinit var processInfo: ProcessInfo
     private lateinit var processControl: ProcessControl
     private lateinit var timerNamespace: V8ValueObject // Timer namespace for proper cleanup
+    private lateinit var nativeBridge: V8ValueObject // Native bridge object that holds all callback contexts
     
     /**
      * Public logger for accessing the platform's logging functionality
@@ -393,9 +394,8 @@ class JavaScriptEngine(
             processInfo = ProcessInfo(v8Runtime, platformContext)
             processControl = ProcessControl(v8Runtime, platformContext)
             
-            // Create the __NATIVE_BRIDGE__ global object
-            // Note: Don't close this - it needs to remain alive for the duration of the engine
-            val nativeBridge = v8Runtime.createV8ValueObject()
+            // Create the __NATIVE_BRIDGE__ global object and store reference for cleanup
+            nativeBridge = v8Runtime.createV8ValueObject()
             setupNativeBridges(nativeBridge)
             loadPolyfill(nativeBridge)
         }
@@ -782,8 +782,31 @@ class JavaScriptEngine(
                 timerNamespace.close()
             }
             
+            // CRITICAL: Unbind all callback contexts from native bridge BEFORE closing
+            // This properly cleans up the 49 callback contexts and prevents memory warnings
+            if (::nativeBridge.isInitialized && !nativeBridge.isClosed) {
+                try {
+                    // Delete all bound functions to release callback contexts
+                    nativeBridge.delete("consoleLog", "consoleError", "consoleWarn", "consoleDebug")
+                    nativeBridge.delete("setTimeout", "clearTimeout", "setInterval", "clearInterval")
+                    nativeBridge.delete("performanceNow")
+                    nativeBridge.delete("crypto", "FileSystem", "deviceInfo", "bundleInfo")
+                    nativeBridge.delete("processInfo", "processControl")
+                    nativeBridge.delete("URLSession", "URLRequest")
+                } catch (e: Exception) {
+                    // Ignore errors during cleanup
+                }
+                nativeBridge.close()
+            }
+            
             // Close V8Runtime - this will naturally fail any pending callbacks
             if (::v8Runtime.isInitialized && !v8Runtime.isClosed) {
+                // Trigger low memory notification to force GC and cleanup
+                try {
+                    v8Runtime.lowMemoryNotification()
+                } catch (e: Exception) {
+                    // Ignore if not supported
+                }
                 v8Runtime.close()
             }
         } catch (e: Exception) {
