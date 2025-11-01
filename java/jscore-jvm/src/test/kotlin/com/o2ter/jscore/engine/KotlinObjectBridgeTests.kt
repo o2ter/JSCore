@@ -493,7 +493,15 @@ class KotlinObjectBridgeTests {
                 """
                 ({
                     hasNameBefore: 'name' in person,
-                    deleteResult: delete person.name,
+                    deleteResult: (function() {
+                        'use strict';
+                        try {
+                            delete person.name;
+                            return true;
+                        } catch (e) {
+                            return false;
+                        }
+                    })(),
                     hasNameAfter: 'name' in person,
                     nameValue: person.name
                 })
@@ -503,7 +511,7 @@ class KotlinObjectBridgeTests {
             assertTrue(result is Map<*, *>)
             val map = result as Map<*, *>
             assertEquals(true, map["hasNameBefore"])
-            assertEquals(false, map["deleteResult"]) // Delete should fail
+            assertEquals(false, map["deleteResult"]) // Delete should throw TypeError in strict mode
             assertEquals(true, map["hasNameAfter"]) // Property should still exist
             assertEquals("Bob", map["nameValue"]) // Value should be unchanged
         }
