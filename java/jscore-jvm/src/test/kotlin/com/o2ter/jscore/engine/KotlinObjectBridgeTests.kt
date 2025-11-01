@@ -85,6 +85,16 @@ class StringProcessor {
     fun repeat(text: String, times: Int): String = text.repeat(times)
 }
 
+// Class with mutable properties for testing set trap
+class MutableConfig {
+    var name: String = "default"
+    var timeout: Int = 30
+    val readOnly: String = "immutable"
+    
+    fun getName(): String = name
+    fun getTimeout(): Int = timeout
+}
+
 class KotlinObjectBridgeTests {
 
     @Test
