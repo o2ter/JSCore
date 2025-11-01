@@ -120,7 +120,7 @@ extension JSCrypto {
 
 extension JSCrypto {
 
-  func createHamc(_ algorithm: String, _ secret: JSValue) -> JSDigest? {
+  func createHmac(_ algorithm: String, _ secret: JSValue) -> JSDigest? {
     guard secret.isTypedArray else { return nil }
     let key = SymmetricKey(data: secret.typedArrayBytes)
     switch algorithm {

@@ -36,7 +36,7 @@ import JavaScriptCore
 
   func createHash(_ algorithm: String) -> JSDigest
 
-  func createHamc(_ algorithm: String, _ secret: JSValue) -> JSDigest?
+  func createHmac(_ algorithm: String, _ secret: JSValue) -> JSDigest?
 }
 
 @objc final class JSCrypto: NSObject, JSCryptoExport {
