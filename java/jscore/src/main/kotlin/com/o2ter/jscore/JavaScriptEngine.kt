@@ -591,14 +591,20 @@ class JavaScriptEngine(
             (function(nativeBridge) {
                 if (!nativeBridge) return;
                 
-                globalThis.setTimeout = function(callback, delay) {
-                    return nativeBridge.setTimeout(callback, delay || 0);
+                globalThis.setTimeout = function(callback, delay, ...args) {
+                    const wrappedCallback = args.length > 0 
+                        ? function() { callback(...args); }
+                        : callback;
+                    return nativeBridge.setTimeout(wrappedCallback, delay || 0);
                 };
                 globalThis.clearTimeout = function(id) {
                     nativeBridge.clearTimeout(id);
                 };
-                globalThis.setInterval = function(callback, delay) {
-                    return nativeBridge.setInterval(callback, delay || 0);
+                globalThis.setInterval = function(callback, delay, ...args) {
+                    const wrappedCallback = args.length > 0 
+                        ? function() { callback(...args); }
+                        : callback;
+                    return nativeBridge.setInterval(wrappedCallback, delay || 0);
                 };
                 globalThis.clearInterval = function(id) {
                     nativeBridge.clearInterval(id);

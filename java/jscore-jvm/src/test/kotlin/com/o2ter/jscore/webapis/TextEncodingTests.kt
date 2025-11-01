@@ -321,10 +321,10 @@ class TextEncodingTests {
                 const decoder = new TextDecoder();
                 
                 const testStrings = [
-                    'Hello\\nWorld',
-                    'Tab\\tSeparated',
+                    'Hello\nWorld',
+                    'Tab\tSeparated',
                     'Quote"Test',
-                    'Apostrophe\\'s',
+                    "Apostrophe's",
                     '!@#$%^&*()',
                     '0123456789'
                 ];
