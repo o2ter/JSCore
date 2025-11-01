@@ -59,15 +59,49 @@ JSCore/
 - `deviceInfo`: Device identification
 - `bundleInfo`: Application metadata
 - `FileSystem`: File operations
-- `URLSession`: HTTP requests
-- `URLRequest`: HTTP request construction
+- `URLSession`: HTTP requests (accepts plain JavaScript objects, not native bridge constructors)
 
 **Important:** `__NATIVE_BRIDGE__` is passed as a private parameter to the polyfill system and is not exposed as a global object to user JavaScript code.
+
+**Design Principle: Prefer Plain JavaScript Objects Over Native Bridge Constructors**
+
+For short-term data transfer to native APIs, use plain JavaScript objects instead of creating native bridge constructors:
+
+- ✅ **Good**: Pass `{ url: "...", method: "GET", headers: {...} }` to `URLSession.httpRequestWithRequest()`
+- ❌ **Bad**: Create `new __NATIVE_BRIDGE__.URLRequest(url)` that requires lifecycle management
+
+**Benefits of plain objects:**
+- Simpler architecture with no object lifecycle management
+- Reduced memory overhead (no bridge object allocation)
+- Better performance (direct property access vs method calls)
+- Cleaner code in both JavaScript and native layers
+
+**Example: URLSession API**
+The URLSession API was refactored from using a native `URLRequest` constructor to accepting plain JavaScript objects:
+
+```javascript
+// Modern approach - plain JavaScript object
+const request = {
+  url: 'https://example.com',
+  httpMethod: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  httpBody: JSON.stringify({ data: 'test' }),
+  timeoutInterval: 30.0
+};
+session.httpRequestWithRequest(request, bodyStream, progressHandler);
+```
+
+This eliminates the need for:
+- Native `URLRequest` class in Swift (`JSURLRequest`)
+- Native `URLRequest` class in Kotlin
+- Object registry and lifecycle tracking
+- Complex property getters/setters through the bridge
 
 **When adding new native bridge modules:**
 - Add the implementation to both `swift/Sources/SwiftJS/core/polyfill.swift` and `java/jscore/src/main/kotlin/com/o2ter/jscore/JavaScriptEngine.kt`
 - Update this documentation to reflect the new common API
 - Test with both SwiftJSRunner and jscore-runner to ensure compatibility
+- Consider using plain JavaScript objects for configuration instead of native constructors
 
 ---
 
@@ -297,6 +331,23 @@ engine.registerHttpThread(Thread.currentThread())
 val requestId = "req_${nextRequestId++}"
 engine.registerHttpRequest(requestId)
 ```
+
+#### Bridge Utility Functions
+The `bridge.kt` file provides utility functions for working with V8 values:
+
+**V8ValueObject.toStringMap()**: Extracts all own properties as a Map<String, String>
+```kotlin
+// Extract headers from JavaScript object
+val headers = (requestConfig.get("headers") as? V8ValueObject)?.toStringMap() ?: emptyMap()
+```
+
+This utility handles:
+- Property enumeration via `getOwnPropertyNames()`
+- Automatic resource cleanup with `.use { }`
+- Safe extraction with null/error handling
+- Returns empty map on any error
+
+Use this pattern when extracting configuration objects, headers, or any JavaScript object with string key-value pairs.
 
 ### Cross-Platform Considerations
 
