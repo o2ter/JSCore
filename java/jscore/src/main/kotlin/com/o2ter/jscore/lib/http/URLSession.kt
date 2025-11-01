@@ -76,7 +76,11 @@ class URLSession(
             )
         )
         
-        nativeBridge.set("URLSession", urlSessionBridge)
+        try {
+            nativeBridge.set("URLSession", urlSessionBridge)
+        } finally {
+            urlSessionBridge.close() // Close to release callback contexts
+        }
             
             // Register URLRequest constructor using helper
             nativeBridge.bindFunction(JavetCallbackContext(

@@ -782,10 +782,24 @@ class JavaScriptEngine(
                 timerNamespace.close()
             }
             
-            // CRITICAL: Unbind all callback contexts from native bridge BEFORE closing
-            // This properly cleans up the 49 callback contexts and prevents memory warnings
+            // CRITICAL: Close all module objects from native bridge BEFORE deleting properties
+            // This properly releases V8 objects and prevents memory warnings
             if (::nativeBridge.isInitialized && !nativeBridge.isClosed) {
                 try {
+                    // Close module objects (V8ValueObjects stored on nativeBridge)
+                    val moduleNames = listOf("crypto", "FileSystem", "deviceInfo", "bundleInfo", 
+                                            "processInfo", "processControl", "URLSession")
+                    moduleNames.forEach { moduleName ->
+                        try {
+                            val moduleObj = nativeBridge.get<V8ValueObject>(moduleName)
+                            if (moduleObj != null && !moduleObj.isClosed) {
+                                moduleObj.close()
+                            }
+                        } catch (e: Exception) {
+                            // Ignore errors - object might not exist or already closed
+                        }
+                    }
+                    
                     // Delete all bound functions to release callback contexts (one at a time)
                     nativeBridge.delete("consoleLog")
                     nativeBridge.delete("consoleError")
