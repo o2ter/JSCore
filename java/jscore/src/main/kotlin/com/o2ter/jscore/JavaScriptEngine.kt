@@ -444,22 +444,18 @@ class JavaScriptEngine(
                 platformContext.logger.debug("JSConsole", message)
             }))
         
-        // Setup console forwarding without polluting globalThis with intermediate state
+        // Setup console forwarding
         v8Runtime.invokeFunction("""
             (function(nativeBridge) {
                 if (!nativeBridge) return;
                 
-                // Create console object in clean scope
-                const consoleObject = {
+                globalThis.console = {
                     log: function(...args) { nativeBridge.consoleLog.apply(null, args); },
                     error: function(...args) { nativeBridge.consoleError.apply(null, args); },
                     warn: function(...args) { nativeBridge.consoleWarn.apply(null, args); },
                     debug: function(...args) { nativeBridge.consoleDebug.apply(null, args); },
                     info: function(...args) { nativeBridge.consoleLog.apply(null, args); }
                 };
-                
-                // Only assign the final console object to globalThis
-                globalThis.console = consoleObject;
             })
         """.trimIndent(), nativeBridge)
     }
@@ -590,29 +586,23 @@ class JavaScriptEngine(
         }
         nativeBridge.bindFunction(JavetCallbackContext("clearInterval", JavetCallbackType.DirectCallNoThisAndNoResult, clearIntervalCallback))
         
-        // Bridge timer functions to JavaScript without polluting globalThis
+        // Bridge timer functions to JavaScript
         v8Runtime.invokeFunction("""
             (function(nativeBridge) {
                 if (!nativeBridge) return;
                 
-                // Create timer functions in a clean scope, then assign them
-                const timerFunctions = {
-                    setTimeout: function(callback, delay) {
-                        return nativeBridge.setTimeout(callback, delay || 0);
-                    },
-                    clearTimeout: function(id) {
-                        nativeBridge.clearTimeout(id);
-                    },
-                    setInterval: function(callback, delay) {
-                        return nativeBridge.setInterval(callback, delay || 0);
-                    },
-                    clearInterval: function(id) {
-                        nativeBridge.clearInterval(id);
-                    }
+                globalThis.setTimeout = function(callback, delay) {
+                    return nativeBridge.setTimeout(callback, delay || 0);
                 };
-                
-                // Only assign the timer functions to globalThis - no internal state
-                Object.assign(globalThis, timerFunctions);
+                globalThis.clearTimeout = function(id) {
+                    nativeBridge.clearTimeout(id);
+                };
+                globalThis.setInterval = function(callback, delay) {
+                    return nativeBridge.setInterval(callback, delay || 0);
+                };
+                globalThis.clearInterval = function(id) {
+                    nativeBridge.clearInterval(id);
+                };
             })
         """.trimIndent(), nativeBridge)
     }
@@ -625,22 +615,17 @@ class JavaScriptEngine(
         }
         nativeBridge.bindFunction(JavetCallbackContext("performanceNow", JavetCallbackType.DirectCallNoThisAndResult, performanceNowCallback))
         
-        // Bridge performance API without polluting globalThis with intermediate state
+        // Bridge performance API
         v8Runtime.invokeFunction("""
             (function(nativeBridge) {
                 if (!nativeBridge || !nativeBridge.performanceNow) return;
                 
-                // Create performance object in clean scope
-                const performanceObject = {
-                    now: function() { return nativeBridge.performanceNow(); }
-                };
-                
-                // Only assign to globalThis if it doesn't exist
                 if (!globalThis.performance) {
-                    globalThis.performance = performanceObject;
+                    globalThis.performance = {
+                        now: function() { return nativeBridge.performanceNow(); }
+                    };
                 } else {
-                    // Extend existing performance object
-                    Object.assign(globalThis.performance, performanceObject);
+                    globalThis.performance.now = function() { return nativeBridge.performanceNow(); };
                 }
             })
         """.trimIndent(), nativeBridge)
