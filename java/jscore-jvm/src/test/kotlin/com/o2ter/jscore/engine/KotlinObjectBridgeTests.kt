@@ -177,9 +177,10 @@ class KotlinObjectBridgeTests {
             
             assertTrue(result is Map<*, *>)
             val map = result as Map<*, *>
-            assertEquals(15.0, map["sum"])
-            assertEquals(12.0, map["product"])
-            assertEquals(12.0, map["finalResult"])
+            // V8 stores whole numbers as integers, so 15.0 becomes 15
+            assertEquals(15, map["sum"])
+            assertEquals(12, map["product"])
+            assertEquals(12, map["finalResult"])
         }
     }
 

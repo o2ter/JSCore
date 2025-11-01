@@ -182,6 +182,40 @@ private fun V8Runtime.createProxy(value: Any): V8Value {
         }
     ))
     handler.bindFunction(JavetCallbackContext(
+        "has",
+        JavetCallbackType.DirectCallNoThisAndResult,
+        IJavetDirectCallable.NoThisAndResult<Exception> { v8Values ->
+            val prop = v8Values[1].toString()
+            
+            // Check if property or method exists
+            val hasProperty = value::class.memberProperties.any { it.name == prop }
+            val hasMethod = value::class.memberFunctions.any { it.name == prop }
+            
+            this.createV8ValueBoolean(hasProperty || hasMethod)
+        }
+    ))
+    handler.bindFunction(JavetCallbackContext(
+        "getOwnPropertyDescriptor",
+        JavetCallbackType.DirectCallNoThisAndResult,
+        IJavetDirectCallable.NoThisAndResult<Exception> { v8Values ->
+            val prop = v8Values[1].toString()
+            
+            // Check if property or method exists
+            val hasProperty = value::class.memberProperties.any { it.name == prop }
+            val hasMethod = value::class.memberFunctions.any { it.name == prop }
+            
+            if (hasProperty || hasMethod) {
+                // Return descriptor that makes the property enumerable and configurable
+                this.createV8ValueObject().apply {
+                    set("enumerable", true)
+                    set("configurable", true)
+                }
+            } else {
+                this.createV8ValueUndefined()
+            }
+        }
+    ))
+    handler.bindFunction(JavetCallbackContext(
         "get",
         JavetCallbackType.DirectCallNoThisAndResult,
         IJavetDirectCallable.NoThisAndResult<Exception> { v8Values ->
