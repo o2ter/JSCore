@@ -724,7 +724,7 @@ final class StreamingTests: XCTestCase {
                 })
                 .catch(error => {
                     testCompleted({ 
-                        isAbortError: error.message === 'AbortError',
+                        isAbortError: error.name === 'AbortError',
                         receivedChunks: receivedChunks,
                         receivedSome: receivedChunks > 0 && receivedChunks < 20
                     });

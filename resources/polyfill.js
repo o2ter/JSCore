@@ -2243,6 +2243,7 @@
 
             // Implement progressive loading with onprogress events
             let accumulatedData = new Uint8Array(0);
+            let receivedAllData = false;
             let timeoutId = null;
 
             // Set up timeout if specified
@@ -2294,8 +2295,9 @@
                         clearTimeout(timeoutId);
                         timeoutId = null;
                     }
-                    // Final response data is already accumulated
-                    this.#finalizeResponse(accumulatedData);
+                    // Mark that we received all data, but don't finalize yet
+                    // Let the promise resolution handle finalization to ensure status is set
+                    receivedAllData = true;
                 }
             };
 
@@ -2324,8 +2326,11 @@
                             this.#setReadyState(XMLHttpRequest.HEADERS_RECEIVED);
                         }
 
-                        // Don't call #handleResponse since we're using progress handler
-                        // The progress handler will call #finalizeResponse when complete
+                        // Always finalize here in the promise resolution
+                        // This ensures status is set before finalization
+                        if (receivedAllData && this.#readyState < XMLHttpRequest.DONE) {
+                            this.#finalizeResponse(accumulatedData);
+                        }
                     }
                 })
                 .catch(error => {
@@ -2334,7 +2339,10 @@
                         clearTimeout(timeoutId);
                         timeoutId = null;
                     }
-                    this.#handleError(error);
+
+                    if (!this.#aborted) {
+                        this.#handleError(error);
+                    }
                 });
         }
 
