@@ -129,84 +129,39 @@ fun V8Runtime.createJSObject(value: Any?): V8Value {
         is String -> this.createV8ValueString(value)
         is V8Value -> value // Already a JS value
         is JavetCallbackContext -> this.createV8ValueFunction(value)
-        is List<*> -> createListProxy(value)
-        is Map<*, *> -> createMapProxy(value)
+        is List<*> -> createJSArray(value)
+        is Map<*, *> -> createJSObjectFromMap(value)
         is Function<*> -> createJSFunction(value)
         else -> createProxy(value)
     }
 }
 
-private fun V8Runtime.createListProxy(value: List<*>): V8Value {
-    val handler = this.createV8ValueObject()
-    
-    // get trap - access array elements
-    handler.bindFunction(JavetCallbackContext(
-        "get",
-        JavetCallbackType.DirectCallNoThisAndResult,
-        IJavetDirectCallable.NoThisAndResult<Exception> { v8Values ->
-            val prop = v8Values[1].toString()
-            when (prop) {
-                "length" -> this.createV8ValueInteger(value.size)
-                else -> {
-                    // Try to parse as array index
-                    val index = prop.toIntOrNull()
-                    if (index != null && index >= 0 && index < value.size) {
-                        createJSObject(value[index])
-                    } else {
-                        this.createV8ValueUndefined()
-                    }
-                }
-            }
+/**
+ * Convert a Kotlin List to a JavaScript array
+ * Creates a real V8ValueArray with proper array prototype, supporting all array methods
+ */
+private fun V8Runtime.createJSArray(value: List<*>): V8Value {
+    val array = this.createV8ValueArray()
+    value.forEachIndexed { index, element ->
+        createJSObject(element).use { jsElement ->
+            array.set(index, jsElement)
         }
-    ))
-    
-    // ownKeys trap - enumerate array indices and length
-    handler.bindFunction(JavetCallbackContext(
-        "ownKeys",
-        JavetCallbackType.DirectCallNoThisAndResult,
-        IJavetDirectCallable.NoThisAndResult<Exception> { _ ->
-            val array = this.createV8ValueArray()
-            for (i in value.indices) {
-                array.set(i, i.toString())
-            }
-            array.set(value.size, "length")
-            array
-        }
-    ))
-    
-    return try {
-        this.invokeFunction("(function(handler) { return new Proxy([], handler); })".trimIndent(), handler)
-    } finally {
-        handler.close()
     }
+    return array
 }
 
-private fun V8Runtime.createMapProxy(value: Map<*, *>): V8Value {
-    val handler = this.createV8ValueObject()
-    handler.bindFunction(JavetCallbackContext(
-        "ownKeys",
-        JavetCallbackType.DirectCallNoThisAndResult,
-        IJavetDirectCallable.NoThisAndResult<Exception> { v8Values ->
-            val array = this.createV8ValueArray()
-            value.keys.forEachIndexed { index, entry ->
-                array.set(index, entry.toString())
-            }
-            array
+/**
+ * Convert a Kotlin Map to a JavaScript object
+ * Creates a real V8ValueObject with enumerable properties
+ */
+private fun V8Runtime.createJSObjectFromMap(value: Map<*, *>): V8Value {
+    val obj = this.createV8ValueObject()
+    value.forEach { (key, mapValue) ->
+        createJSObject(mapValue).use { jsValue ->
+            obj.set(key.toString(), jsValue)
         }
-    ))
-    handler.bindFunction(JavetCallbackContext(
-        "get",
-        JavetCallbackType.DirectCallNoThisAndResult,
-        IJavetDirectCallable.NoThisAndResult<Exception> { v8Values ->
-            val prop = v8Values[1].toString()
-            createJSObject(value[prop])
-        }
-    ))
-    return try {
-        this.invokeFunction("(function(handler) { return new Proxy({}, handler); })".trimIndent(), handler)
-    } finally {
-        handler.close()
     }
+    return obj
 }
 
 private fun V8Runtime.createProxy(value: Any): V8Value {
