@@ -709,9 +709,19 @@ class JavaScriptEngine(
                     })
                 """.trimIndent()
                 
-                // Pass values as positional arguments in the same order as names
-                v8Runtime.invokeFunction(wrappedCode, *namedArgs.values.toTypedArray()).use { result ->
-                    result.toNative()
+                // Convert all arguments to proper V8Values for correct bridging
+                val v8Args = namedArgs.values.map { value ->
+                    v8Runtime.createJSObject(value)
+                }.toTypedArray()
+                
+                try {
+                    // Pass converted values as positional arguments in the same order as names
+                    v8Runtime.invokeFunction(wrappedCode, *v8Args).use { result ->
+                        result.toNative()
+                    }
+                } finally {
+                    // Clean up all V8Values we created
+                    v8Args.forEach { it.close() }
                 }
             } catch (e: Exception) {
                 platformContext.logger.error("JavaScriptEngine", "Execution failed: ${e.message}")
