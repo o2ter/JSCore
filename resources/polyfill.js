@@ -4031,8 +4031,34 @@
                 return Promise.reject(new TypeError('ReadableStream is in an invalid state'));
             }
             const s = this[SYMBOLS.streamInternal];
-            if (s.state === 'closed') return Promise.resolve();
-            if (s.state === 'errored') return Promise.reject(s.storedError);
+
+            // Always call underlying source cancel if available, even if already closed
+            const shouldCallCancel = s.underlyingSource && s.underlyingSource.cancel;
+
+            // Early return if errored (but still call cancel if needed)
+            if (s.state === 'errored') {
+                if (shouldCallCancel) {
+                    try {
+                        s.underlyingSource.cancel(reason);
+                    } catch (e) {
+                        // Ignore errors from cancel
+                    }
+                }
+                return Promise.reject(s.storedError);
+            }
+
+            // Early return if already closed (but still call cancel if needed)
+            if (s.state === 'closed') {
+                if (shouldCallCancel) {
+                    try {
+                        const cancelResult = s.underlyingSource.cancel(reason);
+                        return Promise.resolve(cancelResult);
+                    } catch (e) {
+                        return Promise.reject(e);
+                    }
+                }
+                return Promise.resolve();
+            }
 
             // Reject all pending read requests
             s.readRequests.forEach(r => r.reject(reason));
@@ -4042,7 +4068,7 @@
             s.state = 'closed';
 
             // Call underlying source cancel if available
-            if (s.underlyingSource && s.underlyingSource.cancel) {
+            if (shouldCallCancel) {
                 try {
                     const cancelResult = s.underlyingSource.cancel(reason);
                     return Promise.resolve(cancelResult);
