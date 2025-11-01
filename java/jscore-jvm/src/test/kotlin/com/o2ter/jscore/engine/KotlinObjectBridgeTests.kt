@@ -91,8 +91,7 @@ class MutableConfig {
     var timeout: Int = 30
     val readOnly: String = "immutable"
     
-    fun getName(): String = name
-    fun getTimeout(): Int = timeout
+    fun getDetails(): String = "Config: name=$name, timeout=$timeout"
 }
 
 class KotlinObjectBridgeTests {
@@ -430,8 +429,7 @@ class KotlinObjectBridgeTests {
                         return true;
                     })(),
                     newTimeout: config.timeout,
-                    getNameMethod: config.getName(),
-                    getTimeoutMethod: config.getTimeout()
+                    details: config.getDetails()
                 })
                 """
             )
@@ -444,8 +442,7 @@ class KotlinObjectBridgeTests {
             assertEquals("updated", map["newName"])
             assertEquals(true, map["setTimeoutResult"])
             assertEquals(60, map["newTimeout"])
-            assertEquals("updated", map["getNameMethod"])
-            assertEquals(60, map["getTimeoutMethod"])
+            assertEquals("Config: name=updated, timeout=60", map["details"])
             
             // Verify the actual Kotlin object was modified
             assertEquals("updated", config.name)
@@ -524,7 +521,7 @@ class KotlinObjectBridgeTests {
                 ({
                     nameDescriptor: Object.getOwnPropertyDescriptor(config, 'name'),
                     readOnlyDescriptor: Object.getOwnPropertyDescriptor(config, 'readOnly'),
-                    methodDescriptor: Object.getOwnPropertyDescriptor(config, 'getName')
+                    methodDescriptor: Object.getOwnPropertyDescriptor(config, 'getDetails')
                 })
                 """
             )
