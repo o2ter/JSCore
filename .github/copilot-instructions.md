@@ -133,41 +133,46 @@ let result = object.invokeMethod("methodName", withArguments: [])
 - **Short-lived pattern (CLI tools)**: Use `.use {}` block for automatic cleanup
 
 #### **CRITICAL:** V8ValueObject Property Binding Behavior
-**V8ValueObject properties created with `.set()` are read-only by default and do not sync with Kotlin object fields.**
+**Use the `createJSObject` helper function with `JSProperty` for dynamic properties that need bidirectional binding.**
 
+**Simple static properties:**
 ```kotlin
-// ❌ WRONG - Creates disconnected property
-val bridge = v8Runtime.createV8ValueObject()
-bridge.set("httpMethod", request.httpMethod)  // Read-only property
-
-// JavaScript can set: urlRequest.httpMethod = "POST"  
-// But request.httpMethod still shows "GET" in Kotlin!
+// ✅ CORRECT - For static values that don't need updates
+val obj = v8Runtime.createJSObject(
+    properties = mapOf(
+        "url" to "https://example.com",
+        "timeout" to 30
+    )
+)
 ```
 
-**Solution:** Use `Object.defineProperty()` with getter/setter to create bidirectional property binding:
+**Dynamic properties with getters/setters:**
 ```kotlin
-// ✅ CORRECT - Creates synchronized property with native callback
-bridge.bindFunction(JavetCallbackContext(
-    "_setHttpMethod",
-    JavetCallbackType.DirectCallNoThisAndNoResult,
-    IJavetDirectCallable.NoThisAndNoResult<Exception> { v8Values ->
-        if (v8Values.isNotEmpty()) {
-            request.httpMethod = v8Values[0].toString()
+// ✅ CORRECT - For properties that sync with Kotlin object fields
+val obj = v8Runtime.createJSObject(
+    properties = mapOf("url" to request.url),
+    dynamicProperties = mapOf(
+        "httpMethod" to JSProperty(
+            getter = { request.httpMethod },
+            setter = { value -> request.httpMethod = value }
+        )
+    ),
+    methods = mapOf(
+        "setHeader" to IJavetDirectCallable.NoThisAndResult<Exception> { args ->
+            val name = args[0].toString()
+            val value = args[1].toString()
+            request.headers[name] = value
+            v8Runtime.createV8ValueUndefined()
         }
-    }
-))
-
-v8Runtime.globalObject.set("__tempBridge", bridge)
-v8Runtime.getExecutor("""
-    Object.defineProperty(__tempBridge, 'httpMethod', {
-        get: function() { return '${request.httpMethod}'; },
-        set: function(value) { this._setHttpMethod(value); },
-        enumerable: true,
-        configurable: true
-    });
-    delete globalThis.__tempBridge;
-""").executeVoid()
+    )
+)
 ```
+
+**Why this works:**
+- `JSProperty` creates native getter/setter callbacks
+- `Object.defineProperty` is called automatically with proper descriptors
+- JavaScript property access triggers Kotlin field reads/writes
+- No need to manually manage temporary globals or cleanup
 
 ### Threading and Memory Management
 
