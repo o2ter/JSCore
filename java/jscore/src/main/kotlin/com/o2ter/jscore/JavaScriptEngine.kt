@@ -786,13 +786,24 @@ class JavaScriptEngine(
             // This properly cleans up the 49 callback contexts and prevents memory warnings
             if (::nativeBridge.isInitialized && !nativeBridge.isClosed) {
                 try {
-                    // Delete all bound functions to release callback contexts
-                    nativeBridge.delete("consoleLog", "consoleError", "consoleWarn", "consoleDebug")
-                    nativeBridge.delete("setTimeout", "clearTimeout", "setInterval", "clearInterval")
+                    // Delete all bound functions to release callback contexts (one at a time)
+                    nativeBridge.delete("consoleLog")
+                    nativeBridge.delete("consoleError")
+                    nativeBridge.delete("consoleWarn")
+                    nativeBridge.delete("consoleDebug")
+                    nativeBridge.delete("setTimeout")
+                    nativeBridge.delete("clearTimeout")
+                    nativeBridge.delete("setInterval")
+                    nativeBridge.delete("clearInterval")
                     nativeBridge.delete("performanceNow")
-                    nativeBridge.delete("crypto", "FileSystem", "deviceInfo", "bundleInfo")
-                    nativeBridge.delete("processInfo", "processControl")
-                    nativeBridge.delete("URLSession", "URLRequest")
+                    nativeBridge.delete("crypto")
+                    nativeBridge.delete("FileSystem")
+                    nativeBridge.delete("deviceInfo")
+                    nativeBridge.delete("bundleInfo")
+                    nativeBridge.delete("processInfo")
+                    nativeBridge.delete("processControl")
+                    nativeBridge.delete("URLSession")
+                    nativeBridge.delete("URLRequest")
                 } catch (e: Exception) {
                     // Ignore errors during cleanup
                 }
