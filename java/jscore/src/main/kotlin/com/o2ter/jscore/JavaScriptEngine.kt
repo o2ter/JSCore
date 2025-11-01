@@ -669,10 +669,42 @@ class JavaScriptEngine(
         }
     }
 
-    fun invokeFunction(code: String, vararg args: Any?): Any? {
+    /**
+     * Execute JavaScript code with named arguments
+     * 
+     * @param namedArgs Map of argument names to values that will be available in the code
+     * @param code JavaScript code that can use the named arguments
+     * @return The result of the execution
+     * 
+     * Example:
+     * ```kotlin
+     * val result = engine.execute(mapOf(
+     *     "url" to "https://example.com",
+     *     "timeout" to 30
+     * ), """
+     *     fetch(url, { timeout: timeout }).then(r => r.json())
+     * """)
+     * ```
+     */
+    fun execute(namedArgs: Map<String, Any?>, code: String): Any? {
         return executeOnJSThread {
             try {
-                v8Runtime.invokeFunction(code, *args).use { result ->
+                // Build argument assignment code with proper indexing
+                val argNames = namedArgs.keys.toList()
+                val argAssignments = argNames.mapIndexed { index, name ->
+                    "const $name = arguments[$index];"
+                }.joinToString("\n")
+                
+                // Wrap code in IIFE with argument assignments
+                val wrappedCode = """
+                    (function() {
+                        $argAssignments
+                        return ($code);
+                    })
+                """.trimIndent()
+                
+                // Pass values as positional arguments in the same order as names
+                v8Runtime.invokeFunction(wrappedCode, *namedArgs.values.toTypedArray()).use { result ->
                     result.toNative()
                 }
             } catch (e: Exception) {
