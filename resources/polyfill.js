@@ -772,7 +772,13 @@
 
         [SYMBOLS.abortSignalMarkAborted](reason) {
             this.#aborted = true;
-            this.#reason = reason === undefined ? new Error('AbortError') : reason;
+            if (reason === undefined) {
+                const error = new Error('The operation was aborted');
+                error.name = 'AbortError';
+                this.#reason = error;
+            } else {
+                this.#reason = reason;
+            }
         }
 
         // Static factory method for timeout-based AbortSignal
@@ -4169,7 +4175,9 @@
             const preventCancel = options.preventCancel || false;
 
             if (signal && signal.aborted) {
-                return Promise.reject(new Error('AbortError'));
+                const error = new Error('The operation was aborted');
+                error.name = 'AbortError';
+                return Promise.reject(error);
             }
 
             const reader = this.getReader();
@@ -4179,7 +4187,9 @@
             if (signal) {
                 abortPromise = new Promise((_, reject) => {
                     signal.addEventListener('abort', () => {
-                        reject(new Error('AbortError'));
+                        const error = new Error('The operation was aborted');
+                        error.name = 'AbortError';
+                        reject(error);
                     });
                 });
             }
@@ -4210,9 +4220,9 @@
                     }
                 } catch (error) {
                     // Handle different error scenarios BEFORE cleanup
-                    if (error.message === 'AbortError') {
+                    if (error.name === 'AbortError') {
                         if (!preventCancel) {
-                            await reader.cancel().catch(() => { });
+                            await reader.cancel(error).catch(() => { });
                         }
                         if (!preventAbort) {
                             await writer.abort(error).catch(() => { });
