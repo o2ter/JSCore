@@ -166,6 +166,8 @@ private fun V8Runtime.createJSObjectFromMap(value: Map<*, *>): V8Value {
 
 private fun V8Runtime.createProxy(value: Any): V8Value {
     val handler = this.createV8ValueObject()
+    
+    // ownKeys trap - returns all property and method names
     handler.bindFunction(JavetCallbackContext(
         "ownKeys",
         JavetCallbackType.DirectCallNoThisAndResult,
@@ -181,6 +183,8 @@ private fun V8Runtime.createProxy(value: Any): V8Value {
             array
         }
     ))
+    
+    // has trap - checks if property/method exists (for 'in' operator)
     handler.bindFunction(JavetCallbackContext(
         "has",
         JavetCallbackType.DirectCallNoThisAndResult,
@@ -194,6 +198,8 @@ private fun V8Runtime.createProxy(value: Any): V8Value {
             this.createV8ValueBoolean(hasProperty || hasMethod)
         }
     ))
+    
+    // getOwnPropertyDescriptor trap - returns property descriptor for enumeration
     handler.bindFunction(JavetCallbackContext(
         "getOwnPropertyDescriptor",
         JavetCallbackType.DirectCallNoThisAndResult,
@@ -201,20 +207,24 @@ private fun V8Runtime.createProxy(value: Any): V8Value {
             val prop = v8Values[1].toString()
             
             // Check if property or method exists
-            val hasProperty = value::class.memberProperties.any { it.name == prop }
+            val property = value::class.memberProperties.find { it.name == prop }
             val hasMethod = value::class.memberFunctions.any { it.name == prop }
             
-            if (hasProperty || hasMethod) {
+            if (property != null || hasMethod) {
                 // Return descriptor that makes the property enumerable and configurable
+                // Properties are writable if they're mutable (var), methods are not writable
                 this.createV8ValueObject().apply {
                     set("enumerable", true)
                     set("configurable", true)
+                    set("writable", property != null && property is kotlin.reflect.KMutableProperty1)
                 }
             } else {
                 this.createV8ValueUndefined()
             }
         }
     ))
+    
+    // get trap - retrieves property values or method functions
     handler.bindFunction(JavetCallbackContext(
         "get",
         JavetCallbackType.DirectCallNoThisAndResult,
@@ -256,6 +266,48 @@ private fun V8Runtime.createProxy(value: Any): V8Value {
             }
             
             this.createV8ValueUndefined()
+        }
+    ))
+    
+    // set trap - allows setting mutable property values
+    handler.bindFunction(JavetCallbackContext(
+        "set",
+        JavetCallbackType.DirectCallNoThisAndResult,
+        IJavetDirectCallable.NoThisAndResult<Exception> { v8Values ->
+            val prop = v8Values[1].toString()
+            val newValue = v8Values[2]
+            
+            // Try to find mutable property
+            val property = value::class.memberProperties.find { it.name == prop }
+            if (property is kotlin.reflect.KMutableProperty1) {
+                try {
+                    // Convert JavaScript value to native type
+                    val nativeValue = newValue.toNative()
+                    
+                    // Set the property value
+                    @Suppress("UNCHECKED_CAST")
+                    (property as kotlin.reflect.KMutableProperty1<Any, Any?>).set(value, nativeValue)
+                    
+                    return@NoThisAndResult this.createV8ValueBoolean(true)
+                } catch (e: Exception) {
+                    // Setting failed - return false
+                    return@NoThisAndResult this.createV8ValueBoolean(false)
+                }
+            }
+            
+            // Property not found or not mutable - return false
+            this.createV8ValueBoolean(false)
+        }
+    ))
+    
+    // deleteProperty trap - prevents deletion of Kotlin object properties
+    handler.bindFunction(JavetCallbackContext(
+        "deleteProperty",
+        JavetCallbackType.DirectCallNoThisAndResult,
+        IJavetDirectCallable.NoThisAndResult<Exception> { v8Values ->
+            // Kotlin object properties cannot be deleted
+            // Return false to indicate deletion is not allowed
+            this.createV8ValueBoolean(false)
         }
     ))
     return try {
