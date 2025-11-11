@@ -688,8 +688,15 @@
         constructor(name, parentPath, stat) {
             this.name = name;
             this.path = Path.join(parentPath, name);
+
+            // POSIX file type flags (all 7 standard types)
             this.isFile = stat.isFile;
             this.isDirectory = stat.isDirectory;
+            this.isSymbolicLink = stat.isSymbolicLink || false;
+            this.isCharacterDevice = stat.isCharacterDevice || false;
+            this.isBlockDevice = stat.isBlockDevice || false;
+            this.isSocket = stat.isSocket || false;  // Includes FIFOs
+
             this.size = stat.size;
             this.modified = new Date(stat.modificationDate);
             this.created = new Date(stat.creationDate);

@@ -212,9 +212,24 @@ class FileSystem(
                         stat.set("creationDate", attrs.creationTime().toMillis().toDouble())
                         stat.set("accessDate", attrs.lastAccessTime().toMillis().toDouble())
                         
-                        // File type flags
-                        stat.set("isDirectory", attrs.isDirectory)
-                        stat.set("isFile", attrs.isRegularFile)
+                        // POSIX file type flags (matching SwiftJS implementation)
+                        val isFile = attrs.isRegularFile
+                        val isDirectory = attrs.isDirectory
+                        val isSymbolicLink = attrs.isSymbolicLink
+                        val isOther = attrs.isOther
+                        
+                        // Java NIO doesn't distinguish between different "other" types
+                        // (character devices, block devices, sockets, FIFOs all report as isOther)
+                        val isCharacterDevice = false  // Would need platform-specific code
+                        val isBlockDevice = false      // Would need platform-specific code  
+                        val isSocket = isOther         // Best approximation - includes sockets, FIFOs, etc.
+                        
+                        stat.set("isFile", isFile)
+                        stat.set("isDirectory", isDirectory)
+                        stat.set("isSymbolicLink", isSymbolicLink)
+                        stat.set("isCharacterDevice", isCharacterDevice)
+                        stat.set("isBlockDevice", isBlockDevice)
+                        stat.set("isSocket", isSocket)
                         
                         // Unix permissions (if available)
                         try {
@@ -789,13 +804,35 @@ class FileSystem(
                         // Get file attributes
                         val attrs = Files.readAttributes(entryPath, BasicFileAttributes::class.java)
                         
+                        // POSIX file type detection (matching SwiftJS implementation)
+                        val isFile = attrs.isRegularFile
+                        val isDirectory = attrs.isDirectory
+                        val isSymbolicLink = attrs.isSymbolicLink
+                        
+                        // For other file types, we need platform-specific detection
+                        // Java NIO doesn't provide detailed file type info beyond regular/directory/symlink/other
+                        // On Unix-like systems, we can check if it's "other" and attempt to determine the specific type
+                        val isOther = attrs.isOther
+                        
+                        // Note: Java NIO doesn't distinguish between character devices, block devices, sockets, and FIFOs
+                        // They all report as isOther() = true
+                        // For full POSIX file type support, we'd need JNI or platform-specific code
+                        // For now, we conservatively set these to false unless we can definitively determine them
+                        val isCharacterDevice = false  // Would need platform-specific code
+                        val isBlockDevice = false      // Would need platform-specific code
+                        val isSocket = isOther         // Best approximation - includes sockets, FIFOs, etc.
+                        
                         // Build entry object - DO NOT use .use {} because we're returning this to JavaScript
                         val entry = v8Runtime.createV8ValueObject()
                         entry.set("name", name)
                         entry.set("path", fullPath)
                         entry.set("parentPath", parentPath)
-                        entry.set("isFile", attrs.isRegularFile)
-                        entry.set("isDirectory", attrs.isDirectory)
+                        entry.set("isFile", isFile)
+                        entry.set("isDirectory", isDirectory)
+                        entry.set("isSymbolicLink", isSymbolicLink)
+                        entry.set("isCharacterDevice", isCharacterDevice)
+                        entry.set("isBlockDevice", isBlockDevice)
+                        entry.set("isSocket", isSocket)
                         entry.set("size", attrs.size().toDouble())  // Convert to Double to avoid BigInt
                         entry.set("modificationDate", attrs.lastModifiedTime().toMillis().toDouble())
                         entry.set("creationDate", attrs.creationTime().toMillis().toDouble())

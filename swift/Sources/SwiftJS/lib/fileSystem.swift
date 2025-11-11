@@ -329,12 +329,21 @@ import UniformTypeIdentifiers
                     accessDate.timeIntervalSince1970 * 1000, forKeyedSubscript: "accessDate")
             }
 
-            // File type
-            var isDirectory: ObjCBool = false
-            FileManager.default.fileExists(atPath: path, isDirectory: &isDirectory)
+            // POSIX file type detection (all 7 standard types)
+            let fileType = attributes[FileAttributeKey.type] as? FileAttributeType
+            let isFile = fileType == .typeRegular
+            let isDirectory = fileType == .typeDirectory
+            let isSymbolicLink = fileType == .typeSymbolicLink
+            let isCharacterDevice = fileType == .typeCharacterSpecial
+            let isBlockDevice = fileType == .typeBlockSpecial
+            let isSocket = fileType == .typeSocket  // Note: Also covers FIFOs in Swift
 
-            stat.setObject(isDirectory.boolValue, forKeyedSubscript: "isDirectory")
-            stat.setObject(!isDirectory.boolValue, forKeyedSubscript: "isFile")
+            stat.setObject(isFile, forKeyedSubscript: "isFile")
+            stat.setObject(isDirectory, forKeyedSubscript: "isDirectory")
+            stat.setObject(isSymbolicLink, forKeyedSubscript: "isSymbolicLink")
+            stat.setObject(isCharacterDevice, forKeyedSubscript: "isCharacterDevice")
+            stat.setObject(isBlockDevice, forKeyedSubscript: "isBlockDevice")
+            stat.setObject(isSocket, forKeyedSubscript: "isSocket")
 
             // Permissions (POSIX mode)
             if let posixPermissions = attributes[.posixPermissions] as? NSNumber {
@@ -783,20 +792,30 @@ import UniformTypeIdentifiers
         }
 
         let fileType = attributes[FileAttributeKey.type] as? FileAttributeType
-        let isDirectory = fileType == .typeDirectory
+        
+        // POSIX file type detection (all 7 standard types)
         let isFile = fileType == .typeRegular
+        let isDirectory = fileType == .typeDirectory
+        let isSymbolicLink = fileType == .typeSymbolicLink
+        let isCharacterDevice = fileType == .typeCharacterSpecial
+        let isBlockDevice = fileType == .typeBlockSpecial
+        let isSocket = fileType == .typeSocket  // Note: Also covers FIFOs in Swift
 
         let size = (attributes[FileAttributeKey.size] as? NSNumber)?.int64Value ?? 0
         let modificationDate = (attributes[FileAttributeKey.modificationDate] as? Date) ?? Date()
         let creationDate = (attributes[FileAttributeKey.creationDate] as? Date) ?? Date()
 
-        // Build entry object
+        // Build entry object with all POSIX file type flags
         let entry = JSValue(newObjectIn: jsContext)!
         entry.setValue(name, forProperty: "name")
         entry.setValue(fullPath, forProperty: "path")
         entry.setValue(parentPath, forProperty: "parentPath")
         entry.setValue(isFile, forProperty: "isFile")
         entry.setValue(isDirectory, forProperty: "isDirectory")
+        entry.setValue(isSymbolicLink, forProperty: "isSymbolicLink")
+        entry.setValue(isCharacterDevice, forProperty: "isCharacterDevice")
+        entry.setValue(isBlockDevice, forProperty: "isBlockDevice")
+        entry.setValue(isSocket, forProperty: "isSocket")
         entry.setValue(size, forProperty: "size")
         entry.setValue(
             modificationDate.timeIntervalSince1970 * 1000, forProperty: "modificationDate")
