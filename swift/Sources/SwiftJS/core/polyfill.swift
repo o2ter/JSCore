@@ -41,6 +41,10 @@ extension SwiftJS {
         var openFileHandles: [Int: FileHandle] = [:]
         var handleCounter = 0
         let handleLock = NSLock()
+        
+        // Directory enumerator management for streaming directory iteration
+        var openDirectoryEnumerators: [Int: (AnyIterator<String>, String)] = [:]
+        var nextHandleId: Int = 0
 
         var logger: @Sendable (LogLevel, [SwiftJS.Value]) -> Void
 
@@ -122,6 +126,9 @@ extension SwiftJS {
                 fileHandle.closeFile()
             }
             openFileHandles.removeAll()
+            
+            // Clear all directory enumerators
+            openDirectoryEnumerators.removeAll()
             handleLock.unlock()
         }
     }

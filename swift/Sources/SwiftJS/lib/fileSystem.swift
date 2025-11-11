@@ -67,6 +67,14 @@ import UniformTypeIdentifiers
     func createWriteFileHandle(_ path: String, _ flags: Int) -> JSValue
     /// - writeFileHandleChunk returns a Promise<boolean> resolving with success status
     func writeFileHandleChunk(_ handle: Int, _ data: JSValue) -> JSValue
+    
+    // Directory streaming methods for memory-efficient directory iteration
+    /// - openDirectoryStream returns a number (handle id) or -1 on failure
+    func openDirectoryStream(_ path: String) -> Int
+    /// - readNextDirectoryEntry returns an object with entry metadata or null when done
+    func readNextDirectoryEntry(_ handle: Int) -> JSValue?
+    /// - closeDirectoryStream closes the directory handle
+    func closeDirectoryStream(_ handle: Int) -> Bool
 }
 
 @objc final class JSFileSystem: NSObject, JSFileSystemExport, @unchecked Sendable {
@@ -300,15 +308,25 @@ import UniformTypeIdentifiers
                 stat.setObject(size, forKeyedSubscript: "size")
             }
 
-            // Modification date
+            // Modification date (timestamp in milliseconds)
             if let modDate = attributes[.modificationDate] as? Date {
                 stat.setObject(modDate.timeIntervalSince1970 * 1000, forKeyedSubscript: "mtime")
+                stat.setObject(
+                    modDate.timeIntervalSince1970 * 1000, forKeyedSubscript: "modificationDate")
             }
 
-            // Creation date
+            // Creation date (timestamp in milliseconds)
             if let createDate = attributes[.creationDate] as? Date {
                 stat.setObject(
                     createDate.timeIntervalSince1970 * 1000, forKeyedSubscript: "birthtime")
+                stat.setObject(
+                    createDate.timeIntervalSince1970 * 1000, forKeyedSubscript: "creationDate")
+            }
+
+            // Access date (not available on all platforms, use modification date as fallback)
+            if let accessDate = attributes[.modificationDate] as? Date {
+                stat.setObject(
+                    accessDate.timeIntervalSince1970 * 1000, forKeyedSubscript: "accessDate")
             }
 
             // File type
@@ -318,9 +336,10 @@ import UniformTypeIdentifiers
             stat.setObject(isDirectory.boolValue, forKeyedSubscript: "isDirectory")
             stat.setObject(!isDirectory.boolValue, forKeyedSubscript: "isFile")
 
-            // Permissions
+            // Permissions (POSIX mode)
             if let posixPermissions = attributes[.posixPermissions] as? NSNumber {
                 stat.setObject(posixPermissions, forKeyedSubscript: "mode")
+                stat.setObject(posixPermissions, forKeyedSubscript: "permissions")
             }
 
             return stat
@@ -698,5 +717,102 @@ import UniformTypeIdentifiers
                 }
             }
         }
+    }
+    
+    // MARK: - Directory Streaming Methods
+
+    func openDirectoryStream(_ path: String) -> Int {
+        let fileManager = FileManager.default
+
+        // Check if path exists and is a directory
+        var isDir: ObjCBool = false
+        guard fileManager.fileExists(atPath: path, isDirectory: &isDir), isDir.boolValue else {
+            return -1
+        }
+
+        // Get directory contents (non-recursive)
+        guard let contents = try? fileManager.contentsOfDirectory(atPath: path) else {
+            return -1
+        }
+
+        // Create an iterator from the contents array
+        let iterator = contents.makeIterator()
+
+        // Store iterator with handle ID
+        context.handleLock.lock()
+        let handleId = context.nextHandleId
+        context.nextHandleId += 1
+        context.openDirectoryEnumerators[handleId] = (AnyIterator(iterator), path)
+        context.handleLock.unlock()
+
+        return handleId
+    }
+
+    func readNextDirectoryEntry(_ handle: Int) -> JSValue? {
+        guard let jsContext = JSContext.current() else {
+            return nil
+        }
+
+        context.handleLock.lock()
+        guard var (iterator, basePath) = context.openDirectoryEnumerators[handle] else {
+            context.handleLock.unlock()
+            return nil
+        }
+
+        // Get next entry from iterator
+        guard let fileName = iterator.next() else {
+            // End of directory - return null
+            context.handleLock.unlock()
+            return JSValue(nullIn: jsContext)
+        }
+
+        // Update the iterator in storage
+        context.openDirectoryEnumerators[handle] = (iterator, basePath)
+        context.handleLock.unlock()
+
+        let fullPath = (basePath as NSString).appendingPathComponent(fileName)
+        let name = fileName
+        let parentPath = basePath
+
+        // Get file attributes
+        let fileManager = FileManager.default
+        guard let attributes = try? fileManager.attributesOfItem(atPath: fullPath) else {
+            // If we can't get attributes, skip this entry and try next one
+            return readNextDirectoryEntry(handle)
+        }
+
+        let fileType = attributes[FileAttributeKey.type] as? FileAttributeType
+        let isDirectory = fileType == .typeDirectory
+        let isFile = fileType == .typeRegular
+
+        let size = (attributes[FileAttributeKey.size] as? NSNumber)?.int64Value ?? 0
+        let modificationDate = (attributes[FileAttributeKey.modificationDate] as? Date) ?? Date()
+        let creationDate = (attributes[FileAttributeKey.creationDate] as? Date) ?? Date()
+
+        // Build entry object
+        let entry = JSValue(newObjectIn: jsContext)!
+        entry.setValue(name, forProperty: "name")
+        entry.setValue(fullPath, forProperty: "path")
+        entry.setValue(parentPath, forProperty: "parentPath")
+        entry.setValue(isFile, forProperty: "isFile")
+        entry.setValue(isDirectory, forProperty: "isDirectory")
+        entry.setValue(size, forProperty: "size")
+        entry.setValue(
+            modificationDate.timeIntervalSince1970 * 1000, forProperty: "modificationDate")
+        entry.setValue(creationDate.timeIntervalSince1970 * 1000, forProperty: "creationDate")
+
+        // Add permissions if available (POSIX)
+        if let posixPermissions = attributes[FileAttributeKey.posixPermissions] as? NSNumber {
+            entry.setValue(posixPermissions.intValue, forProperty: "permissions")
+        }
+
+        return entry
+    }
+
+    func closeDirectoryStream(_ handle: Int) -> Bool {
+        context.handleLock.lock()
+        let removed = context.openDirectoryEnumerators.removeValue(forKey: handle) != nil
+        context.handleLock.unlock()
+        return removed
     }
 }

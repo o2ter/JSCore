@@ -666,9 +666,174 @@
                 }
             });
         }
+
+        // Async directory iteration with rich entry objects
+        static opendir(path, options = {}) {
+            const { recursive = false, filter = null } = options;
+
+            if (!this.exists(path)) {
+                throw new Error(`Directory not found: ${path}`);
+            }
+
+            if (!this.isDirectory(path)) {
+                throw new Error(`Not a directory: ${path}`);
+            }
+
+            return new DirectoryStream(path, { recursive, filter });
+        }
     };
 
-    // Event API - basic DOM-like event system
+    // DirectoryEntry - represents a file or directory entry with metadata
+    globalThis.DirectoryEntry = class DirectoryEntry {
+        constructor(name, parentPath, stat) {
+            this.name = name;
+            this.path = Path.join(parentPath, name);
+            this.isFile = stat.isFile;
+            this.isDirectory = stat.isDirectory;
+            this.size = stat.size;
+            this.modified = new Date(stat.modificationDate);
+            this.created = new Date(stat.creationDate);
+            this.accessed = stat.accessDate ? new Date(stat.accessDate) : null;
+            this.permissions = stat.permissions;
+        }
+
+        // Convenience method to read file content if this is a file
+        async read(options = {}) {
+            if (!this.isFile) {
+                throw new Error(`Not a file: ${this.path}`);
+            }
+            return SystemFS.readFile(this.path, options);
+        }
+
+        // Convenience method to get a read stream if this is a file
+        createReadStream(options = {}) {
+            if (!this.isFile) {
+                throw new Error(`Not a file: ${this.path}`);
+            }
+            return SystemFS.createReadStream(this.path, options);
+        }
+
+        // Convenience method to open subdirectory if this is a directory
+        opendir(options = {}) {
+            if (!this.isDirectory) {
+                throw new Error(`Not a directory: ${this.path}`);
+            }
+            return SystemFS.opendir(this.path, options);
+        }
+    };
+
+    // DirectoryStream - async iterable directory stream with true per-entry streaming
+    globalThis.DirectoryStream = class DirectoryStream {
+        #handle = -1;
+        #recursive;
+        #filter;
+        #closed = false;
+        #dirsToProcess = [];
+
+        constructor(path, options = {}) {
+            this.#recursive = options.recursive || false;
+            this.#filter = options.filter || null;
+
+            // Open the first directory using true streaming
+            this.#handle = __NATIVE_BRIDGE__.FileSystem.openDirectoryStream(path);
+            if (this.#handle < 0) {
+                throw new Error(`Failed to open directory: ${path}`);
+            }
+        }
+
+        #readNextFromStream() {
+            if (this.#handle < 0) {
+                return null;
+            }
+
+            const entryData = __NATIVE_BRIDGE__.FileSystem.readNextDirectoryEntry(this.#handle);
+
+            if (!entryData) {
+                // End of current directory stream
+                __NATIVE_BRIDGE__.FileSystem.closeDirectoryStream(this.#handle);
+                this.#handle = -1;
+                return null;
+            }
+
+            // Build DirectoryEntry from native data
+            const entry = new DirectoryEntry(
+                entryData.name,
+                entryData.parentPath,
+                {
+                    isFile: entryData.isFile,
+                    isDirectory: entryData.isDirectory,
+                    size: entryData.size,
+                    modificationDate: entryData.modificationDate,
+                    creationDate: entryData.creationDate,
+                    permissions: entryData.permissions
+                }
+            );
+
+            return entry;
+        }
+
+        next() {
+            if (this.#closed) {
+                return Promise.resolve({ done: true, value: undefined });
+            }
+
+            while (true) {
+                // Try to read next entry from current stream
+                const entry = this.#readNextFromStream();
+
+                if (entry) {
+                    // If recursive and this is a directory, queue it for later traversal
+                    if (this.#recursive && entry.isDirectory) {
+                        this.#dirsToProcess.push(entry.path);
+                    }
+
+                    // Apply filter if provided
+                    if (this.#filter && !this.#filter(entry)) {
+                        continue; // Skip this entry, try next one
+                    }
+
+                    return Promise.resolve({ done: false, value: entry });
+                }
+
+                // Current stream is exhausted, try next directory if in recursive mode
+                if (this.#recursive && this.#dirsToProcess.length > 0) {
+                    const nextDir = this.#dirsToProcess.shift();
+                    this.#handle = __NATIVE_BRIDGE__.FileSystem.openDirectoryStream(nextDir);
+                    if (this.#handle >= 0) {
+                        continue; // Try reading from new directory
+                    }
+                }
+
+                // No more entries
+                return Promise.resolve({ done: true, value: undefined });
+            }
+        }
+
+        close() {
+            this.#closed = true;
+            this.#dirsToProcess = [];
+
+            // Close native stream if open
+            if (this.#handle >= 0) {
+                __NATIVE_BRIDGE__.FileSystem.closeDirectoryStream(this.#handle);
+                this.#handle = -1;
+            }
+
+            return Promise.resolve();
+        }
+
+        // Make this class async iterable
+        [Symbol.asyncIterator]() {
+            return {
+                next: () => {
+                    return this.next();
+                },
+                return: () => {
+                    return this.close().then(() => ({ done: true, value: undefined }));
+                }
+            };
+        }
+    };    // Event API - basic DOM-like event system
     globalThis.Event = class Event {
         constructor(type, options = {}) {
             this.type = type;

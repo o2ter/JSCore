@@ -64,6 +64,10 @@ class FileSystem(
     private val openFileHandles = ConcurrentHashMap<Int, RandomAccessFile>()
     private val handleCounter = AtomicInteger(0)
     
+    // Directory streaming support
+    private val openDirectoryStreams = ConcurrentHashMap<Int, Iterator<Path>>()
+    private val directoryHandleCounter = AtomicInteger(0)
+    
     /**
      * Check if there are any active file handles
      * Used by JavaScriptEngine to determine when to exit
@@ -200,8 +204,15 @@ class FileSystem(
                         
                         // Convert to Double to ensure JavaScript receives a Number, not BigInt
                         stat.set("size", attrs.size().toDouble())
+                        
+                        // Timestamps in milliseconds (compatible with JavaScript Date)
                         stat.set("mtime", attrs.lastModifiedTime().toMillis().toDouble())
+                        stat.set("modificationDate", attrs.lastModifiedTime().toMillis().toDouble())
                         stat.set("birthtime", attrs.creationTime().toMillis().toDouble())
+                        stat.set("creationDate", attrs.creationTime().toMillis().toDouble())
+                        stat.set("accessDate", attrs.lastAccessTime().toMillis().toDouble())
+                        
+                        // File type flags
                         stat.set("isDirectory", attrs.isDirectory)
                         stat.set("isFile", attrs.isRegularFile)
                         
@@ -219,6 +230,7 @@ class FileSystem(
                             if (perms.contains(java.nio.file.attribute.PosixFilePermission.OTHERS_WRITE)) mode = mode or 0x2
                             if (perms.contains(java.nio.file.attribute.PosixFilePermission.OTHERS_EXECUTE)) mode = mode or 0x1
                             stat.set("mode", mode)
+                            stat.set("permissions", mode)
                         } catch (e: Exception) {
                             // POSIX permissions not supported on this platform
                         }
@@ -720,6 +732,117 @@ class FileSystem(
                 }
             ))
             
+            // openDirectoryStream(path) - open directory for streaming iteration
+            fileSystemObject.bindFunction(JavetCallbackContext(
+                "openDirectoryStream",
+                JavetCallbackType.DirectCallNoThisAndResult,
+                IJavetDirectCallable.NoThisAndResult<Exception> { v8Values ->
+                    if (v8Values.isEmpty() || v8Values[0] !is V8ValueString) {
+                        return@NoThisAndResult v8Runtime.createV8ValueInteger(-1)
+                    }
+                    
+                    try {
+                        val path = (v8Values[0] as V8ValueString).value
+                        val dir = Paths.get(path)
+                        
+                        // Check if path exists and is a directory
+                        if (!Files.exists(dir) || !Files.isDirectory(dir)) {
+                            return@NoThisAndResult v8Runtime.createV8ValueInteger(-1)
+                        }
+                        
+                        // Create directory stream (shallow iteration)
+                        val stream = Files.newDirectoryStream(dir)
+                        val iterator = stream.iterator()
+                        
+                        val handleId = directoryHandleCounter.incrementAndGet()
+                        openDirectoryStreams[handleId] = iterator
+                        v8Runtime.createV8ValueInteger(handleId)
+                    } catch (e: Exception) {
+                        platformContext.logger.error("FileSystem", "openDirectoryStream failed: ${e.message}")
+                        v8Runtime.createV8ValueInteger(-1)
+                    }
+                }
+            ))
+            
+            // readNextDirectoryEntry(handle) - read next entry from directory stream
+            fileSystemObject.bindFunction(JavetCallbackContext(
+                "readNextDirectoryEntry",
+                JavetCallbackType.DirectCallNoThisAndResult,
+                IJavetDirectCallable.NoThisAndResult<Exception> { v8Values ->
+                    if (v8Values.isEmpty() || v8Values[0] !is V8ValueInteger) {
+                        return@NoThisAndResult v8Runtime.createV8ValueNull()
+                    }
+                    
+                    try {
+                        val handleId = (v8Values[0] as V8ValueInteger).value
+                        val iterator = openDirectoryStreams[handleId]
+                        
+                        if (iterator == null || !iterator.hasNext()) {
+                            return@NoThisAndResult v8Runtime.createV8ValueNull()
+                        }
+                        
+                        val entryPath = iterator.next()
+                        val name = entryPath.fileName.toString()
+                        val fullPath = entryPath.toAbsolutePath().toString()
+                        val parentPath = entryPath.parent.toAbsolutePath().toString()
+                        
+                        // Get file attributes
+                        val attrs = Files.readAttributes(entryPath, BasicFileAttributes::class.java)
+                        
+                        // Build entry object - DO NOT use .use {} because we're returning this to JavaScript
+                        val entry = v8Runtime.createV8ValueObject()
+                        entry.set("name", name)
+                        entry.set("path", fullPath)
+                        entry.set("parentPath", parentPath)
+                        entry.set("isFile", attrs.isRegularFile)
+                        entry.set("isDirectory", attrs.isDirectory)
+                        entry.set("size", attrs.size().toDouble())  // Convert to Double to avoid BigInt
+                        entry.set("modificationDate", attrs.lastModifiedTime().toMillis().toDouble())
+                        entry.set("creationDate", attrs.creationTime().toMillis().toDouble())
+                        
+                        // Try to get POSIX permissions
+                        try {
+                            val posixAttrs = Files.getPosixFilePermissions(entryPath)
+                            var mode = 0
+                            if (posixAttrs.contains(java.nio.file.attribute.PosixFilePermission.OWNER_READ)) mode = mode or 0x100
+                            if (posixAttrs.contains(java.nio.file.attribute.PosixFilePermission.OWNER_WRITE)) mode = mode or 0x080
+                            if (posixAttrs.contains(java.nio.file.attribute.PosixFilePermission.OWNER_EXECUTE)) mode = mode or 0x040
+                            if (posixAttrs.contains(java.nio.file.attribute.PosixFilePermission.GROUP_READ)) mode = mode or 0x020
+                            if (posixAttrs.contains(java.nio.file.attribute.PosixFilePermission.GROUP_WRITE)) mode = mode or 0x010
+                            if (posixAttrs.contains(java.nio.file.attribute.PosixFilePermission.GROUP_EXECUTE)) mode = mode or 0x008
+                            if (posixAttrs.contains(java.nio.file.attribute.PosixFilePermission.OTHERS_READ)) mode = mode or 0x004
+                            if (posixAttrs.contains(java.nio.file.attribute.PosixFilePermission.OTHERS_WRITE)) mode = mode or 0x002
+                            if (posixAttrs.contains(java.nio.file.attribute.PosixFilePermission.OTHERS_EXECUTE)) mode = mode or 0x001
+                            entry.set("permissions", mode)
+                        } catch (e: Exception) {
+                            // POSIX permissions not available on this platform
+                        }
+                        
+                        // Mark as weak so V8 GC will handle lifecycle
+                        entry.setWeak()
+                        return@NoThisAndResult entry
+                    } catch (e: Exception) {
+                        platformContext.logger.error("FileSystem", "readNextDirectoryEntry failed: ${e.message}")
+                        v8Runtime.createV8ValueNull()
+                    }
+                }
+            ))
+            
+            // closeDirectoryStream(handle) - close directory stream
+            fileSystemObject.bindFunction(JavetCallbackContext(
+                "closeDirectoryStream",
+                JavetCallbackType.DirectCallNoThisAndResult,
+                IJavetDirectCallable.NoThisAndResult<Exception> { v8Values ->
+                    if (v8Values.isNotEmpty() && v8Values[0] is V8ValueInteger) {
+                        val handleId = (v8Values[0] as V8ValueInteger).value
+                        openDirectoryStreams.remove(handleId)
+                        v8Runtime.createV8ValueBoolean(true)
+                    } else {
+                        v8Runtime.createV8ValueBoolean(false)
+                    }
+                }
+            ))
+            
             // getMimeType(fileExtension) - detect MIME type by file extension
             fileSystemObject.bindFunction(JavetCallbackContext(
                 "getMimeType",
@@ -887,5 +1010,6 @@ class FileSystem(
     fun close() {
         openFileHandles.values.forEach { it.close() }
         openFileHandles.clear()
+        openDirectoryStreams.clear()
     }
 }
