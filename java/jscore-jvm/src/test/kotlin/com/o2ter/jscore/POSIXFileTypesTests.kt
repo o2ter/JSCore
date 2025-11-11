@@ -126,7 +126,8 @@ class POSIXFileTypesTests {
                 isSymbolicLink: stat.isSymbolicLink,
                 isCharacterDevice: stat.isCharacterDevice,
                 isBlockDevice: stat.isBlockDevice,
-                isSocket: stat.isSocket
+                isSocket: stat.isSocket,
+                target: SystemFS.readlink(testDir + '/link.txt')
             });
         } catch (e) {
             ({ success: false, error: e.message });
@@ -144,6 +145,9 @@ class POSIXFileTypesTests {
             assertFalse(result["isCharacterDevice"] == true, "Symlink should not be a character device")
             assertFalse(result["isBlockDevice"] == true, "Symlink should not be a block device")
             assertFalse(result["isSocket"] == true, "Symlink should not be a socket")
+            
+            val target = result["target"] as String
+            assertTrue(target.contains("target.txt"), "readlink should return target path")
         } else {
             // Symlink creation might fail on some platforms (e.g., Windows without admin)
             println("Symlink test skipped: ${result["error"]}")

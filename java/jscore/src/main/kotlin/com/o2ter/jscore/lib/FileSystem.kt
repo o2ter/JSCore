@@ -561,6 +561,145 @@ class FileSystem(
                 }
             ))
             
+            // createSymbolicLink(target, link) - create symbolic link
+            fileSystemObject.bindFunction(JavetCallbackContext(
+                "createSymbolicLink",
+                JavetCallbackType.DirectCallNoThisAndResult,
+                IJavetDirectCallable.NoThisAndResult<Exception> { v8Values ->
+                    if (v8Values.size < 2 || 
+                        v8Values[0] !is V8ValueString || 
+                        v8Values[1] !is V8ValueString) {
+                        return@NoThisAndResult v8Runtime.createV8ValueBoolean(false)
+                    }
+                    
+                    val target = (v8Values[0] as V8ValueString).value
+                    val link = (v8Values[1] as V8ValueString).value
+                    
+                    try {
+                        Files.createSymbolicLink(
+                            Paths.get(link),
+                            Paths.get(target)
+                        )
+                        return@NoThisAndResult v8Runtime.createV8ValueBoolean(true)
+                    } catch (e: Exception) {
+                        platformContext.logger.error("FileSystem", "createSymbolicLink failed: ${e.message}")
+                        return@NoThisAndResult v8Runtime.createV8ValueBoolean(false)
+                    }
+                }
+            ))
+            
+            // createHardLink(source, link) - create hard link
+            fileSystemObject.bindFunction(JavetCallbackContext(
+                "createHardLink",
+                JavetCallbackType.DirectCallNoThisAndResult,
+                IJavetDirectCallable.NoThisAndResult<Exception> { v8Values ->
+                    if (v8Values.size < 2 || 
+                        v8Values[0] !is V8ValueString || 
+                        v8Values[1] !is V8ValueString) {
+                        return@NoThisAndResult v8Runtime.createV8ValueBoolean(false)
+                    }
+                    
+                    val source = (v8Values[0] as V8ValueString).value
+                    val link = (v8Values[1] as V8ValueString).value
+                    
+                    try {
+                        Files.createLink(
+                            Paths.get(link),
+                            Paths.get(source)
+                        )
+                        return@NoThisAndResult v8Runtime.createV8ValueBoolean(true)
+                    } catch (e: Exception) {
+                        platformContext.logger.error("FileSystem", "createHardLink failed: ${e.message}")
+                        return@NoThisAndResult v8Runtime.createV8ValueBoolean(false)
+                    }
+                }
+            ))
+            
+            // readSymbolicLink(path) - read symbolic link target
+            fileSystemObject.bindFunction(JavetCallbackContext(
+                "readSymbolicLink",
+                JavetCallbackType.DirectCallNoThisAndResult,
+                IJavetDirectCallable.NoThisAndResult<Exception> { v8Values ->
+                    if (v8Values.isEmpty() || v8Values[0] !is V8ValueString) {
+                        return@NoThisAndResult v8Runtime.createV8ValueNull()
+                    }
+                    
+                    val path = (v8Values[0] as V8ValueString).value
+                    try {
+                        val target = Files.readSymbolicLink(Paths.get(path))
+                        return@NoThisAndResult v8Runtime.createV8ValueString(target.toString())
+                    } catch (e: Exception) {
+                        platformContext.logger.error("FileSystem", "readSymbolicLink failed: ${e.message}")
+                        return@NoThisAndResult v8Runtime.createV8ValueNull()
+                    }
+                }
+            ))
+            
+            // lstat(path) - get file information without following symlinks
+            fileSystemObject.bindFunction(JavetCallbackContext(
+                "lstat",
+                JavetCallbackType.DirectCallNoThisAndResult,
+                IJavetDirectCallable.NoThisAndResult<Exception> { v8Values ->
+                    if (v8Values.isEmpty() || v8Values[0] !is V8ValueString) {
+                        return@NoThisAndResult v8Runtime.createV8ValueNull()
+                    }
+                    
+                    try {
+                        val path = (v8Values[0] as V8ValueString).value
+                        val filePath = Paths.get(path)
+                        
+                        // Use NOFOLLOW_LINKS to not follow symlinks
+                        val attrs = Files.readAttributes(filePath, BasicFileAttributes::class.java, 
+                            java.nio.file.LinkOption.NOFOLLOW_LINKS)
+                        
+                        val result = v8Runtime.createV8ValueObject()
+                        result.set("size", attrs.size())
+                        result.set("creationDate", attrs.creationTime().toMillis().toDouble())
+                        result.set("modificationDate", attrs.lastModifiedTime().toMillis().toDouble())
+                        result.set("accessDate", attrs.lastAccessTime().toMillis().toDouble())
+                        
+                        // Try to get POSIX permissions
+                        try {
+                            val posixAttrs = Files.getPosixFilePermissions(filePath, 
+                                java.nio.file.LinkOption.NOFOLLOW_LINKS)
+                            val permissions = posixAttrs.fold(0) { acc, perm ->
+                                acc or when (perm) {
+                                    java.nio.file.attribute.PosixFilePermission.OWNER_READ -> 256    // 0o400
+                                    java.nio.file.attribute.PosixFilePermission.OWNER_WRITE -> 128   // 0o200
+                                    java.nio.file.attribute.PosixFilePermission.OWNER_EXECUTE -> 64  // 0o100
+                                    java.nio.file.attribute.PosixFilePermission.GROUP_READ -> 32     // 0o040
+                                    java.nio.file.attribute.PosixFilePermission.GROUP_WRITE -> 16    // 0o020
+                                    java.nio.file.attribute.PosixFilePermission.GROUP_EXECUTE -> 8   // 0o010
+                                    java.nio.file.attribute.PosixFilePermission.OTHERS_READ -> 4     // 0o004
+                                    java.nio.file.attribute.PosixFilePermission.OTHERS_WRITE -> 2    // 0o002
+                                    java.nio.file.attribute.PosixFilePermission.OTHERS_EXECUTE -> 1  // 0o001
+                                }
+                            }
+                            result.set("permissions", permissions)
+                        } catch (e: UnsupportedOperationException) {
+                            // POSIX not supported on this filesystem
+                            result.set("permissions", 420)  // 0o644
+                        }
+                        
+                        // POSIX file type flags
+                        result.set("isFile", attrs.isRegularFile)
+                        result.set("isDirectory", attrs.isDirectory)
+                        result.set("isSymbolicLink", attrs.isSymbolicLink)
+                        
+                        // Java NIO doesn't provide detailed file type info beyond regular/directory/symlink/other
+                        // Character and block devices cannot be distinguished
+                        result.set("isCharacterDevice", false)
+                        result.set("isBlockDevice", false)
+                        result.set("isSocket", attrs.isOther)
+                        
+                        return@NoThisAndResult result
+                    } catch (e: Exception) {
+                        platformContext.logger.error("FileSystem", "lstat failed: ${e.message}")
+                        return@NoThisAndResult v8Runtime.createV8ValueNull()
+                    }
+                }
+            ))
+            
             // getFileSize(path) - get file size
             fileSystemObject.bindFunction(JavetCallbackContext(
                 "getFileSize",

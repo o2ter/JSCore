@@ -133,7 +133,52 @@ final class POSIXFileTypesTests: XCTestCase {
         }
     }
     
-    func testDirectoryStreamFileTypes() {
+  func testSymbolicLink() {
+    let script = """
+      // Create a target file
+      SystemFS.writeFile(testDir + '/target.txt', 'content');
+
+      // Create symbolic link
+      try {
+          SystemFS.symlink(testDir + '/target.txt', testDir + '/link.txt');
+          var stat = SystemFS.lstat(testDir + '/link.txt');  // lstat for symlink itself
+          ({
+              success: true,
+              isFile: stat.isFile,
+              isDirectory: stat.isDirectory,
+              isSymbolicLink: stat.isSymbolicLink,
+              isCharacterDevice: stat.isCharacterDevice,
+              isBlockDevice: stat.isBlockDevice,
+              isSocket: stat.isSocket,
+              target: SystemFS.readlink(testDir + '/link.txt')
+          });
+      } catch (e) {
+          ({ success: false, error: e.message });
+      }
+      """
+
+    let result = context.evaluateScript(script)
+
+    let success = result["success"].boolValue ?? false
+    if success {
+      XCTAssertFalse(result["isFile"].boolValue ?? true, "Symlink should not be a regular file")
+      XCTAssertFalse(result["isDirectory"].boolValue ?? true, "Symlink should not be a directory")
+      XCTAssertTrue(result["isSymbolicLink"].boolValue ?? false, "Should be a symbolic link")
+      XCTAssertFalse(
+        result["isCharacterDevice"].boolValue ?? true, "Symlink should not be a character device")
+      XCTAssertFalse(
+        result["isBlockDevice"].boolValue ?? true, "Symlink should not be a block device")
+      XCTAssertFalse(result["isSocket"].boolValue ?? true, "Symlink should not be a socket")
+
+      let target = result["target"].toString()
+      XCTAssertTrue(target.contains("target.txt"), "readlink should return target path")
+    } else {
+      let error = result["error"].toString()
+      XCTFail("Symlink test failed: \(error)")
+    }
+  }
+
+  func testDirectoryStreamFileTypes() {
         let script = """
         (async function() {
             SystemFS.writeFile(testDir + '/file.txt', 'content');

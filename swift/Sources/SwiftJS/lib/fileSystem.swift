@@ -43,6 +43,12 @@ import UniformTypeIdentifiers
     func stat(_ path: String) -> JSValue?
     func copyItem(_ sourcePath: String, _ destinationPath: String) -> Bool
     func moveItem(_ sourcePath: String, _ destinationPath: String) -> Bool
+    
+    // Link operations
+    func createSymbolicLink(_ targetPath: String, _ linkPath: String) -> Bool
+    func createHardLink(_ sourcePath: String, _ linkPath: String) -> Bool
+    func readSymbolicLink(_ path: String) -> String?
+    func lstat(_ path: String) -> JSValue?
 
     // MIME type detection
     func getMimeType(_ fileExtension: String) -> String
@@ -378,6 +384,107 @@ import UniformTypeIdentifiers
             let context = JSContext.current()!
             context.exception = JSValue(newErrorFromMessage: "\(error)", in: context)
             return false
+        }
+    }
+    
+    // Link operations
+
+    func createSymbolicLink(_ targetPath: String, _ linkPath: String) -> Bool {
+        do {
+            try FileManager.default.createSymbolicLink(
+                atPath: linkPath,
+                withDestinationPath: targetPath
+            )
+            return true
+        } catch {
+            let context = JSContext.current()!
+            context.exception = JSValue(newErrorFromMessage: "\(error)", in: context)
+            return false
+        }
+    }
+
+    func createHardLink(_ sourcePath: String, _ linkPath: String) -> Bool {
+        do {
+            try FileManager.default.linkItem(atPath: sourcePath, toPath: linkPath)
+            return true
+        } catch {
+            let context = JSContext.current()!
+            context.exception = JSValue(newErrorFromMessage: "\(error)", in: context)
+            return false
+        }
+    }
+
+    func readSymbolicLink(_ path: String) -> String? {
+        do {
+            return try FileManager.default.destinationOfSymbolicLink(atPath: path)
+        } catch {
+            let context = JSContext.current()!
+            context.exception = JSValue(newErrorFromMessage: "\(error)", in: context)
+            return nil
+        }
+    }
+
+    func lstat(_ path: String) -> JSValue? {
+        // lstat returns information about the symlink itself, not its target
+        // Use URL with .withoutResolvingSymlinks option
+        let url = URL(fileURLWithPath: path)
+
+        do {
+            let attributes = try FileManager.default.attributesOfItem(atPath: path)
+            let resourceValues = try url.resourceValues(forKeys: [
+                .fileSizeKey,
+                .creationDateKey,
+                .contentModificationDateKey,
+                .contentAccessDateKey,
+                .fileResourceTypeKey,
+            ])
+
+            let context = JSContext.current()!
+            let result = JSValue(newObjectIn: context)
+
+            // File size
+            if let size = resourceValues.fileSize {
+                result?.setValue(size, forProperty: "size")
+            } else if let size = attributes[.size] as? Int {
+                result?.setValue(size, forProperty: "size")
+            } else {
+                result?.setValue(0, forProperty: "size")
+            }
+
+            // Dates
+            if let creationDate = resourceValues.creationDate {
+                result?.setValue(
+                    creationDate.timeIntervalSince1970 * 1000, forProperty: "creationDate")
+            }
+            if let modDate = resourceValues.contentModificationDate {
+                result?.setValue(
+                    modDate.timeIntervalSince1970 * 1000, forProperty: "modificationDate")
+            }
+            if let accessDate = resourceValues.contentAccessDate {
+                result?.setValue(accessDate.timeIntervalSince1970 * 1000, forProperty: "accessDate")
+            }
+
+            // Permissions
+            if let permissions = attributes[.posixPermissions] as? Int {
+                result?.setValue(permissions, forProperty: "permissions")
+            }
+
+            // POSIX file types - using FileAttributeType from attributes
+            // This is the key difference from stat() - we don't resolve symlinks
+            let fileType = attributes[.type] as? FileAttributeType
+
+            result?.setValue(fileType == .typeRegular, forProperty: "isFile")
+            result?.setValue(fileType == .typeDirectory, forProperty: "isDirectory")
+            result?.setValue(fileType == .typeSymbolicLink, forProperty: "isSymbolicLink")
+            result?.setValue(fileType == .typeCharacterSpecial, forProperty: "isCharacterDevice")
+            result?.setValue(fileType == .typeBlockSpecial, forProperty: "isBlockDevice")
+            result?.setValue(fileType == .typeSocket, forProperty: "isSocket")
+
+            return result
+        } catch {
+            let context = JSContext.current()!
+            context.exception = JSValue(newErrorFromMessage: "\(error)", in: context)
+            return nil
         }
     }
 

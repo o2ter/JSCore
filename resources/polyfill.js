@@ -486,6 +486,41 @@
             return __NATIVE_BRIDGE__.FileSystem.moveItem(src, dest);
         }
 
+        // Link operations
+
+        static symlink(target, path) {
+            if (!target || !path) {
+                throw new Error('Both target and path are required');
+            }
+            return __NATIVE_BRIDGE__.FileSystem.createSymbolicLink(target, path);
+        }
+
+        static link(existingPath, newPath) {
+            if (!existingPath || !newPath) {
+                throw new Error('Both existingPath and newPath are required');
+            }
+
+            if (!this.exists(existingPath)) {
+                throw new Error(`Source file not found: ${existingPath}`);
+            }
+
+            return __NATIVE_BRIDGE__.FileSystem.createHardLink(existingPath, newPath);
+        }
+
+        static readlink(path) {
+            if (!path) {
+                throw new Error('Path is required');
+            }
+            return __NATIVE_BRIDGE__.FileSystem.readSymbolicLink(path);
+        }
+
+        static lstat(path) {
+            if (!path) {
+                throw new Error('Path is required');
+            }
+            return __NATIVE_BRIDGE__.FileSystem.lstat(path);
+        }
+
         // Stream operations for large files
         static createReadStream(path, options = {}) {
             const { encoding = null, start = 0, end = undefined, chunkSize = 64 * 1024 } = options;
