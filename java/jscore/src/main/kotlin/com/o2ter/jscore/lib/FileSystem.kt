@@ -182,7 +182,7 @@ class FileSystem(
                 }
             ))
             
-            // stat(path) - get file statistics
+            // stat(path) - get file statistics (follows symlinks)
             fileSystemObject.bindFunction(JavetCallbackContext(
                 "stat",
                 JavetCallbackType.DirectCallNoThisAndResult,
@@ -193,13 +193,15 @@ class FileSystem(
                     
                     try {
                         val path = (v8Values[0] as V8ValueString).value
-                        val file = File(path)
+                        val filePath = Paths.get(path)
                         
-                        if (!file.exists()) {
+                        if (!Files.exists(filePath)) {
                             return@NoThisAndResult v8Runtime.createV8ValueNull()
                         }
                         
-                        val attrs = Files.readAttributes(file.toPath(), BasicFileAttributes::class.java)
+                        // stat() should follow symlinks - this is the default behavior in Java NIO
+                        // when LinkOption.NOFOLLOW_LINKS is not specified
+                        val attrs = Files.readAttributes(filePath, BasicFileAttributes::class.java)
                         val stat = v8Runtime.createV8ValueObject()
                         
                         // Convert to Double to ensure JavaScript receives a Number, not BigInt
@@ -213,6 +215,7 @@ class FileSystem(
                         stat.set("accessDate", attrs.lastAccessTime().toMillis().toDouble())
                         
                         // POSIX file type flags (matching SwiftJS implementation)
+                        // After following symlinks, isSymbolicLink should be false
                         val isFile = attrs.isRegularFile
                         val isDirectory = attrs.isDirectory
                         val isSymbolicLink = attrs.isSymbolicLink
@@ -233,7 +236,8 @@ class FileSystem(
                         
                         // Unix permissions (if available)
                         try {
-                            val perms = Files.getPosixFilePermissions(file.toPath())
+                            // Note: When following symlinks, we get permissions of the target
+                            val perms = Files.getPosixFilePermissions(filePath)
                             var mode = 0
                             if (perms.contains(java.nio.file.attribute.PosixFilePermission.OWNER_READ)) mode = mode or 0x100
                             if (perms.contains(java.nio.file.attribute.PosixFilePermission.OWNER_WRITE)) mode = mode or 0x80

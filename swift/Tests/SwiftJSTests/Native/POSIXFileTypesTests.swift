@@ -178,6 +178,176 @@ final class POSIXFileTypesTests: XCTestCase {
     }
   }
 
+    func testStatVsLstatOnSymlinkToFile() {
+        let script = """
+            // Create a target file
+            SystemFS.writeFile(testDir + '/target.txt', 'target content');
+
+            // Create symbolic link
+            try {
+                SystemFS.symlink(testDir + '/target.txt', testDir + '/link.txt');
+                
+                // lstat should return symlink properties
+                var lstatResult = SystemFS.lstat(testDir + '/link.txt');
+                
+                // stat should follow the link and return target file properties
+                var statResult = SystemFS.stat(testDir + '/link.txt');
+                
+                ({
+                    success: true,
+                    lstat: {
+                        isFile: lstatResult.isFile,
+                        isDirectory: lstatResult.isDirectory,
+                        isSymbolicLink: lstatResult.isSymbolicLink
+                    },
+                    stat: {
+                        isFile: statResult.isFile,
+                        isDirectory: statResult.isDirectory,
+                        isSymbolicLink: statResult.isSymbolicLink
+                    }
+                });
+            } catch (e) {
+                ({ success: false, error: e.message });
+            }
+            """
+
+        let result = context.evaluateScript(script)
+
+        let success = result["success"].boolValue ?? false
+        if success {
+            // lstat should return symlink properties
+            XCTAssertFalse(
+                result["lstat"]["isFile"].boolValue ?? true,
+                "lstat: Symlink should not be reported as a file")
+            XCTAssertFalse(
+                result["lstat"]["isDirectory"].boolValue ?? true,
+                "lstat: Symlink should not be reported as a directory")
+            XCTAssertTrue(
+                result["lstat"]["isSymbolicLink"].boolValue ?? false,
+                "lstat: Should detect symbolic link")
+
+            // stat should follow the link and return target properties
+            XCTAssertTrue(
+                result["stat"]["isFile"].boolValue ?? false,
+                "stat: Should follow link and detect target as file")
+            XCTAssertFalse(
+                result["stat"]["isDirectory"].boolValue ?? true,
+                "stat: Target should not be a directory")
+            XCTAssertFalse(
+                result["stat"]["isSymbolicLink"].boolValue ?? true,
+                "stat: Should follow link, not report as symlink")
+        } else {
+            let error = result["error"].toString()
+            XCTFail("Symlink test failed: \(error)")
+        }
+    }
+
+    func testStatVsLstatOnSymlinkToDirectory() {
+        let script = """
+            // Create a target directory
+            SystemFS.mkdir(testDir + '/targetdir');
+            SystemFS.writeFile(testDir + '/targetdir/file.txt', 'content');
+
+            // Create symbolic link to directory
+            try {
+                SystemFS.symlink(testDir + '/targetdir', testDir + '/linkdir');
+                
+                // lstat should return symlink properties
+                var lstatResult = SystemFS.lstat(testDir + '/linkdir');
+                
+                // stat should follow the link and return target directory properties
+                var statResult = SystemFS.stat(testDir + '/linkdir');
+                
+                ({
+                    success: true,
+                    lstat: {
+                        isFile: lstatResult.isFile,
+                        isDirectory: lstatResult.isDirectory,
+                        isSymbolicLink: lstatResult.isSymbolicLink
+                    },
+                    stat: {
+                        isFile: statResult.isFile,
+                        isDirectory: statResult.isDirectory,
+                        isSymbolicLink: statResult.isSymbolicLink
+                    }
+                });
+            } catch (e) {
+                ({ success: false, error: e.message });
+            }
+            """
+
+        let result = context.evaluateScript(script)
+
+        let success = result["success"].boolValue ?? false
+        if success {
+            // lstat should return symlink properties
+            XCTAssertFalse(
+                result["lstat"]["isFile"].boolValue ?? true,
+                "lstat: Symlink should not be reported as a file")
+            XCTAssertFalse(
+                result["lstat"]["isDirectory"].boolValue ?? true,
+                "lstat: Symlink should not be reported as a directory")
+            XCTAssertTrue(
+                result["lstat"]["isSymbolicLink"].boolValue ?? false,
+                "lstat: Should detect symbolic link")
+
+            // stat should follow the link and return target directory properties
+            XCTAssertFalse(
+                result["stat"]["isFile"].boolValue ?? true, "stat: Target should not be a file")
+            XCTAssertTrue(
+                result["stat"]["isDirectory"].boolValue ?? false,
+                "stat: Should follow link and detect target as directory")
+            XCTAssertFalse(
+                result["stat"]["isSymbolicLink"].boolValue ?? true,
+                "stat: Should follow link, not report as symlink")
+        } else {
+            let error = result["error"].toString()
+            XCTFail("Symlink test failed: \(error)")
+        }
+    }
+
+    func testStatVsLstatOnRegularFile() {
+        let script = """
+            // Create a regular file
+            SystemFS.writeFile(testDir + '/regular.txt', 'content');
+
+            // Both stat and lstat should return the same results for regular files
+            var lstatResult = SystemFS.lstat(testDir + '/regular.txt');
+            var statResult = SystemFS.stat(testDir + '/regular.txt');
+
+            ({
+                lstat: {
+                    isFile: lstatResult.isFile,
+                    isDirectory: lstatResult.isDirectory,
+                    isSymbolicLink: lstatResult.isSymbolicLink
+                },
+                stat: {
+                    isFile: statResult.isFile,
+                    isDirectory: statResult.isDirectory,
+                    isSymbolicLink: statResult.isSymbolicLink
+                }
+            });
+            """
+
+        let result = context.evaluateScript(script)
+
+        // Both should report the same for regular files
+        XCTAssertTrue(
+            result["lstat"]["isFile"].boolValue ?? false, "lstat: Should detect regular file")
+        XCTAssertTrue(
+            result["stat"]["isFile"].boolValue ?? false, "stat: Should detect regular file")
+
+        XCTAssertFalse(
+            result["lstat"]["isDirectory"].boolValue ?? true, "lstat: Should not be directory")
+        XCTAssertFalse(
+            result["stat"]["isDirectory"].boolValue ?? true, "stat: Should not be directory")
+
+        XCTAssertFalse(
+            result["lstat"]["isSymbolicLink"].boolValue ?? true, "lstat: Should not be symlink")
+        XCTAssertFalse(
+            result["stat"]["isSymbolicLink"].boolValue ?? true, "stat: Should not be symlink")
+    }
+
   func testDirectoryStreamFileTypes() {
         let script = """
         (async function() {

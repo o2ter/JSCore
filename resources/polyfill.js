@@ -902,7 +902,9 @@
                 }
             };
         }
-    };    // Event API - basic DOM-like event system
+    };
+    
+    // Event API - basic DOM-like event system
     globalThis.Event = class Event {
         constructor(type, options = {}) {
             this.type = type;

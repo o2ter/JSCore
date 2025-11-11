@@ -155,6 +155,168 @@ class POSIXFileTypesTests {
     }
 
     @Test
+    fun testStatVsLstatOnSymlinkToFile() {
+        val script = """
+        // Create a target file
+        SystemFS.writeFile(testDir + '/target.txt', 'target content');
+        
+        // Create symbolic link
+        try {
+            SystemFS.symlink(testDir + '/target.txt', testDir + '/link.txt');
+            
+            // lstat should return symlink properties
+            var lstatResult = SystemFS.lstat(testDir + '/link.txt');
+            
+            // stat should follow the link and return target file properties
+            var statResult = SystemFS.stat(testDir + '/link.txt');
+            
+            ({
+                success: true,
+                lstat: {
+                    isFile: lstatResult.isFile,
+                    isDirectory: lstatResult.isDirectory,
+                    isSymbolicLink: lstatResult.isSymbolicLink
+                },
+                stat: {
+                    isFile: statResult.isFile,
+                    isDirectory: statResult.isDirectory,
+                    isSymbolicLink: statResult.isSymbolicLink
+                }
+            });
+        } catch (e) {
+            ({ success: false, error: e.message });
+        }
+        """
+        
+        @Suppress("UNCHECKED_CAST")
+        val result = engine.execute(script) as Map<String, Any?>
+        
+        val success = result["success"] as Boolean
+        if (success) {
+            @Suppress("UNCHECKED_CAST")
+            val lstat = result["lstat"] as Map<String, Boolean>
+            @Suppress("UNCHECKED_CAST")
+            val stat = result["stat"] as Map<String, Boolean>
+            
+            // lstat should return symlink properties
+            assertFalse(lstat["isFile"] == true, "lstat: Symlink should not be reported as a file")
+            assertFalse(lstat["isDirectory"] == true, "lstat: Symlink should not be reported as a directory")
+            assertTrue(lstat["isSymbolicLink"] == true, "lstat: Should detect symbolic link")
+            
+            // stat should follow the link and return target properties
+            assertTrue(stat["isFile"] == true, "stat: Should follow link and detect target as file")
+            assertFalse(stat["isDirectory"] == true, "stat: Target should not be a directory")
+            assertFalse(stat["isSymbolicLink"] == true, "stat: Should follow link, not report as symlink")
+        } else {
+            // Symlink creation might fail on some platforms
+            println("Symlink test skipped: ${result["error"]}")
+        }
+    }
+
+    @Test
+    fun testStatVsLstatOnSymlinkToDirectory() {
+        val script = """
+        // Create a target directory
+        SystemFS.mkdir(testDir + '/targetdir');
+        SystemFS.writeFile(testDir + '/targetdir/file.txt', 'content');
+        
+        // Create symbolic link to directory
+        try {
+            SystemFS.symlink(testDir + '/targetdir', testDir + '/linkdir');
+            
+            // lstat should return symlink properties
+            var lstatResult = SystemFS.lstat(testDir + '/linkdir');
+            
+            // stat should follow the link and return target directory properties
+            var statResult = SystemFS.stat(testDir + '/linkdir');
+            
+            ({
+                success: true,
+                lstat: {
+                    isFile: lstatResult.isFile,
+                    isDirectory: lstatResult.isDirectory,
+                    isSymbolicLink: lstatResult.isSymbolicLink
+                },
+                stat: {
+                    isFile: statResult.isFile,
+                    isDirectory: statResult.isDirectory,
+                    isSymbolicLink: statResult.isSymbolicLink
+                }
+            });
+        } catch (e) {
+            ({ success: false, error: e.message });
+        }
+        """
+        
+        @Suppress("UNCHECKED_CAST")
+        val result = engine.execute(script) as Map<String, Any?>
+        
+        val success = result["success"] as Boolean
+        if (success) {
+            @Suppress("UNCHECKED_CAST")
+            val lstat = result["lstat"] as Map<String, Boolean>
+            @Suppress("UNCHECKED_CAST")
+            val stat = result["stat"] as Map<String, Boolean>
+            
+            // lstat should return symlink properties
+            assertFalse(lstat["isFile"] == true, "lstat: Symlink should not be reported as a file")
+            assertFalse(lstat["isDirectory"] == true, "lstat: Symlink should not be reported as a directory")
+            assertTrue(lstat["isSymbolicLink"] == true, "lstat: Should detect symbolic link")
+            
+            // stat should follow the link and return target directory properties
+            assertFalse(stat["isFile"] == true, "stat: Target should not be a file")
+            assertTrue(stat["isDirectory"] == true, "stat: Should follow link and detect target as directory")
+            assertFalse(stat["isSymbolicLink"] == true, "stat: Should follow link, not report as symlink")
+        } else {
+            // Symlink creation might fail on some platforms
+            println("Symlink test skipped: ${result["error"]}")
+        }
+    }
+
+    @Test
+    fun testStatVsLstatOnRegularFile() {
+        val script = """
+        // Create a regular file
+        SystemFS.writeFile(testDir + '/regular.txt', 'content');
+        
+        // Both stat and lstat should return the same results for regular files
+        var lstatResult = SystemFS.lstat(testDir + '/regular.txt');
+        var statResult = SystemFS.stat(testDir + '/regular.txt');
+        
+        ({
+            lstat: {
+                isFile: lstatResult.isFile,
+                isDirectory: lstatResult.isDirectory,
+                isSymbolicLink: lstatResult.isSymbolicLink
+            },
+            stat: {
+                isFile: statResult.isFile,
+                isDirectory: statResult.isDirectory,
+                isSymbolicLink: statResult.isSymbolicLink
+            }
+        });
+        """
+        
+        @Suppress("UNCHECKED_CAST")
+        val result = engine.execute(script) as Map<String, Any?>
+        
+        @Suppress("UNCHECKED_CAST")
+        val lstat = result["lstat"] as Map<String, Boolean>
+        @Suppress("UNCHECKED_CAST")
+        val stat = result["stat"] as Map<String, Boolean>
+        
+        // Both should report the same for regular files
+        assertTrue(lstat["isFile"] == true, "lstat: Should detect regular file")
+        assertTrue(stat["isFile"] == true, "stat: Should detect regular file")
+        
+        assertFalse(lstat["isDirectory"] == true, "lstat: Should not be directory")
+        assertFalse(stat["isDirectory"] == true, "stat: Should not be directory")
+        
+        assertFalse(lstat["isSymbolicLink"] == true, "lstat: Should not be symlink")
+        assertFalse(stat["isSymbolicLink"] == true, "stat: Should not be symlink")
+    }
+
+    @Test
     fun testCharacterDevice() {
         // Note: Java NIO cannot distinguish character devices from other device types
         // They are detected as isOther() and mapped to isSocket in our implementation

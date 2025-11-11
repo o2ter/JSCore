@@ -304,7 +304,26 @@ import UniformTypeIdentifiers
 
     func stat(_ path: String) -> JSValue? {
         do {
-            let attributes = try FileManager.default.attributesOfItem(atPath: path)
+            // stat() should follow symbolic links to get information about the target
+            // First resolve the path if it's a symlink
+            var resolvedPath = path
+            let initialAttributes = try FileManager.default.attributesOfItem(atPath: path)
+            if let fileType = initialAttributes[.type] as? FileAttributeType,
+                fileType == .typeSymbolicLink
+            {
+                // It's a symlink, resolve it
+                let linkDestination = try FileManager.default.destinationOfSymbolicLink(
+                    atPath: path)
+                // Handle relative paths
+                if linkDestination.hasPrefix("/") {
+                    resolvedPath = linkDestination
+                } else {
+                    let parentDir = (path as NSString).deletingLastPathComponent
+                    resolvedPath = (parentDir as NSString).appendingPathComponent(linkDestination)
+                }
+            }
+
+            let attributes = try FileManager.default.attributesOfItem(atPath: resolvedPath)
             let context = JSContext.current()!
 
             let stat = JSValue(newObjectIn: context)!
@@ -336,6 +355,7 @@ import UniformTypeIdentifiers
             }
 
             // POSIX file type detection (all 7 standard types)
+            // After resolving symlinks, this should never be .typeSymbolicLink
             let fileType = attributes[FileAttributeKey.type] as? FileAttributeType
             let isFile = fileType == .typeRegular
             let isDirectory = fileType == .typeDirectory
