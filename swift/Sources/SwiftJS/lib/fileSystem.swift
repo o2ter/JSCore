@@ -754,7 +754,7 @@ import UniformTypeIdentifiers
         }
 
         context.handleLock.lock()
-        guard let (iterator, basePath) = context.openDirectoryEnumerators[handle] else {
+        guard var (iterator, basePath) = context.openDirectoryEnumerators[handle] else {
             context.handleLock.unlock()
             return nil
         }
