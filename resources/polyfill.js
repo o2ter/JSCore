@@ -311,11 +311,25 @@
         }
 
         static isFile(path) {
-            return __NATIVE_BRIDGE__.FileSystem.isFile(path);
+            const stat = this.stat(path);
+            return stat ? stat.isFile : false;
         }
 
         static isDirectory(path) {
-            return __NATIVE_BRIDGE__.FileSystem.isDirectory(path);
+            const stat = this.stat(path);
+            return stat ? stat.isDirectory : false;
+        }
+
+        static isSymbolicLink(path) {
+            const stat = this.lstat(path);  // Use lstat to not follow symlinks
+            return stat ? stat.isSymbolicLink : false;
+        }
+
+        static isHardLink(path) {
+            const stat = this.stat(path);
+            // A file is considered a hard link if it has more than 1 link
+            // and is a regular file (directories always have at least 2 links)
+            return stat && stat.isFile && stat.nlink > 1;
         }
 
         static stat(path) {

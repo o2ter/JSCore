@@ -357,6 +357,11 @@ import UniformTypeIdentifiers
                 stat.setObject(posixPermissions, forKeyedSubscript: "permissions")
             }
 
+            // Number of hard links
+            if let referenceCount = attributes[.referenceCount] as? NSNumber {
+                stat.setObject(referenceCount, forKeyedSubscript: "nlink")
+            }
+
             return stat
         } catch {
             let context = JSContext.current()!

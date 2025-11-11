@@ -250,6 +250,11 @@ class FileSystem(
                             // POSIX permissions not supported on this platform
                         }
                         
+                        // Number of hard links (Unix file link count)
+                        // Note: Java NIO does not expose link count through standard APIs
+                        // Would require platform-specific JNI or parsing output from native commands
+                        stat.set("nlink", 1)
+                        
                         stat
                     } catch (e: Exception) {
                         platformContext.logger.error("FileSystem", "stat failed: ${e.message}")
@@ -691,6 +696,11 @@ class FileSystem(
                         result.set("isCharacterDevice", false)
                         result.set("isBlockDevice", false)
                         result.set("isSocket", attrs.isOther)
+                        
+                        // Number of hard links (Unix file link count)
+                        // Note: Java NIO does not expose link count through standard APIs
+                        // Would require platform-specific JNI or parsing output from native commands
+                        result.set("nlink", 1)
                         
                         return@NoThisAndResult result
                     } catch (e: Exception) {
