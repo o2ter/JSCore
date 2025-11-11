@@ -333,11 +333,16 @@
         }
 
         static linkCount(path) {
-            const stat = this.stat(path);
-            // Return the number of hard links to this file
-            // Returns 1 for regular files with no additional hard links
-            // Note: On platforms with Java NIO limitations, this always returns 1
-            return stat ? stat.nlink : 0;
+            try {
+                const stat = this.stat(path);
+                // Return the number of hard links to this file
+                // Returns 1 for regular files with no additional hard links
+                // Note: On platforms with Java NIO limitations, this always returns 1
+                return stat ? stat.nlink : 0;
+            } catch (error) {
+                // Return 0 for non-existent files or errors
+                return 0;
+            }
         }
 
         static stat(path) {
