@@ -730,19 +730,24 @@ import UniformTypeIdentifiers
             return -1
         }
 
-        // Get directory contents (non-recursive)
-        guard let contents = try? fileManager.contentsOfDirectory(atPath: path) else {
+        // Create a true streaming enumerator (lazy, doesn't load all entries upfront)
+        // Use skipsSubdirectoryDescendants option for shallow (non-recursive) iteration
+        let url = URL(fileURLWithPath: path)
+        guard
+            let enumerator = fileManager.enumerator(
+                at: url,
+                includingPropertiesForKeys: nil,
+                options: [.skipsSubdirectoryDescendants]
+            )
+        else {
             return -1
         }
 
-        // Create an iterator from the contents array
-        let iterator = contents.makeIterator()
-
-        // Store iterator with handle ID
+        // Store enumerator with handle ID
         context.handleLock.lock()
         let handleId = context.nextHandleId
         context.nextHandleId += 1
-        context.openDirectoryEnumerators[handleId] = (AnyIterator(iterator), path)
+        context.openDirectoryEnumerators[handleId] = (enumerator, path)
         context.handleLock.unlock()
 
         return handleId
@@ -754,24 +759,20 @@ import UniformTypeIdentifiers
         }
 
         context.handleLock.lock()
-        guard var (iterator, basePath) = context.openDirectoryEnumerators[handle] else {
+        guard let (enumerator, basePath) = context.openDirectoryEnumerators[handle] else {
             context.handleLock.unlock()
             return nil
         }
+        context.handleLock.unlock()
 
-        // Get next entry from iterator
-        guard let fileName = iterator.next() else {
+        // Get next entry from enumerator (true streaming - no full array loaded)
+        guard let fileURL = enumerator.nextObject() as? URL else {
             // End of directory - return null
-            context.handleLock.unlock()
             return JSValue(nullIn: jsContext)
         }
 
-        // Update the iterator in storage
-        context.openDirectoryEnumerators[handle] = (iterator, basePath)
-        context.handleLock.unlock()
-
-        let fullPath = (basePath as NSString).appendingPathComponent(fileName)
-        let name = fileName
+        let fullPath = fileURL.path
+        let name = fileURL.lastPathComponent
         let parentPath = basePath
 
         // Get file attributes

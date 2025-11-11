@@ -43,7 +43,7 @@ extension SwiftJS {
         let handleLock = NSLock()
         
         // Directory enumerator management for streaming directory iteration
-        var openDirectoryEnumerators: [Int: (AnyIterator<String>, String)] = [:]
+        var openDirectoryEnumerators: [Int: (FileManager.DirectoryEnumerator, String)] = [:]
         var nextHandleId: Int = 0
 
         var logger: @Sendable (LogLevel, [SwiftJS.Value]) -> Void
