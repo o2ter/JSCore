@@ -72,26 +72,26 @@ final class StreamingEncodingTests: XCTestCase {
         })()
         """
         
-        SwiftJS.Value(newPromiseIn: context) { resolve, reject in
-            let result = context.evaluateScript(script)
-            result.then { value in
-                let chunkCount = Int(value["chunkCount"].numberValue ?? 0)
-                let totalBytes = Int(value["totalBytes"].numberValue ?? 0)
-                let isUint8Array = value["isUint8Array"].boolValue
-                
-                XCTAssertGreaterThan(chunkCount, 0, "Should have encoded chunks")
-                XCTAssertEqual(totalBytes, 11, "Should encode 'Hello World' (11 bytes)")
-                XCTAssertTrue(isUint8Array, "Chunks should be Uint8Array")
-                
-                resolve(value)
-                expectation.fulfill()
-            } catch: { error in
-                XCTFail("Promise rejected: \(error)")
-                reject(error)
-                expectation.fulfill()
-            }
+        context.globalObject["testCompleted"] = SwiftJS.Value(in: context) { args, this in
+            let value = args[0]
+            let chunkCount = Int(value["chunkCount"].numberValue ?? 0)
+            let totalBytes = Int(value["totalBytes"].numberValue ?? 0)
+            let isUint8Array = value["isUint8Array"].boolValue ?? false
+
+            XCTAssertGreaterThan(chunkCount, 0, "Should have encoded chunks")
+            XCTAssertEqual(totalBytes, 11, "Should encode 'Hello World' (11 bytes)")
+            XCTAssertTrue(isUint8Array, "Chunks should be Uint8Array")
+
+            expectation.fulfill()
+            return SwiftJS.Value.undefined
         }
         
+        let scriptWithCallback = """
+            \(script).then(result => testCompleted(result)).catch(error => console.error(error));
+            """
+
+        context.evaluateScript(scriptWithCallback)
+
         wait(for: [expectation], timeout: 10.0)
     }
     
