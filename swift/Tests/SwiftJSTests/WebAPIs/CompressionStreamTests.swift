@@ -144,23 +144,23 @@ final class CompressionStreamTests: XCTestCase {
                 result: result,
                 match: original === result
             });
-        })()
+        })())
         """
         
-        SwiftJS.Value(newPromiseIn: context) { resolve, reject in
-            let result = context.evaluateScript(script)
-            result.then { value in
-                let match = value["match"].boolValue
-                XCTAssertTrue(match, "Decompressed data should match original")
-                
-                resolve(value)
-                expectation.fulfill()
-            } catch: { error in
-                XCTFail("Promise rejected: \(error)")
-                reject(error)
-                expectation.fulfill()
-            }
+        context.globalObject["testCompleted"] = SwiftJS.Value(in: context) { args, this in
+            let value = args[0]
+            let match = value["match"].boolValue ?? false
+            XCTAssertTrue(match, "Decompressed data should match original")
+
+            expectation.fulfill()
+            return SwiftJS.Value.undefined
         }
+        
+        let scriptWithCallback = """
+            \(script).then(result => testCompleted(result)).catch(error => console.error(error));
+            """
+
+        context.evaluateScript(scriptWithCallback)
         
         wait(for: [expectation], timeout: 10.0)
     }
@@ -196,24 +196,24 @@ final class CompressionStreamTests: XCTestCase {
             var originalSize = encoder.encode(original).length;
             
             return compressedSize < originalSize;
-        })()
+        })())
         """
         
-        SwiftJS.Value(newPromiseIn: context) { resolve, reject in
-            let result = context.evaluateScript(script)
-            result.then { value in
-                let isSmaller = value.boolValue
-                XCTAssertTrue(isSmaller, "Deflate compressed data should be smaller")
-                
-                resolve(value)
-                expectation.fulfill()
-            } catch: { error in
-                XCTFail("Promise rejected: \(error)")
-                reject(error)
-                expectation.fulfill()
-            }
+        context.globalObject["testCompleted"] = SwiftJS.Value(in: context) { args, this in
+            let value = args[0]
+            let isSmaller = value.boolValue ?? false
+            XCTAssertTrue(isSmaller, "Deflate compressed data should be smaller")
+
+            expectation.fulfill()
+            return SwiftJS.Value.undefined
         }
         
+        let scriptWithCallback = """
+            \(script).then(result => testCompleted(result)).catch(error => console.error(error));
+            """
+
+        context.evaluateScript(scriptWithCallback)
+
         wait(for: [expectation], timeout: 10.0)
     }
     
@@ -326,24 +326,24 @@ final class CompressionStreamTests: XCTestCase {
             
             var result = decoder.decode(decompressedChunks[0]);
             return original === result;
-        })()
+        })())
         """
         
-        SwiftJS.Value(newPromiseIn: context) { resolve, reject in
-            let result = context.evaluateScript(script)
-            result.then { value in
-                let match = value.boolValue
-                XCTAssertTrue(match, "Deflate-raw round trip should preserve data")
-                
-                resolve(value)
-                expectation.fulfill()
-            } catch: { error in
-                XCTFail("Promise rejected: \(error)")
-                reject(error)
-                expectation.fulfill()
-            }
+        context.globalObject["testCompleted"] = SwiftJS.Value(in: context) { args, this in
+            let value = args[0]
+            let match = value.boolValue ?? false
+            XCTAssertTrue(match, "Deflate-raw round trip should preserve data")
+
+            expectation.fulfill()
+            return SwiftJS.Value.undefined
         }
         
+        let scriptWithCallback = """
+            \(script).then(result => testCompleted(result)).catch(error => console.error(error));
+            """
+
+        context.evaluateScript(scriptWithCallback)
+
         wait(for: [expectation], timeout: 10.0)
     }
 }

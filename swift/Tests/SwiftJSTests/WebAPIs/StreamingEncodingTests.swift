@@ -230,23 +230,24 @@ final class StreamingEncodingTests: XCTestCase {
             }
             
             return chunks.join('');
-        })()
+        })())
         """
         
-        SwiftJS.Value(newPromiseIn: context) { resolve, reject in
-            let result = context.evaluateScript(script)
-            result.then { value in
-                let text = value.stringValue ?? ""
-                XCTAssertEqual(text, "Hello 世界 🌍", "Should correctly decode multi-byte UTF-8 characters")
-                
-                resolve(value)
-                expectation.fulfill()
-            } catch: { error in
-                XCTFail("Promise rejected: \(error)")
-                reject(error)
-                expectation.fulfill()
-            }
+        context.globalObject["testCompleted"] = SwiftJS.Value(in: context) { args, this in
+            let value = args[0]
+            let text = value.stringValue ?? ""
+            XCTAssertEqual(
+                text, "Hello 世界 🌍", "Should correctly decode multi-byte UTF-8 characters")
+
+            expectation.fulfill()
+            return SwiftJS.Value.undefined
         }
+        
+        let scriptWithCallback = """
+            \(script).then(result => testCompleted(result)).catch(error => console.error(error));
+            """
+
+        context.evaluateScript(scriptWithCallback)
         
         wait(for: [expectation], timeout: 10.0)
     }
@@ -284,24 +285,24 @@ final class StreamingEncodingTests: XCTestCase {
                 result: result,
                 match: original === result
             });
-        })()
+        })())
         """
         
-        SwiftJS.Value(newPromiseIn: context) { resolve, reject in
-            let result = context.evaluateScript(script)
-            result.then { value in
-                let match = value["match"].boolValue
-                XCTAssertTrue(match, "Encode/decode round trip should preserve original text")
-                
-                resolve(value)
-                expectation.fulfill()
-            } catch: { error in
-                XCTFail("Promise rejected: \(error)")
-                reject(error)
-                expectation.fulfill()
-            }
+        context.globalObject["testCompleted"] = SwiftJS.Value(in: context) { args, this in
+            let value = args[0]
+            let match = value["match"].boolValue ?? false
+            XCTAssertTrue(match, "Encode/decode round trip should preserve original text")
+
+            expectation.fulfill()
+            return SwiftJS.Value.undefined
         }
         
+        let scriptWithCallback = """
+            \(script).then(result => testCompleted(result)).catch(error => console.error(error));
+            """
+
+        context.evaluateScript(scriptWithCallback)
+
         wait(for: [expectation], timeout: 10.0)
     }
 }
