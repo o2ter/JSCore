@@ -453,7 +453,8 @@ extension SwiftJS {
                     "URLSession": .init(JSURLSession(context: self.context), in: self),
                     "WebSocket": .init(
                         JSWebSocket(context: self.context, runloop: self.runloop), in: self),
-                    "compression": .init(JSCompression(), in: self)
+                    "compression": .init(JSCompression(), in: self),
+                    "performance": .init(JSPerformance(), in: self)
                 ]
             ])
         }

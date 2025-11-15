@@ -5374,4 +5374,368 @@
         }
     };
 
+    // TextEncoderStream - Web standard streaming text encoding
+    globalThis.TextEncoderStream = class TextEncoderStream {
+        #transform;
+
+        constructor() {
+            const encoder = new TextEncoder();
+
+            this.#transform = new TransformStream({
+                transform(chunk, controller) {
+                    // Encode string chunk to Uint8Array
+                    const encoded = encoder.encode(chunk);
+                    controller.enqueue(encoded);
+                }
+            });
+        }
+
+        get readable() {
+            return this.#transform.readable;
+        }
+
+        get writable() {
+            return this.#transform.writable;
+        }
+
+        get encoding() {
+            return 'utf-8';
+        }
+    };
+
+    // TextDecoderStream - Web standard streaming text decoding
+    globalThis.TextDecoderStream = class TextDecoderStream {
+        #transform;
+        #encoding;
+
+        constructor(encoding = 'utf-8', options = {}) {
+            this.#encoding = encoding;
+            const decoder = new TextDecoder(encoding, options);
+
+            this.#transform = new TransformStream({
+                transform(chunk, controller) {
+                    // Decode Uint8Array chunk to string with streaming
+                    const decoded = decoder.decode(chunk, { stream: true });
+                    if (decoded) {
+                        controller.enqueue(decoded);
+                    }
+                },
+                flush(controller) {
+                    // Flush any remaining bytes
+                    const final = decoder.decode();
+                    if (final) {
+                        controller.enqueue(final);
+                    }
+                }
+            });
+        }
+
+        get readable() {
+            return this.#transform.readable;
+        }
+
+        get writable() {
+            return this.#transform.writable;
+        }
+
+        get encoding() {
+            return this.#encoding;
+        }
+
+        get fatal() {
+            return false;
+        }
+
+        get ignoreBOM() {
+            return false;
+        }
+    };
+
+    // Performance API - Web standard for high-resolution timing and performance measurement
+    globalThis.performance = new class Performance {
+        now() {
+            return __NATIVE_BRIDGE__.performance.now();
+        }
+
+        mark(name) {
+            if (arguments.length === 0) {
+                throw new TypeError("Failed to execute 'mark' on 'Performance': 1 argument required, but only 0 present.");
+            }
+            return __NATIVE_BRIDGE__.performance.mark(String(name));
+        }
+
+        measure(name, startMark, endMark) {
+            if (arguments.length === 0) {
+                throw new TypeError("Failed to execute 'measure' on 'Performance': 1 argument required, but only 0 present.");
+            }
+            return __NATIVE_BRIDGE__.performance.measure(
+                String(name),
+                startMark !== undefined ? String(startMark) : null,
+                endMark !== undefined ? String(endMark) : null
+            );
+        }
+
+        getEntriesByType(type) {
+            if (arguments.length === 0) {
+                throw new TypeError("Failed to execute 'getEntriesByType' on 'Performance': 1 argument required, but only 0 present.");
+            }
+            return __NATIVE_BRIDGE__.performance.getEntriesByType(String(type));
+        }
+
+        getEntriesByName(name, type) {
+            if (arguments.length === 0) {
+                throw new TypeError("Failed to execute 'getEntriesByName' on 'Performance': 1 argument required, but only 0 present.");
+            }
+            return __NATIVE_BRIDGE__.performance.getEntriesByName(
+                String(name),
+                type !== undefined ? String(type) : null
+            );
+        }
+
+        getEntries() {
+            return __NATIVE_BRIDGE__.performance.getEntries();
+        }
+
+        clearMarks(name) {
+            __NATIVE_BRIDGE__.performance.clearMarks(
+                name !== undefined ? String(name) : null
+            );
+        }
+
+        clearMeasures(name) {
+            __NATIVE_BRIDGE__.performance.clearMeasures(
+                name !== undefined ? String(name) : null
+            );
+        }
+
+        // Timing methods
+        get timeOrigin() {
+            return 0; // Time origin is the start of the application
+        }
+
+        toJSON() {
+            return {
+                timeOrigin: this.timeOrigin
+            };
+        }
+    };
+
+    // URLPattern API - Web standard for URL pattern matching and routing
+    globalThis.URLPattern = class URLPattern {
+        #pattern;
+        #regexps = {};
+        #keys = {};
+
+        constructor(input, baseURL) {
+            if (arguments.length === 0) {
+                throw new TypeError("Failed to construct 'URLPattern': 1 argument required, but only 0 present.");
+            }
+
+            // Parse pattern input
+            if (typeof input === 'string') {
+                this.#pattern = this.#parsePatternString(input, baseURL);
+            } else if (typeof input === 'object' && input !== null) {
+                this.#pattern = {
+                    protocol: input.protocol || '*',
+                    username: input.username || '*',
+                    password: input.password || '*',
+                    hostname: input.hostname || '*',
+                    port: input.port || '*',
+                    pathname: input.pathname || '*',
+                    search: input.search || '*',
+                    hash: input.hash || '*'
+                };
+            } else {
+                throw new TypeError("Failed to construct 'URLPattern': Invalid input type");
+            }
+
+            // Compile patterns to regular expressions
+            for (const [key, pattern] of Object.entries(this.#pattern)) {
+                const compiled = this.#compilePattern(pattern);
+                this.#regexps[key] = compiled.regexp;
+                this.#keys[key] = compiled.keys;
+            }
+        }
+
+        #parsePatternString(patternString, baseURL) {
+            // Simple parsing - in a full implementation this would handle more cases
+            const pattern = {
+                protocol: '*',
+                username: '*',
+                password: '*',
+                hostname: '*',
+                port: '*',
+                pathname: '*',
+                search: '*',
+                hash: '*'
+            };
+
+            // Try to parse as URL
+            try {
+                const url = new URL(patternString, baseURL);
+                if (url.protocol) pattern.protocol = url.protocol.slice(0, -1);
+                if (url.username) pattern.username = url.username;
+                if (url.password) pattern.password = url.password;
+                if (url.hostname) pattern.hostname = url.hostname;
+                if (url.port) pattern.port = url.port;
+                if (url.pathname) pattern.pathname = url.pathname;
+                if (url.search) pattern.search = url.search.slice(1);
+                if (url.hash) pattern.hash = url.hash.slice(1);
+            } catch (e) {
+                // If not a valid URL, treat as pathname pattern
+                pattern.pathname = patternString;
+            }
+
+            return pattern;
+        }
+
+        #compilePattern(pattern) {
+            if (pattern === '*') {
+                return { regexp: new RegExp('.*'), keys: [] };
+            }
+
+            const keys = [];
+            let regexpSource = '^';
+            let i = 0;
+
+            while (i < pattern.length) {
+                const char = pattern[i];
+
+                if (char === ':') {
+                    // Named parameter like :id
+                    const match = pattern.slice(i).match(/^:([a-zA-Z_][a-zA-Z0-9_]*)/);
+                    if (match) {
+                        const name = match[1];
+                        keys.push(name);
+                        regexpSource += '([^/]+)';
+                        i += match[0].length;
+                        continue;
+                    }
+                }
+
+                if (char === '*') {
+                    if (pattern[i + 1] === '*') {
+                        // Double asterisk - match everything including /
+                        regexpSource += '(.*)';
+                        i += 2;
+                        continue;
+                    } else {
+                        // Single asterisk - match segment
+                        regexpSource += '([^/]*)';
+                        i += 1;
+                        continue;
+                    }
+                }
+
+                // Escape special regex characters
+                if (/[.+?^${}()|[\]\\]/.test(char)) {
+                    regexpSource += '\\' + char;
+                } else {
+                    regexpSource += char;
+                }
+
+                i++;
+            }
+
+            regexpSource += '$';
+
+            return {
+                regexp: new RegExp(regexpSource),
+                keys: keys
+            };
+        }
+
+        test(input, baseURL) {
+            const result = this.exec(input, baseURL);
+            return result !== null;
+        }
+
+        exec(input, baseURL) {
+            // Parse input URL
+            let url;
+            try {
+                if (typeof input === 'string') {
+                    url = new URL(input, baseURL);
+                } else if (input && typeof input === 'object') {
+                    // Input is URL object or URL-like object
+                    url = input;
+                } else {
+                    return null;
+                }
+            } catch (e) {
+                return null;
+            }
+
+            // Match each component
+            const inputs = {
+                protocol: url.protocol ? url.protocol.slice(0, -1) : '',
+                username: url.username || '',
+                password: url.password || '',
+                hostname: url.hostname || '',
+                port: url.port || '',
+                pathname: url.pathname || '',
+                search: url.search ? url.search.slice(1) : '',
+                hash: url.hash ? url.hash.slice(1) : ''
+            };
+
+            const result = {};
+
+            for (const [key, regexp] of Object.entries(this.#regexps)) {
+                const input = inputs[key];
+                const match = regexp.exec(input);
+
+                if (!match) {
+                    return null; // Pattern doesn't match
+                }
+
+                const groups = {};
+                const keys = this.#keys[key];
+
+                // Extract named groups
+                for (let i = 0; i < keys.length; i++) {
+                    groups[keys[i]] = match[i + 1];
+                }
+
+                result[key] = {
+                    input: input,
+                    groups: groups
+                };
+            }
+
+            return result;
+        }
+
+        get protocol() {
+            return this.#pattern.protocol;
+        }
+
+        get username() {
+            return this.#pattern.username;
+        }
+
+        get password() {
+            return this.#pattern.password;
+        }
+
+        get hostname() {
+            return this.#pattern.hostname;
+        }
+
+        get port() {
+            return this.#pattern.port;
+        }
+
+        get pathname() {
+            return this.#pattern.pathname;
+        }
+
+        get search() {
+            return this.#pattern.search;
+        }
+
+        get hash() {
+            return this.#pattern.hash;
+        }
+    };
+
 });

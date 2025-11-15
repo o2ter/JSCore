@@ -233,33 +233,25 @@ final class TextEncodingTests: XCTestCase {
         let script = """
             const decoder = new TextDecoder();
             
-            try {
-                // Create some potentially invalid UTF-8 bytes
-                const invalidBytes = new Uint8Array([0xFF, 0xFE, 0xFD]);
-                const decoded = decoder.decode(invalidBytes);
-                
-                ({
-                    success: true,
-                    result: decoded,
-                    type: typeof decoded
-                })
-            } catch (error) {
-                ({
-                    success: false,
-                    error: error.message,
-                    type: 'error'
-                })
-            }
+            // Create some potentially invalid UTF-8 bytes
+            const invalidBytes = new Uint8Array([0xFF, 0xFE, 0xFD]);
+            const decoded = decoder.decode(invalidBytes);
+            
+            ({
+                result: decoded,
+                type: typeof decoded,
+                isString: typeof decoded === 'string',
+                length: decoded.length
+            })
         """
         let context = SwiftJS()
         let result = context.evaluateScript(script)
         
-        // Should handle invalid data gracefully, either by decoding with replacement characters
-        // or by providing a meaningful error
-        XCTAssertEqual(result["type"].toString(), "string")
-        if result["success"].boolValue ?? false {
-            XCTAssertTrue(result["result"].isString)
-        }
+        // TextDecoder should handle invalid UTF-8 by using replacement characters
+        XCTAssertEqual(result["type"].toString(), "string", "TextDecoder should return a string")
+        XCTAssertTrue(result["isString"].boolValue ?? false, "Result should be a string")
+        XCTAssertGreaterThan(
+            Int(result["length"].numberValue ?? 0), 0, "Decoded string should not be empty")
     }
     
     func testTextEncoderWithNonString() {
@@ -267,32 +259,26 @@ final class TextEncodingTests: XCTestCase {
             const encoder = new TextEncoder();
             
             const testValues = [
-                null,
-                undefined,
-                42,
-                true,
-                { toString: () => 'object' },
-                [1, 2, 3]
+                { value: null, expected: 'null' },
+                { value: undefined, expected: 'undefined' },
+                { value: 42, expected: '42' },
+                { value: true, expected: 'true' },
+                { value: { toString: () => 'object' }, expected: 'object' },
+                { value: [1, 2, 3], expected: '1,2,3' }
             ];
             
-            const results = testValues.map(value => {
-                try {
-                    const encoded = encoder.encode(value);
-                    return {
-                        success: true,
-                        type: typeof value,
-                        encoded: encoded instanceof Uint8Array
-                    };
-                } catch (error) {
-                    return {
-                        success: false,
-                        type: typeof value,
-                        error: error.message
-                    };
-                }
-            });
-            
-            results
+            testValues.map(test => {
+                const encoded = encoder.encode(test.value);
+                const decoder = new TextDecoder();
+                const decoded = decoder.decode(encoded);
+                return {
+                    type: typeof test.value,
+                    isUint8Array: encoded instanceof Uint8Array,
+                    decoded: decoded,
+                    expected: test.expected,
+                    matches: decoded === test.expected
+                };
+            })
         """
         let context = SwiftJS()
         let result = context.evaluateScript(script)
@@ -301,10 +287,14 @@ final class TextEncodingTests: XCTestCase {
         let resultsLength = Int(result["length"].numberValue ?? 0)
         XCTAssertEqual(resultsLength, 6)
         
-        // All should either succeed (by converting to string) or fail gracefully
+        // TextEncoder should convert all values to strings via toString()
         for i in 0..<resultsLength {
             let testResult = result[i]
-            XCTAssertTrue(testResult["success"].boolValue ?? testResult["error"].isString)
+            XCTAssertTrue(
+                testResult["isUint8Array"].boolValue ?? false, "Should encode to Uint8Array")
+            XCTAssertTrue(
+                testResult["matches"].boolValue ?? false,
+                "Should match expected string conversion for \(testResult["type"].toString())")
         }
     }
     
@@ -404,77 +394,59 @@ final class TextEncodingTests: XCTestCase {
                 String.fromCharCode(0xFFFF), // Maximum BMP character
             ];
             
-            const results = specialChars.map(char => {
-                try {
-                    const encoded = encoder.encode(char);
-                    const decoded = decoder.decode(encoded);
-                    return {
-                        success: true,
-                        roundTrip: decoded === char,
-                        encoded: encoded.length > 0
-                    };
-                } catch (error) {
-                    return {
-                        success: false,
-                        error: error.message
-                    };
-                }
-            });
-            
-            results
+            specialChars.map(char => {
+                const encoded = encoder.encode(char);
+                const decoded = decoder.decode(encoded);
+                return {
+                    roundTrip: decoded === char,
+                    encodedLength: encoded.length,
+                    hasData: encoded.length > 0
+                };
+            })
         """
         let context = SwiftJS()
         let result = context.evaluateScript(script)
         
         XCTAssertTrue(result.isArray)
         let resultsLength = Int(result["length"].numberValue ?? 0)
+        XCTAssertEqual(resultsLength, 6)
         
-        // Most special characters should encode/decode successfully
-        var successCount = 0
+        // All special characters should encode/decode successfully with round-trip preservation
         for i in 0..<resultsLength {
             let testResult = result[i]
-            if testResult["success"].boolValue ?? false {
-                successCount += 1
-            }
+            XCTAssertTrue(
+                testResult["hasData"].boolValue ?? false,
+                "Character \(i) should encode to non-empty array")
+            XCTAssertTrue(
+                testResult["roundTrip"].boolValue ?? false,
+                "Character \(i) should round-trip correctly")
+            XCTAssertGreaterThan(
+                Int(testResult["encodedLength"].numberValue ?? 0), 0,
+                "Character \(i) should have encoded length > 0")
         }
-        
-        XCTAssertGreaterThan(successCount, resultsLength / 2) // At least half should succeed
     }
     
     func testTextEncoderStream() {
         let script = """
-            // Test if TextEncoderStream exists (it might not be implemented)
-            const hasTextEncoderStream = typeof TextEncoderStream !== 'undefined';
-            
-            if (hasTextEncoderStream) {
-                try {
-                    const stream = new TextEncoderStream();
-                    ({
-                        exists: true,
-                        isStream: stream instanceof TextEncoderStream,
-                        hasWritable: typeof stream.writable !== 'undefined',
-                        hasReadable: typeof stream.readable !== 'undefined'
-                    })
-                } catch (error) {
-                    ({
-                        exists: true,
-                        error: error.message
-                    })
-                }
-            } else {
-                ({
-                    exists: false,
-                    message: 'TextEncoderStream not implemented'
-                })
-            }
+            const stream = new TextEncoderStream();
+            ({
+                isStream: stream instanceof TextEncoderStream,
+                hasWritable: typeof stream.writable !== 'undefined',
+                hasReadable: typeof stream.readable !== 'undefined'
+            })
         """
         let context = SwiftJS()
         let result = context.evaluateScript(script)
         
-        // TextEncoderStream is optional in many implementations
-        if result["exists"].boolValue ?? false {
-            XCTAssertTrue(result["isStream"].boolValue ?? result["error"].isString)
-        }
+        XCTAssertTrue(
+            result["isStream"].boolValue ?? false,
+            "TextEncoderStream should be properly instantiated")
+        XCTAssertTrue(
+            result["hasWritable"].boolValue ?? false,
+            "TextEncoderStream should have writable property")
+        XCTAssertTrue(
+            result["hasReadable"].boolValue ?? false,
+            "TextEncoderStream should have readable property")
     }
     
     // MARK: - Base64 Encoding Tests
