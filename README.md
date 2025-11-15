@@ -39,7 +39,7 @@ println(result) // 6.283185307179586
 | **Engine** | Apple JavaScriptCore | Javet V8 |
 | **Performance** | Native Safari engine | Native Chrome/Node.js engine |
 | **JavaScript Support** | ES6+ | ES6+ |
-| **Web APIs** | Fetch, Crypto, Streams, File, Compression | Fetch, Crypto, Streams, File, Compression |
+| **Web APIs** | Fetch, Crypto, Streams, File, Compression, Performance, URLPattern | Fetch, Crypto, Streams, File, Compression, Performance, URLPattern |
 | **Async Support** | Promises, async/await | Promises, async/await |
 | **Platform Integration** | iOS/macOS native APIs | JVM/Android native APIs |
 | **CLI Tool** | SwiftJSRunner | jscore-runner |
@@ -731,6 +731,971 @@ try {
 **KotlinJS**: Uses Java's GZIPOutputStream, DeflaterOutputStream, and Inflater for JVM/Android
 
 Both implementations provide identical JavaScript APIs and behavior, ensuring cross-platform compatibility.
+
+## Performance API
+
+Both SwiftJS and KotlinJS implement the [User Timing API](https://w3c.github.io/user-timing/) standard, providing high-resolution timing measurements for performance monitoring.
+
+### Overview
+
+The Performance API enables precise measurement of code execution time, useful for:
+- **Benchmarking**: Measure algorithm performance
+- **Profiling**: Identify bottlenecks in your code
+- **Monitoring**: Track application performance over time
+- **Optimization**: Validate performance improvements
+
+### High-Resolution Timing
+
+#### performance.now()
+
+Returns the current high-resolution timestamp in milliseconds:
+
+```javascript
+const start = performance.now();
+
+// Execute some code
+for (let i = 0; i < 1000000; i++) {
+    Math.sqrt(i);
+}
+
+const end = performance.now();
+console.log(`Execution took ${end - start} milliseconds`);
+// Output: "Execution took 12.345 milliseconds"
+```
+
+**Resolution:**
+- **SwiftJS**: Microsecond precision using `CACurrentMediaTime()`
+- **KotlinJS**: Microsecond precision using `System.nanoTime()`
+
+Both provide sub-millisecond accuracy for precise measurements.
+
+### Performance Marks
+
+#### performance.mark(name)
+
+Creates a named timestamp marker:
+
+```javascript
+performance.mark('start-fetch');
+
+const response = await fetch('https://api.example.com/data');
+const data = await response.json();
+
+performance.mark('end-fetch');
+
+// Marks are stored for later measurement
+console.log('Marks created');
+```
+
+### Performance Measures
+
+#### performance.measure(name, startMark, endMark)
+
+Calculates the duration between two marks:
+
+```javascript
+performance.mark('task-start');
+
+// Perform some task
+await processData();
+
+performance.mark('task-end');
+
+// Measure the duration
+performance.measure('task-duration', 'task-start', 'task-end');
+
+// Retrieve the measurement
+const measures = performance.getEntriesByName('task-duration');
+console.log(`Task took ${measures[0].duration} ms`);
+```
+
+### Retrieving Performance Entries
+
+#### performance.getEntries()
+
+Returns all performance entries (marks and measures):
+
+```javascript
+performance.mark('mark1');
+performance.mark('mark2');
+performance.measure('measure1', 'mark1', 'mark2');
+
+const entries = performance.getEntries();
+entries.forEach(entry => {
+    console.log(`${entry.entryType}: ${entry.name} - ${entry.duration || 0}ms`);
+});
+// Output:
+// "mark: mark1 - 0ms"
+// "mark: mark2 - 0ms"
+// "measure: measure1 - 5.123ms"
+```
+
+#### performance.getEntriesByType(type)
+
+Returns entries of a specific type (`"mark"` or `"measure"`):
+
+```javascript
+const marks = performance.getEntriesByType('mark');
+marks.forEach(mark => {
+    console.log(`Mark: ${mark.name} at ${mark.startTime}ms`);
+});
+
+const measures = performance.getEntriesByType('measure');
+measures.forEach(measure => {
+    console.log(`Measure: ${measure.name} took ${measure.duration}ms`);
+});
+```
+
+#### performance.getEntriesByName(name)
+
+Returns all entries with a specific name:
+
+```javascript
+performance.mark('checkpoint');
+performance.mark('checkpoint');  // Same name, different time
+performance.mark('checkpoint');
+
+const checkpoints = performance.getEntriesByName('checkpoint');
+console.log(`Found ${checkpoints.length} checkpoints`);
+// Output: "Found 3 checkpoints"
+
+checkpoints.forEach((checkpoint, i) => {
+    console.log(`Checkpoint ${i + 1}: ${checkpoint.startTime}ms`);
+});
+```
+
+### Clearing Performance Entries
+
+#### performance.clearMarks([name])
+
+Clears performance marks:
+
+```javascript
+performance.mark('mark1');
+performance.mark('mark2');
+
+// Clear specific mark
+performance.clearMarks('mark1');
+
+// Clear all marks
+performance.clearMarks();
+```
+
+#### performance.clearMeasures([name])
+
+Clears performance measures:
+
+```javascript
+performance.measure('measure1', 'start', 'end');
+performance.measure('measure2', 'start', 'end');
+
+// Clear specific measure
+performance.clearMeasures('measure1');
+
+// Clear all measures
+performance.clearMeasures();
+```
+
+### Practical Examples
+
+#### Benchmarking Function Performance
+
+```javascript
+function benchmarkFunction(fn, iterations = 1000) {
+    const markName = `bench-${Date.now()}`;
+    const startMark = `${markName}-start`;
+    const endMark = `${markName}-end`;
+    const measureName = `${markName}-measure`;
+    
+    performance.mark(startMark);
+    
+    for (let i = 0; i < iterations; i++) {
+        fn();
+    }
+    
+    performance.mark(endMark);
+    performance.measure(measureName, startMark, endMark);
+    
+    const measure = performance.getEntriesByName(measureName)[0];
+    const avgTime = measure.duration / iterations;
+    
+    console.log(`Total: ${measure.duration.toFixed(3)}ms`);
+    console.log(`Average: ${avgTime.toFixed(6)}ms per call`);
+    
+    // Cleanup
+    performance.clearMarks(startMark);
+    performance.clearMarks(endMark);
+    performance.clearMeasures(measureName);
+}
+
+// Usage
+benchmarkFunction(() => Math.sqrt(12345), 10000);
+```
+
+#### Multi-Stage Operation Tracking
+
+```javascript
+async function processWithTiming() {
+    performance.mark('overall-start');
+    
+    // Stage 1: Fetch data
+    performance.mark('fetch-start');
+    const response = await fetch('https://api.example.com/data');
+    const data = await response.json();
+    performance.mark('fetch-end');
+    performance.measure('fetch-duration', 'fetch-start', 'fetch-end');
+    
+    // Stage 2: Process data
+    performance.mark('process-start');
+    const processed = data.map(item => transform(item));
+    performance.mark('process-end');
+    performance.measure('process-duration', 'process-start', 'process-end');
+    
+    // Stage 3: Save results
+    performance.mark('save-start');
+    await saveResults(processed);
+    performance.mark('save-end');
+    performance.measure('save-duration', 'save-start', 'save-end');
+    
+    // Overall timing
+    performance.mark('overall-end');
+    performance.measure('total-duration', 'overall-start', 'overall-end');
+    
+    // Report results
+    const measures = performance.getEntriesByType('measure');
+    measures.forEach(measure => {
+        console.log(`${measure.name}: ${measure.duration.toFixed(2)}ms`);
+    });
+}
+```
+
+#### Performance Monitoring Dashboard
+
+```javascript
+class PerformanceMonitor {
+    constructor() {
+        this.operations = new Map();
+    }
+    
+    start(operationName) {
+        const startMark = `${operationName}-start`;
+        performance.mark(startMark);
+        this.operations.set(operationName, { startMark });
+    }
+    
+    end(operationName) {
+        const op = this.operations.get(operationName);
+        if (!op) {
+            console.error(`No operation found: ${operationName}`);
+            return;
+        }
+        
+        const endMark = `${operationName}-end`;
+        const measureName = `${operationName}-measure`;
+        
+        performance.mark(endMark);
+        performance.measure(measureName, op.startMark, endMark);
+        
+        const measure = performance.getEntriesByName(measureName)[0];
+        op.duration = measure.duration;
+        op.endMark = endMark;
+        op.measureName = measureName;
+    }
+    
+    getReport() {
+        const report = [];
+        for (const [name, op] of this.operations) {
+            if (op.duration !== undefined) {
+                report.push({
+                    operation: name,
+                    duration: op.duration,
+                    timestamp: new Date().toISOString()
+                });
+            }
+        }
+        return report;
+    }
+    
+    clear() {
+        for (const op of this.operations.values()) {
+            if (op.startMark) performance.clearMarks(op.startMark);
+            if (op.endMark) performance.clearMarks(op.endMark);
+            if (op.measureName) performance.clearMeasures(op.measureName);
+        }
+        this.operations.clear();
+    }
+}
+
+// Usage
+const monitor = new PerformanceMonitor();
+
+monitor.start('database-query');
+await queryDatabase();
+monitor.end('database-query');
+
+monitor.start('image-processing');
+await processImages();
+monitor.end('image-processing');
+
+console.log(JSON.stringify(monitor.getReport(), null, 2));
+monitor.clear();
+```
+
+### Performance Entry Properties
+
+Each performance entry (mark or measure) has the following properties:
+
+```javascript
+{
+    name: string,           // Entry name
+    entryType: string,      // "mark" or "measure"
+    startTime: number,      // Start timestamp (ms)
+    duration: number        // Duration (0 for marks, calculated for measures)
+}
+```
+
+### Platform-Specific Implementation
+
+**SwiftJS**: Uses `CACurrentMediaTime()` for high-resolution timing, thread-safe with `NSLock`
+**KotlinJS**: Uses `System.nanoTime()` for nanosecond precision, thread-safe with `ConcurrentHashMap`
+
+Both implementations provide identical JavaScript APIs and sub-millisecond accuracy.
+
+## TextEncoderStream and TextDecoderStream
+
+SwiftJS and KotlinJS implement streaming text encoding and decoding using the [Encoding API](https://encoding.spec.whatwg.org/) standard.
+
+### Overview
+
+Text streaming is essential for:
+- **Large file processing**: Encode/decode files without loading into memory
+- **Network streaming**: Handle text data from HTTP responses progressively
+- **Pipeline efficiency**: Chain with other transform streams
+- **Memory optimization**: Process data in chunks rather than all at once
+
+### TextEncoderStream
+
+Encodes a stream of strings into UTF-8 bytes:
+
+```javascript
+const encoder = new TextEncoderStream();
+
+// Create a text source
+const textStream = new ReadableStream({
+    start(controller) {
+        controller.enqueue('Hello, ');
+        controller.enqueue('World!');
+        controller.enqueue(' 你好世界');
+        controller.close();
+    }
+});
+
+// Pipe through encoder
+const encodedStream = textStream.pipeThrough(encoder);
+
+// Read encoded bytes
+const reader = encodedStream.getReader();
+while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    console.log('Encoded bytes:', value);
+    // Uint8Array containing UTF-8 encoded bytes
+}
+```
+
+### TextDecoderStream
+
+Decodes a stream of UTF-8 bytes into strings:
+
+```javascript
+const decoder = new TextDecoderStream();
+
+// Create a byte source
+const byteStream = new ReadableStream({
+    start(controller) {
+        const bytes1 = new TextEncoder().encode('Hello, ');
+        const bytes2 = new TextEncoder().encode('World!');
+        controller.enqueue(bytes1);
+        controller.enqueue(bytes2);
+        controller.close();
+    }
+});
+
+// Pipe through decoder
+const decodedStream = byteStream.pipeThrough(decoder);
+
+// Read decoded text
+const reader = decodedStream.getReader();
+const chunks = [];
+while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    chunks.push(value);
+}
+
+const text = chunks.join('');
+console.log('Decoded text:', text);
+// Output: "Hello, World!"
+```
+
+### Handling Multi-Byte Characters
+
+TextDecoderStream correctly handles multi-byte UTF-8 sequences split across chunks:
+
+```javascript
+const decoder = new TextDecoderStream();
+
+// Simulate split multi-byte character (你 = 0xE4 0xBD 0xA0)
+const byteStream = new ReadableStream({
+    start(controller) {
+        controller.enqueue(new Uint8Array([0xE4]));        // First byte
+        controller.enqueue(new Uint8Array([0xBD, 0xA0]));  // Remaining bytes
+        controller.close();
+    }
+});
+
+const decodedStream = byteStream.pipeThrough(decoder);
+const reader = decodedStream.getReader();
+
+// First read returns empty (incomplete character)
+const { value: first } = await reader.read();
+console.log('First chunk:', first); // "" (buffered incomplete sequence)
+
+// Second read completes the character
+const { value: second } = await reader.read();
+console.log('Second chunk:', second); // "你"
+```
+
+### Practical Examples
+
+#### Processing Large Text Files
+
+```javascript
+async function processLargeFile(filePath) {
+    // Read file as byte stream
+    const fileData = SystemFS.readFile(filePath);
+    
+    const byteStream = new ReadableStream({
+        start(controller) {
+            // Process in 1KB chunks
+            const chunkSize = 1024;
+            for (let i = 0; i < fileData.length; i += chunkSize) {
+                const chunk = fileData.slice(i, i + chunkSize);
+                controller.enqueue(chunk);
+            }
+            controller.close();
+        }
+    });
+    
+    // Decode to text
+    const textStream = byteStream.pipeThrough(new TextDecoderStream());
+    
+    // Process line by line
+    const reader = textStream.getReader();
+    let buffer = '';
+    let lineCount = 0;
+    
+    while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        
+        buffer += value;
+        const lines = buffer.split('\n');
+        buffer = lines.pop(); // Keep incomplete line in buffer
+        
+        lineCount += lines.length;
+    }
+    
+    console.log(`Processed ${lineCount} lines`);
+}
+```
+
+#### HTTP Response Text Streaming
+
+```javascript
+async function streamTextResponse(url) {
+    const response = await fetch(url);
+    
+    // Get response body as stream
+    const bodyStream = response.body;
+    
+    // Decode bytes to text
+    const textStream = bodyStream.pipeThrough(new TextDecoderStream());
+    
+    // Process text chunks as they arrive
+    const reader = textStream.getReader();
+    while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        
+        // Process each text chunk immediately
+        console.log('Received text chunk:', value);
+        processChunk(value);
+    }
+}
+```
+
+#### Bidirectional Text/Byte Conversion Pipeline
+
+```javascript
+async function roundTripPipeline(text) {
+    // Create text stream
+    const textStream = new ReadableStream({
+        start(controller) {
+            controller.enqueue(text);
+            controller.close();
+        }
+    });
+    
+    // Encode to bytes
+    const encodedStream = textStream
+        .pipeThrough(new TextEncoderStream());
+    
+    // Decode back to text
+    const decodedStream = encodedStream
+        .pipeThrough(new TextDecoderStream());
+    
+    // Read result
+    const reader = decodedStream.getReader();
+    const { value } = await reader.read();
+    
+    console.log('Original:', text);
+    console.log('Round-trip:', value);
+    console.log('Match:', text === value); // true
+}
+
+await roundTripPipeline('Hello, 世界! 🌍');
+```
+
+#### Compress and Encode Text Stream
+
+```javascript
+async function compressText(text) {
+    // Create text source
+    const textStream = new ReadableStream({
+        start(controller) {
+            controller.enqueue(text);
+            controller.close();
+        }
+    });
+    
+    // Pipeline: Text → Bytes → Compressed Bytes
+    const compressedStream = textStream
+        .pipeThrough(new TextEncoderStream())
+        .pipeThrough(new CompressionStream('gzip'));
+    
+    // Read compressed data
+    const reader = compressedStream.getReader();
+    const chunks = [];
+    
+    while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        chunks.push(value);
+    }
+    
+    // Combine chunks
+    const totalLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
+    const compressed = new Uint8Array(totalLength);
+    let offset = 0;
+    for (const chunk of chunks) {
+        compressed.set(chunk, offset);
+        offset += chunk.length;
+    }
+    
+    const originalSize = new TextEncoder().encode(text).length;
+    console.log(`Original: ${originalSize} bytes`);
+    console.log(`Compressed: ${compressed.length} bytes`);
+    console.log(`Ratio: ${(compressed.length / originalSize * 100).toFixed(1)}%`);
+    
+    return compressed;
+}
+```
+
+### Encoding Options
+
+TextDecoderStream supports various encoding options:
+
+```javascript
+// Default UTF-8 decoder
+const decoder = new TextDecoderStream();
+
+// With specific encoding (UTF-8 is default and only widely supported)
+const utf8Decoder = new TextDecoderStream('utf-8');
+
+// Fatal mode (throw on invalid sequences)
+const strictDecoder = new TextDecoderStream('utf-8', { fatal: true });
+
+// Ignore BOM (byte order mark)
+const noBomDecoder = new TextDecoderStream('utf-8', { ignoreBOM: true });
+```
+
+### Platform-Specific Implementation
+
+Both SwiftJS and KotlinJS implement these streams as pure JavaScript using:
+- `TransformStream` for streaming infrastructure
+- `TextEncoder` and `TextDecoder` for the actual encoding/decoding
+- Proper handling of incomplete UTF-8 sequences across chunk boundaries
+
+The implementation is identical across both platforms, ensuring consistent behavior.
+
+## URLPattern API
+
+SwiftJS and KotlinJS implement the [URLPattern API](https://developer.mozilla.org/en-US/docs/Web/API/URLPattern) for powerful URL pattern matching and routing.
+
+### Overview
+
+URLPattern enables:
+- **Route matching**: Define URL patterns with parameters
+- **Parameter extraction**: Capture named parameters from URLs
+- **Wildcard matching**: Match flexible URL structures
+- **URL validation**: Test if URLs match specific patterns
+- **Routing**: Build client and server-side routers
+
+### Basic Usage
+
+#### Creating URL Patterns
+
+```javascript
+// Simple pattern
+const pattern = new URLPattern({ pathname: '/users/:id' });
+
+// Full URL pattern
+const fullPattern = new URLPattern({
+    protocol: 'https',
+    hostname: 'example.com',
+    pathname: '/api/:version/users/:id'
+});
+
+// Shorthand string pattern
+const stringPattern = new URLPattern('/posts/:postId/comments/:commentId');
+```
+
+#### Testing URLs
+
+```javascript
+const pattern = new URLPattern({ pathname: '/users/:id' });
+
+// Test if URL matches
+console.log(pattern.test({ pathname: '/users/123' }));        // true
+console.log(pattern.test({ pathname: '/users/abc' }));        // true
+console.log(pattern.test({ pathname: '/posts/123' }));        // false
+console.log(pattern.test({ pathname: '/users' }));            // false
+```
+
+#### Extracting Parameters
+
+```javascript
+const pattern = new URLPattern({ pathname: '/users/:userId/posts/:postId' });
+
+const result = pattern.exec({ pathname: '/users/42/posts/100' });
+
+console.log(result.pathname.groups);
+// Output: { userId: '42', postId: '100' }
+
+console.log(result.pathname.groups.userId);   // '42'
+console.log(result.pathname.groups.postId);   // '100'
+```
+
+### Pattern Syntax
+
+#### Named Parameters
+
+Capture parts of the URL with named parameters:
+
+```javascript
+const pattern = new URLPattern({ pathname: '/products/:category/:id' });
+
+const result = pattern.exec({ pathname: '/products/electronics/laptop-123' });
+console.log(result.pathname.groups);
+// { category: 'electronics', id: 'laptop-123' }
+```
+
+#### Wildcards
+
+Use `*` for single segment or `**` for multiple segments:
+
+```javascript
+// Single segment wildcard
+const singleWild = new URLPattern({ pathname: '/files/*' });
+console.log(singleWild.test({ pathname: '/files/document.pdf' }));     // true
+console.log(singleWild.test({ pathname: '/files/folder/doc.pdf' }));   // false
+
+// Multi-segment wildcard
+const multiWild = new URLPattern({ pathname: '/files/**' });
+console.log(multiWild.test({ pathname: '/files/document.pdf' }));      // true
+console.log(multiWild.test({ pathname: '/files/folder/doc.pdf' }));    // true
+console.log(multiWild.test({ pathname: '/files/a/b/c/doc.pdf' }));     // true
+```
+
+#### Optional Segments
+
+Use `?` for optional parameters:
+
+```javascript
+const pattern = new URLPattern({ pathname: '/users/:id/:action?' });
+
+console.log(pattern.test({ pathname: '/users/123' }));         // true
+console.log(pattern.test({ pathname: '/users/123/edit' }));    // true
+
+const result1 = pattern.exec({ pathname: '/users/123' });
+console.log(result1.pathname.groups);  // { id: '123', action: undefined }
+
+const result2 = pattern.exec({ pathname: '/users/123/edit' });
+console.log(result2.pathname.groups);  // { id: '123', action: 'edit' }
+```
+
+#### Regular Expression Constraints
+
+Constrain parameter values with regex:
+
+```javascript
+const pattern = new URLPattern({ pathname: '/users/:id(\\d+)' });
+
+console.log(pattern.test({ pathname: '/users/123' }));    // true
+console.log(pattern.test({ pathname: '/users/abc' }));    // false
+
+const result = pattern.exec({ pathname: '/users/456' });
+console.log(result.pathname.groups.id);  // '456'
+```
+
+### Practical Examples
+
+#### Building a Router
+
+```javascript
+class Router {
+    constructor() {
+        this.routes = [];
+    }
+    
+    addRoute(pattern, handler) {
+        this.routes.push({
+            pattern: new URLPattern({ pathname: pattern }),
+            handler
+        });
+    }
+    
+    match(pathname) {
+        for (const route of this.routes) {
+            const result = route.pattern.exec({ pathname });
+            if (result) {
+                return {
+                    handler: route.handler,
+                    params: result.pathname.groups
+                };
+            }
+        }
+        return null;
+    }
+    
+    async handle(pathname) {
+        const match = this.match(pathname);
+        if (match) {
+            return await match.handler(match.params);
+        }
+        throw new Error('Route not found');
+    }
+}
+
+// Usage
+const router = new Router();
+
+router.addRoute('/users/:id', async (params) => {
+    return `User profile for ID: ${params.id}`;
+});
+
+router.addRoute('/posts/:postId/comments/:commentId', async (params) => {
+    return `Comment ${params.commentId} on post ${params.postId}`;
+});
+
+router.addRoute('/api/:version/**', async (params) => {
+    return `API version ${params.version}`;
+});
+
+// Route requests
+const result1 = await router.handle('/users/123');
+console.log(result1);  // "User profile for ID: 123"
+
+const result2 = await router.handle('/posts/42/comments/7');
+console.log(result2);  // "Comment 7 on post 42"
+```
+
+#### API Versioning
+
+```javascript
+const patterns = {
+    v1: new URLPattern({ pathname: '/api/v1/**' }),
+    v2: new URLPattern({ pathname: '/api/v2/**' }),
+    latest: new URLPattern({ pathname: '/api/latest/**' })
+};
+
+function routeApiRequest(pathname) {
+    if (patterns.v1.test({ pathname })) {
+        return handleV1(pathname);
+    } else if (patterns.v2.test({ pathname })) {
+        return handleV2(pathname);
+    } else if (patterns.latest.test({ pathname })) {
+        return handleLatest(pathname);
+    } else {
+        throw new Error('Unknown API version');
+    }
+}
+```
+
+#### Resource Pattern Matching
+
+```javascript
+const resourcePattern = new URLPattern({
+    pathname: '/:resourceType/:id/:action?'
+});
+
+function handleResourceRequest(pathname) {
+    const result = resourcePattern.exec({ pathname });
+    
+    if (!result) {
+        return { error: 'Invalid resource URL' };
+    }
+    
+    const { resourceType, id, action } = result.pathname.groups;
+    
+    return {
+        resourceType,
+        id,
+        action: action || 'view',
+        operation: action ? `${action}-${resourceType}` : `view-${resourceType}`
+    };
+}
+
+console.log(handleResourceRequest('/posts/123'));
+// { resourceType: 'posts', id: '123', action: 'view', operation: 'view-posts' }
+
+console.log(handleResourceRequest('/users/456/edit'));
+// { resourceType: 'users', id: '456', action: 'edit', operation: 'edit-users' }
+```
+
+#### File Path Matching
+
+```javascript
+const patterns = {
+    image: new URLPattern({ pathname: '/uploads/images/:filename.(jpg|png|gif)' }),
+    document: new URLPattern({ pathname: '/uploads/docs/:filename.pdf' }),
+    anyFile: new URLPattern({ pathname: '/uploads/**/:filename' })
+};
+
+function categorizeUpload(pathname) {
+    if (patterns.image.test({ pathname })) {
+        const result = patterns.image.exec({ pathname });
+        return { type: 'image', filename: result.pathname.groups.filename };
+    } else if (patterns.document.test({ pathname })) {
+        const result = patterns.document.exec({ pathname });
+        return { type: 'document', filename: result.pathname.groups.filename };
+    } else if (patterns.anyFile.test({ pathname })) {
+        const result = patterns.anyFile.exec({ pathname });
+        return { type: 'unknown', filename: result.pathname.groups.filename };
+    }
+    return { type: 'invalid' };
+}
+```
+
+#### URL Rewriting
+
+```javascript
+class URLRewriter {
+    constructor() {
+        this.rules = [];
+    }
+    
+    addRule(pattern, rewrite) {
+        this.rules.push({
+            pattern: new URLPattern({ pathname: pattern }),
+            rewrite
+        });
+    }
+    
+    rewrite(pathname) {
+        for (const rule of this.rules) {
+            const result = rule.pattern.exec({ pathname });
+            if (result) {
+                return rule.rewrite(result.pathname.groups);
+            }
+        }
+        return pathname;
+    }
+}
+
+// Usage
+const rewriter = new URLRewriter();
+
+// Rewrite legacy URLs to new format
+rewriter.addRule('/old/users/:id', (params) => `/users/${params.id}`);
+rewriter.addRule('/blog/:year/:month/:slug', (params) => 
+    `/posts/${params.year}-${params.month}/${params.slug}`
+);
+
+console.log(rewriter.rewrite('/old/users/123'));
+// Output: "/users/123"
+
+console.log(rewriter.rewrite('/blog/2024/03/hello-world'));
+// Output: "/posts/2024-03/hello-world"
+```
+
+### Full URL Matching
+
+URLPattern can match all URL components:
+
+```javascript
+const pattern = new URLPattern({
+    protocol: 'https',
+    hostname: ':subdomain.example.com',
+    pathname: '/api/:version/**',
+    search: '*',
+    hash: '*'
+});
+
+const result = pattern.exec({
+    protocol: 'https',
+    hostname: 'api.example.com',
+    pathname: '/api/v2/users/123',
+    search: '?sort=name',
+    hash: '#details'
+});
+
+console.log(result.hostname.groups);  // { subdomain: 'api' }
+console.log(result.pathname.groups);  // { version: 'v2' }
+```
+
+### URLPattern Result Structure
+
+The `exec()` method returns an object with detailed match information:
+
+```javascript
+const pattern = new URLPattern({ pathname: '/users/:id' });
+const result = pattern.exec({ pathname: '/users/123' });
+
+console.log(result);
+// {
+//   pathname: {
+//     input: '/users/123',
+//     groups: { id: '123' }
+//   },
+//   protocol: { input: '', groups: {} },
+//   hostname: { input: '', groups: {} },
+//   port: { input: '', groups: {} },
+//   search: { input: '', groups: {} },
+//   hash: { input: '', groups: {} }
+// }
+```
+
+### Platform-Specific Implementation
+
+Both SwiftJS and KotlinJS implement URLPattern as pure JavaScript using:
+- Regular expression compilation for pattern matching
+- Named capture groups for parameter extraction
+- Wildcard expansion for flexible matching
+- Full URL component support (protocol, hostname, pathname, search, hash)
+
+The implementation is identical across both platforms, ensuring consistent routing behavior.
 
 ### KotlinJS Platform APIs
 
