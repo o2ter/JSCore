@@ -742,6 +742,77 @@ timerNamespace.invoke<V8Value>("setTimeout", callback, delay).close()
 
 ### Critical Testing Patterns
 
+#### **CRITICAL:** Test Isolation - No Shared State Between Tests
+**Each test must create its own engine/context instance to avoid state contamination:**
+
+**SwiftJS Pattern:**
+```swift
+final class MyTests: XCTestCase {
+    
+    func testFeatureA() {
+        let context = SwiftJS()  // ✅ Create new context per test
+        // Test code...
+    }
+    
+    func testFeatureB() {
+        let context = SwiftJS()  // ✅ Create new context per test
+        // Test code...
+    }
+}
+```
+
+**KotlinJS Pattern:**
+```kotlin
+class MyTests {
+    
+    @Test
+    fun testFeatureA() {
+        val engine = JavaScriptEngine(JvmPlatformContext())
+        try {
+            // Test code...
+        } finally {
+            engine.close()  // ✅ Always close engine
+        }
+    }
+    
+    @Test
+    fun testFeatureB() {
+        val engine = JavaScriptEngine(JvmPlatformContext())
+        try {
+            // Test code...
+        } finally {
+            engine.close()  // ✅ Always close engine
+        }
+    }
+}
+```
+
+**Why shared state is problematic:**
+- Tests can affect each other's results (order-dependent failures)
+- Global variables and timers persist across tests
+- Performance metrics accumulate (marks/measures)
+- Memory leaks compound across test suite
+- Debugging becomes difficult when tests interfere
+
+**Anti-pattern to avoid:**
+```kotlin
+// ❌ WRONG - Shared engine state
+class MyTests {
+    private lateinit var engine: JavaScriptEngine
+    
+    @Before
+    fun setup() {
+        engine = JavaScriptEngine(JvmPlatformContext())
+    }
+    
+    @After
+    fun tearDown() {
+        engine.close()
+    }
+    // Tests share the same engine instance!
+}
+```
+
 #### **CRITICAL:** Never Use Fallbacks to Bypass Test Failures
 **Always fix the root cause instead of adding fallback logic:**
 
