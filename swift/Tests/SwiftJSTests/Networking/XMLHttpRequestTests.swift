@@ -392,9 +392,9 @@ final class XMLHttpRequestTests: XCTestCase {
             XCTAssertGreaterThan(stateCount, 0)
             
             // Final state should be DONE (4)
-                let finalState = Int(states[stateCount - 1].numberValue ?? -1)
-                XCTAssertEqual(finalState, 4)
-            }
+            let finalState = Int(states[stateCount - 1].numberValue ?? -1)
+            XCTAssertEqual(finalState, 4)
+            
             expectation.fulfill()
             return SwiftJS.Value.undefined
         }

@@ -153,7 +153,7 @@ final class URLPatternTests: XCTestCase {
             result === null
             """
 
-        let isNull = context.evaluateScript(script).boolValue
+        let isNull = context.evaluateScript(script).boolValue ?? false
         XCTAssertTrue(isNull, "Should return null for non-matching path")
     }
 
@@ -203,7 +203,7 @@ final class URLPatternTests: XCTestCase {
             """
 
         let result = context.evaluateScript(script)
-        XCTAssertTrue(result["matched"].boolValue, "Should match ID with special chars")
+        XCTAssertTrue(result["matched"].boolValue ?? false, "Should match ID with special chars")
         XCTAssertEqual(
             result["id"].stringValue, "abc-123_xyz", "Should extract full ID with special chars")
     }

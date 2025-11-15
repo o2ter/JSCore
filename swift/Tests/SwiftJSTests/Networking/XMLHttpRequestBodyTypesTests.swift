@@ -104,8 +104,7 @@ final class XMLHttpRequestBodyTypesTests: XCTestCase {
             
             let contentType = result["contentType"].toString()
             XCTAssertTrue(contentType.contains("application/x-www-form-urlencoded"), 
-                         "Content-Type should be application/x-www-form-urlencoded")
-            }
+                "Content-Type should be application/x-www-form-urlencoded")
             
             expectation.fulfill()
             return SwiftJS.Value.undefined
@@ -221,8 +220,7 @@ final class XMLHttpRequestBodyTypesTests: XCTestCase {
             
             let contentType = result["contentType"].toString()
             XCTAssertTrue(contentType.contains("text/plain"), 
-                             "Content-Type should be text/plain from blob")
-            }
+                "Content-Type should be text/plain from blob")
             
             expectation.fulfill()
             return SwiftJS.Value.undefined

@@ -1243,7 +1243,6 @@ final class FetchTests: XCTestCase {
                 XCTAssertTrue(
                     result["isConcurrentStress"].boolValue ?? false,
                     "Stress test should demonstrate true concurrency")
-            }
 
             expectation.fulfill()
             return SwiftJS.Value.undefined
