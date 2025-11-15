@@ -5289,4 +5289,89 @@
         }
     };
 
+    // Compression Streams API - Web standard for streaming compression/decompression
+    // Supports 'gzip', 'deflate', and 'deflate-raw' formats
+
+    globalThis.CompressionStream = class CompressionStream {
+        #format;
+        #transform;
+
+        constructor(format) {
+            if (!['gzip', 'deflate', 'deflate-raw'].includes(format)) {
+                throw new TypeError(`Unsupported compression format: ${format}`);
+            }
+
+            this.#format = format;
+
+            // Create a TransformStream that compresses data chunk-by-chunk
+            this.#transform = new TransformStream({
+                transform(chunk, controller) {
+                    try {
+                        // Convert chunk to Uint8Array
+                        const inputData = chunk instanceof Uint8Array
+                            ? chunk
+                            : new Uint8Array(chunk);
+
+                        // Call native compression
+                        const compressed = __NATIVE_BRIDGE__.compression.compress(inputData, format);
+
+                        // Enqueue compressed data
+                        controller.enqueue(compressed);
+                    } catch (error) {
+                        controller.error(error);
+                    }
+                }
+            });
+        }
+
+        get readable() {
+            return this.#transform.readable;
+        }
+
+        get writable() {
+            return this.#transform.writable;
+        }
+    };
+
+    globalThis.DecompressionStream = class DecompressionStream {
+        #format;
+        #transform;
+
+        constructor(format) {
+            if (!['gzip', 'deflate', 'deflate-raw'].includes(format)) {
+                throw new TypeError(`Unsupported compression format: ${format}`);
+            }
+
+            this.#format = format;
+
+            // Create a TransformStream that decompresses data chunk-by-chunk
+            this.#transform = new TransformStream({
+                transform(chunk, controller) {
+                    try {
+                        // Convert chunk to Uint8Array
+                        const inputData = chunk instanceof Uint8Array
+                            ? chunk
+                            : new Uint8Array(chunk);
+
+                        // Call native decompression
+                        const decompressed = __NATIVE_BRIDGE__.compression.decompress(inputData, format);
+
+                        // Enqueue decompressed data
+                        controller.enqueue(decompressed);
+                    } catch (error) {
+                        controller.error(error);
+                    }
+                }
+            });
+        }
+
+        get readable() {
+            return this.#transform.readable;
+        }
+
+        get writable() {
+            return this.#transform.writable;
+        }
+    };
+
 });

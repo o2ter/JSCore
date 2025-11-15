@@ -458,6 +458,35 @@ class JavaScriptEngine(
             webSocketBridge.close()
         }
         
+        // Setup Compression bridge
+        val compression = Compression(v8Runtime)
+        val compressionBridge = v8Runtime.createV8ValueObject()
+        try {
+            compressionBridge.bindFunction(JavetCallbackContext("compress",
+                JavetCallbackType.DirectCallNoThisAndResult,
+                IJavetDirectCallable.NoThisAndResult<Exception> { v8Values ->
+                    if (v8Values.size < 2) {
+                        v8Runtime.createV8ValueError("compress() requires 2 arguments")
+                    } else {
+                        compression.compress(v8Values[0], v8Values[1].toString())
+                    }
+                }))
+            
+            compressionBridge.bindFunction(JavetCallbackContext("decompress",
+                JavetCallbackType.DirectCallNoThisAndResult,
+                IJavetDirectCallable.NoThisAndResult<Exception> { v8Values ->
+                    if (v8Values.size < 2) {
+                        v8Runtime.createV8ValueError("decompress() requires 2 arguments")
+                    } else {
+                        compression.decompress(v8Values[0], v8Values[1].toString())
+                    }
+                }))
+            
+            nativeBridge.set("compression", compressionBridge)
+        } finally {
+            compressionBridge.close()
+        }
+        
         // Setup console and timer bridges (these remain here as they're core runtime features)
         setupConsoleBridge(nativeBridge)
         setupTimerBridges(nativeBridge)
