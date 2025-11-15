@@ -51,7 +51,9 @@ final class CompressionTests: XCTestCase {
         
         let script = """
             (async () => {
-                const input = 'Hello, World! This is a test of gzip compression.';
+                // Use a longer string to ensure compression actually reduces size
+                // (short strings have compression overhead that makes them larger)
+                const input = 'Lorem ipsum dolor sit amet, consectetur adipiscing elit. '.repeat(10);
                 const inputBytes = new TextEncoder().encode(input);
                 
                 // Compress
