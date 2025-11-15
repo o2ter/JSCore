@@ -131,25 +131,25 @@ final class StreamingEncodingTests: XCTestCase {
         })()
         """
         
-        SwiftJS.Value(newPromiseIn: context) { resolve, reject in
-            let result = context.evaluateScript(script)
-            result.then { value in
-                let chunkCount = Int(value["chunkCount"].numberValue ?? 0)
-                let fullText = value["fullText"].stringValue ?? ""
-                let isString = value["isString"].boolValue
-                
-                XCTAssertGreaterThan(chunkCount, 0, "Should have decoded chunks")
-                XCTAssertEqual(fullText, "Hello World", "Should decode to 'Hello World'")
-                XCTAssertTrue(isString, "Chunks should be strings")
-                
-                resolve(value)
-                expectation.fulfill()
-            } catch: { error in
-                XCTFail("Promise rejected: \(error)")
-                reject(error)
-                expectation.fulfill()
-            }
+        context.globalObject["testCompleted"] = SwiftJS.Value(in: context) { args, this in
+            let value = args[0]
+            let chunkCount = Int(value["chunkCount"].numberValue ?? 0)
+            let fullText = value["fullText"].stringValue ?? ""
+            let isString = value["isString"].boolValue ?? false
+
+            XCTAssertGreaterThan(chunkCount, 0, "Should have decoded chunks")
+            XCTAssertEqual(fullText, "Hello World", "Should decode to 'Hello World'")
+            XCTAssertTrue(isString, "Chunks should be strings")
+
+            expectation.fulfill()
+            return SwiftJS.Value.undefined
         }
+        
+        let scriptWithCallback = """
+            \(script).then(result => testCompleted(result)).catch(error => console.error(error));
+            """
+
+        context.evaluateScript(scriptWithCallback)
         
         wait(for: [expectation], timeout: 10.0)
     }
@@ -184,22 +184,22 @@ final class StreamingEncodingTests: XCTestCase {
         })()
         """
         
-        SwiftJS.Value(newPromiseIn: context) { resolve, reject in
-            let result = context.evaluateScript(script)
-            result.then { value in
-                let totalBytes = Int(value.numberValue ?? 0)
-                // "Hello 世界 🌍" = 5 + 1 + 6 + 1 + 4 = 17 bytes in UTF-8
-                XCTAssertEqual(totalBytes, 17, "Should correctly encode multi-byte UTF-8 characters")
-                
-                resolve(value)
-                expectation.fulfill()
-            } catch: { error in
-                XCTFail("Promise rejected: \(error)")
-                reject(error)
-                expectation.fulfill()
-            }
+        context.globalObject["testCompleted"] = SwiftJS.Value(in: context) { args, this in
+            let value = args[0]
+            let totalBytes = Int(value.numberValue ?? 0)
+            // "Hello 世界 🌍" = 5 + 1 + 6 + 1 + 4 = 17 bytes in UTF-8
+            XCTAssertEqual(totalBytes, 17, "Should correctly encode multi-byte UTF-8 characters")
+
+            expectation.fulfill()
+            return SwiftJS.Value.undefined
         }
         
+        let scriptWithCallback = """
+            \(script).then(result => testCompleted(result)).catch(error => console.error(error));
+            """
+
+        context.evaluateScript(scriptWithCallback)
+
         wait(for: [expectation], timeout: 10.0)
     }
     

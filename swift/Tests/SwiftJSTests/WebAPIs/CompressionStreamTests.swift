@@ -69,23 +69,24 @@ final class CompressionStreamTests: XCTestCase {
         })()
         """
         
-        SwiftJS.Value(newPromiseIn: context) { resolve, reject in
-            let result = context.evaluateScript(script)
-            result.then { value in
-                let isSmaller = value["isSmaller"].boolValue
-                let compressionRatio = value["compressionRatio"].numberValue ?? 1.0
-                
-                XCTAssertTrue(isSmaller, "Compressed data should be smaller than original")
-                XCTAssertLessThan(compressionRatio, 0.5, "Compression ratio should be < 0.5 for repetitive data")
-                
-                resolve(value)
-                expectation.fulfill()
-            } catch: { error in
-                XCTFail("Promise rejected: \(error)")
-                reject(error)
-                expectation.fulfill()
-            }
+        context.globalObject["testCompleted"] = SwiftJS.Value(in: context) { args, this in
+            let value = args[0]
+            let isSmaller = value["isSmaller"].boolValue ?? false
+            let compressionRatio = value["compressionRatio"].numberValue ?? 1.0
+
+            XCTAssertTrue(isSmaller, "Compressed data should be smaller than original")
+            XCTAssertLessThan(
+                compressionRatio, 0.5, "Compression ratio should be < 0.5 for repetitive data")
+
+            expectation.fulfill()
+            return SwiftJS.Value.undefined
         }
+        
+        let scriptWithCallback = """
+            \(script).then(result => testCompleted(result)).catch(error => console.error(error));
+            """
+
+        context.evaluateScript(scriptWithCallback)
         
         wait(for: [expectation], timeout: 10.0)
     }
@@ -257,25 +258,25 @@ final class CompressionStreamTests: XCTestCase {
         })()
         """
         
-        SwiftJS.Value(newPromiseIn: context) { resolve, reject in
-            let result = context.evaluateScript(script)
-            result.then { value in
-                let match = value["match"].boolValue
-                let originalLength = (value["original"].stringValue ?? "").count
-                let decompressedLength = Int(value["length"].numberValue ?? 0)
-                
-                XCTAssertTrue(match, "Round trip should preserve data")
-                XCTAssertEqual(decompressedLength, originalLength, "Lengths should match")
-                
-                resolve(value)
-                expectation.fulfill()
-            } catch: { error in
-                XCTFail("Promise rejected: \(error)")
-                reject(error)
-                expectation.fulfill()
-            }
+        context.globalObject["testCompleted"] = SwiftJS.Value(in: context) { args, this in
+            let value = args[0]
+            let match = value["match"].boolValue ?? false
+            let originalLength = (value["original"].stringValue ?? "").count
+            let decompressedLength = Int(value["length"].numberValue ?? 0)
+
+            XCTAssertTrue(match, "Round trip should preserve data")
+            XCTAssertEqual(decompressedLength, originalLength, "Lengths should match")
+
+            expectation.fulfill()
+            return SwiftJS.Value.undefined
         }
         
+        let scriptWithCallback = """
+            \(script).then(result => testCompleted(result)).catch(error => console.error(error));
+            """
+
+        context.evaluateScript(scriptWithCallback)
+
         wait(for: [expectation], timeout: 10.0)
     }
     
