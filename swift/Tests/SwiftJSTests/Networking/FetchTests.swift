@@ -1151,15 +1151,14 @@ final class FetchTests: XCTestCase {
                 result["correctOrder"].boolValue ?? false,
                 "Requests should complete in order of their delays (1s, 2s, 3s)")
             XCTAssertGreaterThan(
-                    speedup, 1.2,
-                    "Concurrent execution should be at least 1.2x faster than sequential")
-                XCTAssertLessThan(
-                    totalDuration, maxExpectedTime,
-                    "Total time should not exceed longest individual request + buffer")
-                XCTAssertTrue(
-                    result["isConcurrent"].boolValue ?? false,
-                    "Fetch requests should run concurrently")
-            }
+                speedup, 1.2,
+                "Concurrent execution should be at least 1.2x faster than sequential")
+            XCTAssertLessThan(
+                totalDuration, maxExpectedTime,
+                "Total time should not exceed longest individual request + buffer")
+            XCTAssertTrue(
+                result["isConcurrent"].boolValue ?? false,
+                "Fetch requests should run concurrently")
 
             expectation.fulfill()
             return SwiftJS.Value.undefined
