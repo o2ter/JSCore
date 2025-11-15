@@ -2496,6 +2496,7 @@
             // Implement progressive loading with onprogress events
             let accumulatedData = new Uint8Array(0);
             let receivedAllData = false;
+            let responseHeaders = null;  // Store response headers when received
             let timeoutId = null;
 
             // Set up timeout if specified
@@ -2547,9 +2548,14 @@
                         clearTimeout(timeoutId);
                         timeoutId = null;
                     }
-                    // Mark that we received all data, but don't finalize yet
-                    // Let the promise resolution handle finalization to ensure status is set
-                    receivedAllData = true;
+                    // Empty chunk signals end of stream
+                    // If we have response headers already, finalize now
+                    if (responseHeaders && this.#readyState < XMLHttpRequest.DONE) {
+                        this.#finalizeResponse(accumulatedData);
+                    } else {
+                        // Mark that we received all data, finalize when headers arrive
+                        receivedAllData = true;
+                    }
                 }
             };
 
@@ -2574,12 +2580,14 @@
                         this.#status = result.statusCode;
                         this.#statusText = this.#getStatusText(this.#status);
                         this.#responseURL = result.url || this.#url;
+                        responseHeaders = result;  // Store headers
+
                         if (this.readyState < XMLHttpRequest.HEADERS_RECEIVED) {
                             this.#setReadyState(XMLHttpRequest.HEADERS_RECEIVED);
                         }
 
-                        // Always finalize here in the promise resolution
-                        // This ensures status is set before finalization
+                        // Only finalize if we already received all data
+                        // Otherwise, wait for progressHandler empty chunk signal
                         if (receivedAllData && this.#readyState < XMLHttpRequest.DONE) {
                             this.#finalizeResponse(accumulatedData);
                         }
