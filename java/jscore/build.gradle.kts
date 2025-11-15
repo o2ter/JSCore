@@ -58,6 +58,9 @@ dependencies {
     // Javet - Unified V8 engine for both JVM and Android
     implementation(libs.javet)
     
+    // OkHttp for WebSocket support
+    implementation(libs.okhttp)
+    
     // SLF4J for logging
     implementation(libs.slf4j.api)
 }

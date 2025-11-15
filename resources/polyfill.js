@@ -5062,4 +5062,231 @@
         }
     };
 
+    // WebSocket - bidirectional communication over a single TCP connection
+    globalThis.WebSocket = class WebSocket extends EventTarget {
+        // WebSocket ready state constants
+        static CONNECTING = 0;
+        static OPEN = 1;
+        static CLOSING = 2;
+        static CLOSED = 3;
+
+        #socketId = null;
+        #url = '';
+        #protocols = [];
+        #readyState = WebSocket.CONNECTING;
+        #bufferedAmount = 0;
+        #extensions = '';
+        #protocol = '';
+        #binaryType = 'blob';
+
+        // Event handlers
+        onopen = null;
+        onclose = null;
+        onerror = null;
+        onmessage = null;
+
+        constructor(url, protocols = []) {
+            super();
+
+            if (arguments.length === 0) {
+                throw new TypeError("Failed to construct 'WebSocket': 1 argument required, but only 0 present.");
+            }
+
+            // Validate URL
+            if (typeof url !== 'string') {
+                throw new TypeError("Failed to construct 'WebSocket': The URL provided is not a string.");
+            }
+
+            // Simple WebSocket URL validation (ws:// or wss://)
+            if (!/^wss?:\/\/.+/.test(url)) {
+                throw new Error(`Failed to construct 'WebSocket': The URL '${url}' is invalid.`);
+            }
+
+            this.#url = url;
+
+            // Parse protocols
+            if (typeof protocols === 'string') {
+                this.#protocols = [protocols];
+            } else if (Array.isArray(protocols)) {
+                this.#protocols = protocols.filter(p => typeof p === 'string');
+            }
+
+            // Copy static constants to instance for compatibility
+            this.CONNECTING = WebSocket.CONNECTING;
+            this.OPEN = WebSocket.OPEN;
+            this.CLOSING = WebSocket.CLOSING;
+            this.CLOSED = WebSocket.CLOSED;
+
+            // Create native WebSocket connection
+            this.#socketId = __NATIVE_BRIDGE__.WebSocket.createWebSocket(
+                this.#url,
+                this.#protocols,
+                this.#handleOpen.bind(this),
+                this.#handleMessage.bind(this),
+                this.#handleError.bind(this),
+                this.#handleClose.bind(this)
+            );
+
+            if (!this.#socketId) {
+                throw new Error(`Failed to construct 'WebSocket': Could not create WebSocket connection`);
+            }
+        }
+
+        // Getters
+        get url() {
+            return this.#url;
+        }
+
+        get readyState() {
+            // Get current state from native layer
+            if (this.#socketId) {
+                this.#readyState = __NATIVE_BRIDGE__.WebSocket.getReadyState(this.#socketId);
+            }
+            return this.#readyState;
+        }
+
+        get bufferedAmount() {
+            // Get current buffered amount from native layer
+            if (this.#socketId) {
+                this.#bufferedAmount = __NATIVE_BRIDGE__.WebSocket.getBufferedAmount(this.#socketId);
+            }
+            return this.#bufferedAmount;
+        }
+
+        get extensions() {
+            return this.#extensions;
+        }
+
+        get protocol() {
+            return this.#protocol;
+        }
+
+        get binaryType() {
+            return this.#binaryType;
+        }
+
+        set binaryType(value) {
+            if (value !== 'blob' && value !== 'arraybuffer') {
+                throw new Error("Failed to set the 'binaryType' property on 'WebSocket': The provided value '" + value + "' is not valid; it must be either 'blob' or 'arraybuffer'.");
+            }
+            this.#binaryType = value;
+        }
+
+        // Methods
+        send(data) {
+            if (this.readyState !== WebSocket.OPEN) {
+                throw new Error("Failed to execute 'send' on 'WebSocket': Still in CONNECTING state.");
+            }
+
+            let success = false;
+
+            if (typeof data === 'string') {
+                success = __NATIVE_BRIDGE__.WebSocket.send(this.#socketId, data);
+            } else if (data instanceof ArrayBuffer) {
+                success = __NATIVE_BRIDGE__.WebSocket.send(this.#socketId, data);
+            } else if (ArrayBuffer.isView(data)) {
+                // TypedArray - get the underlying ArrayBuffer
+                success = __NATIVE_BRIDGE__.WebSocket.send(this.#socketId, data.buffer);
+            } else if (data instanceof Blob) {
+                // Convert Blob to ArrayBuffer asynchronously
+                data.arrayBuffer().then(buffer => {
+                    __NATIVE_BRIDGE__.WebSocket.send(this.#socketId, buffer);
+                }).catch(err => {
+                    this.#handleError('Failed to convert Blob to ArrayBuffer: ' + err.message);
+                });
+                return; // Don't throw error, handle async
+            } else {
+                // Try to convert to string
+                success = __NATIVE_BRIDGE__.WebSocket.send(this.#socketId, String(data));
+            }
+
+            if (!success) {
+                throw new Error("Failed to execute 'send' on 'WebSocket': Failed to send data");
+            }
+        }
+
+        close(code = 1000, reason = '') {
+            // Validate close code
+            if (code !== 1000 && (code < 3000 || code > 4999)) {
+                if (code < 1000 || code === 1004 || code === 1005 || code === 1006 || (code > 1011 && code < 3000)) {
+                    throw new Error(`Failed to execute 'close' on 'WebSocket': The code must be either 1000, or between 3000 and 4999. ${code} is neither.`);
+                }
+            }
+
+            // Validate reason length
+            if (reason.length > 123) {
+                throw new Error("Failed to execute 'close' on 'WebSocket': The message must not be greater than 123 bytes.");
+            }
+
+            if (this.readyState === WebSocket.CLOSING || this.readyState === WebSocket.CLOSED) {
+                return;
+            }
+
+            this.#readyState = WebSocket.CLOSING;
+
+            if (this.#socketId) {
+                __NATIVE_BRIDGE__.WebSocket.close(this.#socketId, code, reason);
+            }
+        }
+
+        // Event handlers - called from native bridge
+        #handleOpen() {
+            this.#readyState = WebSocket.OPEN;
+
+            const event = new Event('open');
+            this.dispatchEvent(event);
+
+            if (typeof this.onopen === 'function') {
+                this.onopen.call(this, event);
+            }
+        }
+
+        #handleMessage(data) {
+            const event = new Event('message');
+
+            // Handle binary data based on binaryType preference
+            if (data.data instanceof ArrayBuffer) {
+                if (this.#binaryType === 'blob') {
+                    event.data = new Blob([data.data]);
+                } else {
+                    event.data = data.data;
+                }
+            } else {
+                event.data = data.data;
+            }
+
+            this.dispatchEvent(event);
+
+            if (typeof this.onmessage === 'function') {
+                this.onmessage.call(this, event);
+            }
+        }
+
+        #handleError(errorMessage) {
+            const event = new Event('error');
+            event.message = errorMessage;
+
+            this.dispatchEvent(event);
+
+            if (typeof this.onerror === 'function') {
+                this.onerror.call(this, event);
+            }
+        }
+
+        #handleClose(closeEvent) {
+            this.#readyState = WebSocket.CLOSED;
+
+            const event = new Event('close');
+            event.code = closeEvent.code;
+            event.reason = closeEvent.reason;
+            event.wasClean = closeEvent.wasClean;
+
+            this.dispatchEvent(event);
+
+            if (typeof this.onclose === 'function') {
+                this.onclose.call(this, event);
+            }
+        }
+    };
+
 });

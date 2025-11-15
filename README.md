@@ -401,6 +401,7 @@ Both SwiftJS and KotlinJS provide comprehensive JavaScript APIs:
 - **Crypto**: `crypto.randomUUID()`, `crypto.randomBytes()`, `crypto.getRandomValues()`
 - **Console**: `console.log/warn/error/info` with proper formatting
 - **Fetch**: `fetch()` for HTTP requests (core functionality, excludes browser security features)
+- **WebSocket**: `WebSocket` for bidirectional real-time communication
 - **TextEncoder/TextDecoder**: UTF-8 encoding/decoding
 - **Timers**: `setTimeout`, `setInterval`, `clearTimeout`, `clearInterval`
 - **Event**: `Event`, `EventTarget`, `addEventListener`

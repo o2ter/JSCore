@@ -45,6 +45,7 @@ import com.o2ter.jscore.lib.FileSystem
 import com.o2ter.jscore.lib.ProcessControl
 import com.o2ter.jscore.lib.ProcessInfo
 import com.o2ter.jscore.lib.http.URLSession
+import com.o2ter.jscore.lib.http.JSWebSocket
 import java.util.Timer
 import java.util.TimerTask
 import java.util.Collections
@@ -414,6 +415,14 @@ class JavaScriptEngine(
         
         // Setup HTTP bridge - pass engine for thread-safe async operations
         URLSession.register(this, v8Runtime, platformContext, nativeBridge)
+        
+        // Setup WebSocket bridge
+        val webSocketBridge = JSWebSocket.createNativeBridge(v8Runtime, platformContext, this)
+        try {
+            nativeBridge.set("WebSocket", webSocketBridge)
+        } finally {
+            webSocketBridge.close()
+        }
         
         // Setup console and timer bridges (these remain here as they're core runtime features)
         setupConsoleBridge(nativeBridge)

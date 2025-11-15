@@ -60,6 +60,7 @@ JSCore/
 - `bundleInfo`: Application metadata
 - `FileSystem`: File operations
 - `URLSession`: HTTP requests (accepts plain JavaScript objects, not native bridge constructors)
+- `WebSocket`: WebSocket connections for bidirectional real-time communication
 
 **Important:** `__NATIVE_BRIDGE__` is passed as a private parameter to the polyfill system and is not exposed as a global object to user JavaScript code.
 
