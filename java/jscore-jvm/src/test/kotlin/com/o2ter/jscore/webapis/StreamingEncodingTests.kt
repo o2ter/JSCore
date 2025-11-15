@@ -90,10 +90,7 @@ class StreamingEncodingTests {
     fun testTextDecoderStream() {
         val engine = JavaScriptEngine(JvmPlatformContext())
         try {
-        val latch = CountDownLatch(1)
-        var testResult: Map<*, *>? = null
-
-        val script = """
+        val testResult = executeAsync(engine, """
             (async () => {
                 var encoder = new TextEncoder();
                 var stream = new ReadableStream({
@@ -123,18 +120,8 @@ class StreamingEncodingTests {
                     isString: typeof chunks[0] === 'string'
                 });
             })()
-        """
+        """) as? Map<*, *>
 
-        engine.executeAsync(script) { result, error ->
-            if (error != null) {
-                fail("JavaScript Error: ${error.message}")
-            } else {
-                testResult = result as? Map<*, *>
-                latch.countDown()
-            }
-        }
-
-        assertTrue("Test should complete within timeout", latch.await(10, TimeUnit.SECONDS))
         assertNotNull("Should have result", testResult)
 
         val chunkCount = (testResult!!["chunkCount"] as Number).toInt()
@@ -153,10 +140,7 @@ class StreamingEncodingTests {
     fun testTextEncoderStreamUTF8() {
         val engine = JavaScriptEngine(JvmPlatformContext())
         try {
-        val latch = CountDownLatch(1)
-        var totalBytes = 0
-
-        val script = """
+        val totalBytes = executeAsync(engine, """
             (async () => {
                 var stream = new ReadableStream({
                     start(controller) {
@@ -179,20 +163,10 @@ class StreamingEncodingTests {
                 
                 return chunks.reduce((sum, chunk) => sum + chunk.length, 0);
             })()
-        """
+        """) as? Number
 
-        engine.executeAsync(script) { result, error ->
-            if (error != null) {
-                fail("JavaScript Error: ${error.message}")
-            } else {
-                totalBytes = (result as Number).toInt()
-                latch.countDown()
-            }
-        }
-
-        assertTrue("Test should complete within timeout", latch.await(10, TimeUnit.SECONDS))
         // "Hello 世界 🌍" = 5 + 1 + 6 + 1 + 4 = 17 bytes in UTF-8
-        assertEquals("Should correctly encode multi-byte UTF-8 characters", 17, totalBytes)
+        assertEquals("Should correctly encode multi-byte UTF-8 characters", 17, totalBytes?.toInt())
         } finally {
             engine.close()
         }
@@ -202,10 +176,7 @@ class StreamingEncodingTests {
     fun testTextDecoderStreamUTF8() {
         val engine = JavaScriptEngine(JvmPlatformContext())
         try {
-        val latch = CountDownLatch(1)
-        var decodedText = ""
-
-        val script = """
+        val decodedText = executeAsync(engine, """
             (async () => {
                 var encoder = new TextEncoder();
                 var stream = new ReadableStream({
@@ -229,18 +200,8 @@ class StreamingEncodingTests {
                 
                 return chunks.join('');
             })()
-        """
+        """) as? String
 
-        engine.executeAsync(script) { result, error ->
-            if (error != null) {
-                fail("JavaScript Error: ${error.message}")
-            } else {
-                decodedText = result as String
-                latch.countDown()
-            }
-        }
-
-        assertTrue("Test should complete within timeout", latch.await(10, TimeUnit.SECONDS))
         assertEquals("Should correctly decode multi-byte UTF-8 characters", "Hello 世界 🌍", decodedText)
         } finally {
             engine.close()
@@ -251,10 +212,7 @@ class StreamingEncodingTests {
     fun testTextEncoderDecoderRoundTrip() {
         val engine = JavaScriptEngine(JvmPlatformContext())
         try {
-        val latch = CountDownLatch(1)
-        var testResult: Map<*, *>? = null
-
-        val script = """
+        val testResult = executeAsync(engine, """
             (async () => {
                 var original = 'Test string with émojis 🎉 and unicode ñ';
                 
@@ -284,18 +242,8 @@ class StreamingEncodingTests {
                     match: original === result
                 });
             })()
-        """
+        """) as? Map<*, *>
 
-        engine.executeAsync(script) { result, error ->
-            if (error != null) {
-                fail("JavaScript Error: ${error.message}")
-            } else {
-                testResult = result as? Map<*, *>
-                latch.countDown()
-            }
-        }
-
-        assertTrue("Test should complete within timeout", latch.await(10, TimeUnit.SECONDS))
         assertNotNull("Should have result", testResult)
 
         val match = testResult!!["match"] as Boolean
