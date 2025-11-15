@@ -41,10 +41,7 @@ class CompressionStreamTests {
     fun testCompressionStreamGzip() {
         val engine = JavaScriptEngine(JvmPlatformContext())
         try {
-        val latch = CountDownLatch(1)
-        var testResult: Map<*, *>? = null
-
-        val script = """
+        val testResult = executeAsync(engine, """
             (async () => {
                 var encoder = new TextEncoder();
                 var original = 'Hello World! '.repeat(100); // Repetitive data compresses well
@@ -77,18 +74,8 @@ class CompressionStreamTests {
                     isSmaller: compressedSize < originalSize
                 });
             })()
-        """
+        """) as? Map<*, *>
 
-        engine.executeAsync(script) { result, error ->
-            if (error != null) {
-                fail("JavaScript Error: ${error.message}")
-            } else {
-                testResult = result as? Map<*, *>
-                latch.countDown()
-            }
-        }
-
-        assertTrue("Test should complete within timeout", latch.await(10, TimeUnit.SECONDS))
         assertNotNull("Should have result", testResult)
 
         val isSmaller = testResult!!["isSmaller"] as Boolean
@@ -105,10 +92,7 @@ class CompressionStreamTests {
     fun testDecompressionStreamGzip() {
         val engine = JavaScriptEngine(JvmPlatformContext())
         try {
-        val latch = CountDownLatch(1)
-        var testResult: Map<*, *>? = null
-
-        val script = """
+        val testResult = executeAsync(engine, """
             (async () => {
                 var encoder = new TextEncoder();
                 var decoder = new TextDecoder();
@@ -159,18 +143,8 @@ class CompressionStreamTests {
                     match: original === result
                 });
             })()
-        """
+        """) as? Map<*, *>
 
-        engine.executeAsync(script) { result, error ->
-            if (error != null) {
-                fail("JavaScript Error: ${error.message}")
-            } else {
-                testResult = result as? Map<*, *>
-                latch.countDown()
-            }
-        }
-
-        assertTrue("Test should complete within timeout", latch.await(10, TimeUnit.SECONDS))
         assertNotNull("Should have result", testResult)
 
         val match = testResult!!["match"] as Boolean
@@ -184,10 +158,7 @@ class CompressionStreamTests {
     fun testCompressionStreamDeflate() {
         val engine = JavaScriptEngine(JvmPlatformContext())
         try {
-        val latch = CountDownLatch(1)
-        var isSmaller = false
-
-        val script = """
+        val isSmaller = executeAsync(engine, """
             (async () => {
                 var encoder = new TextEncoder();
                 var original = 'Test data '.repeat(100);
@@ -215,18 +186,8 @@ class CompressionStreamTests {
                 
                 return compressedSize < originalSize;
             })()
-        """
+        """) as Boolean
 
-        engine.executeAsync(script) { result, error ->
-            if (error != null) {
-                fail("JavaScript Error: ${error.message}")
-            } else {
-                isSmaller = result as Boolean
-                latch.countDown()
-            }
-        }
-
-        assertTrue("Test should complete within timeout", latch.await(10, TimeUnit.SECONDS))
         assertTrue("Deflate compressed data should be smaller", isSmaller)
         } finally {
             engine.close()
@@ -237,10 +198,7 @@ class CompressionStreamTests {
     fun testCompressionDecompressionRoundTrip() {
         val engine = JavaScriptEngine(JvmPlatformContext())
         try {
-        val latch = CountDownLatch(1)
-        var testResult: Map<*, *>? = null
-
-        val script = """
+        val testResult = executeAsync(engine, """
             (async () => {
                 var encoder = new TextEncoder();
                 var decoder = new TextDecoder();
@@ -274,18 +232,8 @@ class CompressionStreamTests {
                     length: decompressed.length
                 });
             })()
-        """
+        """) as? Map<*, *>
 
-        engine.executeAsync(script) { result, error ->
-            if (error != null) {
-                fail("JavaScript Error: ${error.message}")
-            } else {
-                testResult = result as? Map<*, *>
-                latch.countDown()
-            }
-        }
-
-        assertTrue("Test should complete within timeout", latch.await(10, TimeUnit.SECONDS))
         assertNotNull("Should have result", testResult)
 
         val match = testResult!!["match"] as Boolean
@@ -303,10 +251,7 @@ class CompressionStreamTests {
     fun testCompressionStreamDeflateRaw() {
         val engine = JavaScriptEngine(JvmPlatformContext())
         try {
-        val latch = CountDownLatch(1)
-        var roundTripMatch = false
-
-        val script = """
+        val roundTripMatch = executeAsync(engine, """
             (async () => {
                 var encoder = new TextEncoder();
                 var decoder = new TextDecoder();
@@ -350,18 +295,8 @@ class CompressionStreamTests {
                 var result = decoder.decode(decompressedChunks[0]);
                 return original === result;
             })()
-        """
+        """) as Boolean
 
-        engine.executeAsync(script) { result, error ->
-            if (error != null) {
-                fail("JavaScript Error: ${error.message}")
-            } else {
-                roundTripMatch = result as Boolean
-                latch.countDown()
-            }
-        }
-
-        assertTrue("Test should complete within timeout", latch.await(10, TimeUnit.SECONDS))
         assertTrue("Deflate-raw round trip should preserve data", roundTripMatch)
         } finally {
             engine.close()
