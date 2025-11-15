@@ -50,19 +50,6 @@ import JavaScriptCore
         super.init()
     }
 
-    // Internal method to clean up a WebSocket after it closes
-    private func cleanupWebSocket(_ socketId: String) {
-        // Clean up after a delay to allow close event to fire
-        DispatchQueue.global().asyncAfter(deadline: .now() + 0.5) { [weak self] in
-            self?.socketsLock.lock()
-            self?.sockets.removeValue(forKey: socketId)
-            self?.socketsLock.unlock()
-
-            // Stop tracking WebSocket
-            self?.context.stopWebSocket(socketId)
-        }
-    }
-
     func createWebSocket(
         _ url: String, _ protocols: JSValue, _ onOpen: JSValue, _ onMessage: JSValue,
         _ onError: JSValue, _ onClose: JSValue
@@ -143,12 +130,15 @@ import JavaScriptCore
             socketsLock.unlock()
             return false
         }
+        
+        // Remove from dictionary immediately - close event is already scheduled with captured data
+        sockets.removeValue(forKey: socketId)
         socketsLock.unlock()
 
         connection.close(code: code, reason: reason)
 
-        // Clean up this WebSocket
-        cleanupWebSocket(socketId)
+        // Stop tracking WebSocket immediately - the close event will still fire
+        context.stopWebSocket(socketId)
 
         return true
     }
