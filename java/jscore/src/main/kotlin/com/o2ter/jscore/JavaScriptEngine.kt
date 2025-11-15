@@ -892,40 +892,21 @@ class JavaScriptEngine(
                 timerNamespace.close()
             }
             
-            // CRITICAL: Close all module objects from native bridge BEFORE deleting properties
-            // This properly releases V8 objects and prevents memory warnings
+            // Clean up native bridge
+            // Module objects (crypto, FileSystem, etc.) were closed after setup
+            // But we must still delete ALL properties to release callback contexts properly
             if (::nativeBridge.isInitialized && !nativeBridge.isClosed) {
                 try {
-                    // Close module objects (V8ValueObjects stored on nativeBridge)
-                    val moduleNames = listOf("crypto", "FileSystem", "deviceInfo", "bundleInfo", 
-                                            "processInfo", "processControl", "URLSession", "WebSocket", "compression")
-                    moduleNames.forEach { moduleName ->
-                        try {
-                            nativeBridge.get<V8ValueObject>(moduleName)?.close()
-                        } catch (e: Exception) {
-                            // Ignore errors - object might not exist or already closed
-                        }
-                    }
-                    
-                    // Delete all bound functions to release callback contexts (one at a time)
-                    nativeBridge.delete("consoleLog")
-                    nativeBridge.delete("consoleError")
-                    nativeBridge.delete("consoleWarn")
-                    nativeBridge.delete("consoleDebug")
-                    nativeBridge.delete("setTimeout")
-                    nativeBridge.delete("clearTimeout")
-                    nativeBridge.delete("setInterval")
-                    nativeBridge.delete("clearInterval")
-                    nativeBridge.delete("performanceNow")
-                    nativeBridge.delete("crypto")
-                    nativeBridge.delete("FileSystem")
-                    nativeBridge.delete("deviceInfo")
-                    nativeBridge.delete("bundleInfo")
-                    nativeBridge.delete("processInfo")
-                    nativeBridge.delete("processControl")
-                    nativeBridge.delete("URLSession")
-                    nativeBridge.delete("WebSocket")
-                    nativeBridge.delete("compression")
+                    // Delete all properties - this releases callback contexts
+                    // Even though module objects were closed, their V8 references persist on nativeBridge
+                    val propertyNames = listOf(
+                        "consoleLog", "consoleError", "consoleWarn", "consoleDebug",
+                        "setTimeout", "clearTimeout", "setInterval", "clearInterval",
+                        "performanceNow",
+                        "crypto", "FileSystem", "deviceInfo", "bundleInfo",
+                        "processInfo", "processControl", "URLSession", "WebSocket", "compression"
+                    )
+                    propertyNames.forEach { nativeBridge.delete(it) }
                 } catch (e: Exception) {
                     // Ignore errors during cleanup
                 }
