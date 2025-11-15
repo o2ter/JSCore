@@ -27,6 +27,7 @@
 import XCTest
 @testable import SwiftJS
 
+@MainActor
 final class StreamingEncodingTests: XCTestCase {
     
     func testTextEncoderStream() {

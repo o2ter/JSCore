@@ -27,6 +27,7 @@
 import XCTest
 @testable import SwiftJS
 
+@MainActor
 final class URLPatternTests: XCTestCase {
     
     func testURLPatternExactMatch() {

@@ -27,6 +27,7 @@
 import XCTest
 @testable import SwiftJS
 
+@MainActor
 final class CompressionStreamTests: XCTestCase {
     
     func testCompressionStreamGzip() {

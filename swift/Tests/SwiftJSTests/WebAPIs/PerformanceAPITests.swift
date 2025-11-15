@@ -1,5 +1,5 @@
 //
-// PerformanceTests.swift
+// PerformanceAPITests.swift
 // SwiftJS
 //
 // MIT License
@@ -27,7 +27,8 @@
 import XCTest
 @testable import SwiftJS
 
-final class PerformanceTests: XCTestCase {
+@MainActor
+final class PerformanceAPITests: XCTestCase {
     
     func testPerformanceNow() {
         let context = SwiftJS()
