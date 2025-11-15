@@ -70,8 +70,8 @@ final class PerformanceAPITests: XCTestCase {
         
         let result = context.evaluateScript(script)
         let count = Int(result["count"].numberValue ?? 0)
-        let hasStart = result["hasStart"].boolValue
-        let hasEnd = result["hasEnd"].boolValue
+        let hasStart = result["hasStart"].boolValue ?? false
+        let hasEnd = result["hasEnd"].boolValue ?? false
         let firstType = result["firstType"].stringValue ?? ""
         
         XCTAssertEqual(count, 2, "Should have 2 marks")
@@ -100,7 +100,7 @@ final class PerformanceAPITests: XCTestCase {
         let count = Int(result["count"].numberValue ?? 0)
         let name = result["name"].stringValue ?? ""
         let entryType = result["entryType"].stringValue ?? ""
-        let hasDuration = result["hasDuration"].boolValue
+        let hasDuration = result["hasDuration"].boolValue ?? false
         
         XCTAssertEqual(count, 1, "Should have 1 measure")
         XCTAssertEqual(name, "duration", "Measure name should be 'duration'")
@@ -124,7 +124,7 @@ final class PerformanceAPITests: XCTestCase {
         
         let result = context.evaluateScript(script)
         let count = Int(result["count"].numberValue ?? 0)
-        let allNamed = result["allNamed"].boolValue
+        let allNamed = result["allNamed"].boolValue ?? false
         
         XCTAssertEqual(count, 2, "Should have 2 'test' marks")
         XCTAssertTrue(allNamed, "All entries should be named 'test'")
@@ -147,8 +147,8 @@ final class PerformanceAPITests: XCTestCase {
         
         let result = context.evaluateScript(script)
         let totalCount = Int(result["totalCount"].numberValue ?? 0)
-        let hasMarks = result["hasMarks"].boolValue
-        let hasMeasures = result["hasMeasures"].boolValue
+        let hasMarks = result["hasMarks"].boolValue ?? false
+        let hasMeasures = result["hasMeasures"].boolValue ?? false
         
         XCTAssertEqual(totalCount, 3, "Should have 3 total entries (2 marks + 1 measure)")
         XCTAssertTrue(hasMarks, "Should have mark entries")
@@ -205,8 +205,8 @@ final class PerformanceAPITests: XCTestCase {
         """
         
         let result = context.evaluateScript(script)
-        let allIncreasing = result["allIncreasing"].boolValue
-        let hasFractional = result["hasFractional"].boolValue
+        let allIncreasing = result["allIncreasing"].boolValue ?? false
+        let hasFractional = result["hasFractional"].boolValue ?? false
         
         XCTAssertTrue(allIncreasing, "Times should be monotonically increasing")
         XCTAssertTrue(hasFractional, "Should have sub-millisecond precision")

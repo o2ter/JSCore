@@ -705,7 +705,7 @@ final class XMLHttpRequestTests: XCTestCase {
             let events = result["events"]
             let eventCount = Int(events["length"].numberValue ?? 0)
             XCTAssertGreaterThan(eventCount, 0, "Should have received some events")
-            }
+            
             expectation.fulfill()
             return SwiftJS.Value.undefined
         }
