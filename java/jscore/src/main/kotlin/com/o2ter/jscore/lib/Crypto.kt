@@ -80,17 +80,13 @@ class Crypto(
     private val secureRandom = SecureRandom()
     
     fun setupBridge(nativeBridge: V8ValueObject) {
-        platformContext.logger.debug("Crypto", "Setting up Crypto bridge")
         val cryptoObject = v8Runtime.createJSObject(
             methods = mapOf(
                 "randomUUID" to IJavetDirectCallable.NoThisAndResult<Exception> { _ ->
-                    platformContext.logger.debug("Crypto", "randomUUID called")
                     try {
                         val uuid = java.util.UUID.randomUUID().toString()
-                        platformContext.logger.debug("Crypto", "Generated UUID: $uuid")
                         v8Runtime.createV8ValueString(uuid)
                     } catch (e: Exception) {
-                        platformContext.logger.error("Crypto", "Error in randomUUID: ${e.message}")
                         throw e
                     }
                 },
