@@ -122,7 +122,11 @@ class Compression(private val v8Runtime: V8Runtime) {
             is V8ValueTypedArray -> {
                 val byteArray = ByteArray(data.length)
                 for (i in 0 until data.length) {
-                    byteArray[i] = (data.get(i) as? V8ValueInteger)?.value?.toByte() ?: 0
+                    (data.get(i) as? V8ValueInteger)?.use { element ->
+                        byteArray[i] = element.value.toByte()
+                    } ?: run {
+                        byteArray[i] = 0
+                    }
                 }
                 byteArray
             }
