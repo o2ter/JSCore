@@ -1,6 +1,6 @@
 [versions]
 coreKtx = "1.17.0"
-javet = "5.0.1"
+javet = "5.0.0"
 kotlinxCoroutinesAndroid = "1.10.2"
 kotlinxCoroutinesCore = "1.10.2"
 lifecycleVersion = "2.9.4"
