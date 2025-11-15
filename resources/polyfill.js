@@ -311,25 +311,41 @@
         }
 
         static isFile(path) {
-            const stat = this.stat(path);
-            return stat ? stat.isFile : false;
+            try {
+                const stat = this.stat(path);
+                return stat ? stat.isFile : false;
+            } catch {
+                return false;
+            }
         }
 
         static isDirectory(path) {
-            const stat = this.stat(path);
-            return stat ? stat.isDirectory : false;
+            try {
+                const stat = this.stat(path);
+                return stat ? stat.isDirectory : false;
+            } catch {
+                return false;
+            }
         }
 
         static isSymbolicLink(path) {
-            const stat = this.lstat(path);  // Use lstat to not follow symlinks
-            return stat ? stat.isSymbolicLink : false;
+            try {
+                const stat = this.lstat(path);  // Use lstat to not follow symlinks
+                return stat ? stat.isSymbolicLink : false;
+            } catch {
+                return false;
+            }
         }
 
         static isHardLink(path) {
-            const stat = this.stat(path);
-            // A file is considered a hard link if it has more than 1 link
-            // and is a regular file (directories always have at least 2 links)
-            return stat && stat.isFile && stat.nlink > 1;
+            try {
+                const stat = this.stat(path);
+                // A file is considered a hard link if it has more than 1 link
+                // and is a regular file (directories always have at least 2 links)
+                return stat && stat.isFile && stat.nlink > 1;
+            } catch {
+                return false;
+            }
         }
 
         static linkCount(path) {
