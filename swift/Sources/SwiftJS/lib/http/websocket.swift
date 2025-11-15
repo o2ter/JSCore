@@ -27,7 +27,10 @@ import Foundation
 import JavaScriptCore
 
 @objc protocol JSWebSocketExport: JSExport {
-    func createWebSocket(_ url: String, _ protocols: JSValue, _ onOpen: JSValue, _ onMessage: JSValue, _ onError: JSValue, _ onClose: JSValue) -> String
+    func createWebSocket(
+        _ url: String, _ protocols: JSValue, _ onOpen: JSValue, _ onMessage: JSValue,
+        _ onError: JSValue, _ onClose: JSValue
+    ) -> String
     func send(_ socketId: String, _ data: JSValue) -> Bool
     func close(_ socketId: String, _ code: Int, _ reason: String) -> Bool
     func getReadyState(_ socketId: String) -> Int
@@ -35,19 +38,35 @@ import JavaScriptCore
 }
 
 @objc final class JSWebSocket: NSObject, JSWebSocketExport, @unchecked Sendable {
-    
+
     private let context: SwiftJS.Context
     private let runloop: RunLoop
     private var sockets: [String: WebSocketConnection] = [:]
     private let socketsLock = NSLock()
-    
+
     init(context: SwiftJS.Context, runloop: RunLoop) {
         self.context = context
         self.runloop = runloop
         super.init()
     }
-    
-    func createWebSocket(_ url: String, _ protocols: JSValue, _ onOpen: JSValue, _ onMessage: JSValue, _ onError: JSValue, _ onClose: JSValue) -> String {
+
+    // Internal method to clean up a WebSocket after it closes
+    private func cleanupWebSocket(_ socketId: String) {
+        // Clean up after a delay to allow close event to fire
+        DispatchQueue.global().asyncAfter(deadline: .now() + 0.5) { [weak self] in
+            self?.socketsLock.lock()
+            self?.sockets.removeValue(forKey: socketId)
+            self?.socketsLock.unlock()
+
+            // Stop tracking WebSocket
+            self?.context.stopWebSocket(socketId)
+        }
+    }
+
+    func createWebSocket(
+        _ url: String, _ protocols: JSValue, _ onOpen: JSValue, _ onMessage: JSValue,
+        _ onError: JSValue, _ onClose: JSValue
+    ) -> String {
         guard let socketURL = URL(string: url) else {
             // Call error callback with invalid URL error
             let errorMessage = "Invalid WebSocket URL: \(url)"
@@ -56,7 +75,7 @@ import JavaScriptCore
             }
             return ""
         }
-        
+
         // Parse protocols array
         var protocolArray: [String] = []
         if protocols.isArray {
@@ -67,19 +86,20 @@ import JavaScriptCore
                 }
             }
         }
-        
+
         // Generate unique socket ID
         let socketId = UUID().uuidString
-        
+
         // Create URLSessionWebSocketTask
         var request = URLRequest(url: socketURL)
         if !protocolArray.isEmpty {
-            request.setValue(protocolArray.joined(separator: ", "), forHTTPHeaderField: "Sec-WebSocket-Protocol")
+            request.setValue(
+                protocolArray.joined(separator: ", "), forHTTPHeaderField: "Sec-WebSocket-Protocol")
         }
-        
+
         let session = URLSession(configuration: .default)
         let webSocketTask = session.webSocketTask(with: request)
-        
+
         // Create connection object
         let connection = WebSocketConnection(
             task: webSocketTask,
@@ -89,20 +109,23 @@ import JavaScriptCore
             onClose: onClose,
             runloop: runloop
         )
-        
+
         socketsLock.lock()
         sockets[socketId] = connection
         socketsLock.unlock()
-        
+
+        // Start tracking WebSocket
+        context.startWebSocket(socketId)
+
         // Start receiving messages
         connection.startReceiving()
-        
+
         // Resume the task (establishes connection)
         webSocketTask.resume()
-        
+
         return socketId
     }
-    
+
     func send(_ socketId: String, _ data: JSValue) -> Bool {
         socketsLock.lock()
         guard let connection = sockets[socketId] else {
@@ -110,10 +133,10 @@ import JavaScriptCore
             return false
         }
         socketsLock.unlock()
-        
+
         return connection.send(data)
     }
-    
+
     func close(_ socketId: String, _ code: Int, _ reason: String) -> Bool {
         socketsLock.lock()
         guard let connection = sockets[socketId] else {
@@ -121,30 +144,26 @@ import JavaScriptCore
             return false
         }
         socketsLock.unlock()
-        
+
         connection.close(code: code, reason: reason)
-        
-        // Clean up after a delay to allow close event to fire
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
-            self?.socketsLock.lock()
-            self?.sockets.removeValue(forKey: socketId)
-            self?.socketsLock.unlock()
-        }
-        
+
+        // Clean up this WebSocket
+        cleanupWebSocket(socketId)
+
         return true
     }
-    
+
     func getReadyState(_ socketId: String) -> Int {
         socketsLock.lock()
         guard let connection = sockets[socketId] else {
             socketsLock.unlock()
-            return 3 // CLOSED
+            return 3  // CLOSED
         }
         socketsLock.unlock()
-        
+
         return connection.readyState
     }
-    
+
     func getBufferedAmount(_ socketId: String) -> Int {
         socketsLock.lock()
         guard let connection = sockets[socketId] else {
@@ -152,7 +171,7 @@ import JavaScriptCore
             return 0
         }
         socketsLock.unlock()
-        
+
         return connection.bufferedAmount
     }
 }
@@ -164,32 +183,35 @@ private class WebSocketConnection: @unchecked Sendable {
     let onError: JSValue
     let onClose: JSValue
     let runloop: RunLoop
-    
-    private(set) var readyState: Int = 0 // 0=CONNECTING, 1=OPEN, 2=CLOSING, 3=CLOSED
+
+    private(set) var readyState: Int = 0  // 0=CONNECTING, 1=OPEN, 2=CLOSING, 3=CLOSED
     private(set) var bufferedAmount: Int = 0
     private var closeFired = false
     private let lock = NSLock()
-    
-    init(task: URLSessionWebSocketTask, onOpen: JSValue, onMessage: JSValue, onError: JSValue, onClose: JSValue, runloop: RunLoop) {
+
+    init(
+        task: URLSessionWebSocketTask, onOpen: JSValue, onMessage: JSValue, onError: JSValue,
+        onClose: JSValue, runloop: RunLoop
+    ) {
         self.task = task
         self.onOpen = onOpen
         self.onMessage = onMessage
         self.onError = onError
         self.onClose = onClose
         self.runloop = runloop
-        
+
         // Set initial state to CONNECTING
         self.readyState = 0
     }
-    
+
     func startReceiving() {
         receiveNext()
     }
-    
+
     private func receiveNext() {
         task.receive { [weak self] result in
             guard let self = self else { return }
-            
+
             switch result {
             case .success(let message):
                 // Update ready state to OPEN when we receive first message
@@ -197,7 +219,7 @@ private class WebSocketConnection: @unchecked Sendable {
                 if self.readyState == 0 {
                     self.readyState = 1
                     self.lock.unlock()
-                    
+
                     // Fire onopen event
                     self.runloop.perform {
                         _ = self.onOpen.call(withArguments: [])
@@ -205,7 +227,7 @@ private class WebSocketConnection: @unchecked Sendable {
                 } else {
                     self.lock.unlock()
                 }
-                
+
                 // Handle message
                 switch message {
                 case .string(let text):
@@ -213,24 +235,25 @@ private class WebSocketConnection: @unchecked Sendable {
                         let event = ["data": text]
                         _ = self.onMessage.call(withArguments: [event])
                     }
-                    
+
                 case .data(let data):
                     self.runloop.perform {
                         guard let jsContext = JSContext.current() else { return }
-                        let jsArrayBuffer = JSValue.uint8Array(count: data.count, in: jsContext) { buffer in
+                        let jsArrayBuffer = JSValue.uint8Array(count: data.count, in: jsContext) {
+                            buffer in
                             _ = data.copyBytes(to: buffer.bindMemory(to: UInt8.self))
                         }
                         let event = ["data": jsArrayBuffer as Any]
                         _ = self.onMessage.call(withArguments: [event])
                     }
-                    
+
                 @unknown default:
                     break
                 }
-                
+
                 // Continue receiving
                 self.receiveNext()
-                
+
             case .failure(let error):
                 // Update state to CLOSED
                 self.lock.lock()
@@ -238,7 +261,7 @@ private class WebSocketConnection: @unchecked Sendable {
                 let alreadyClosed = self.closeFired
                 self.closeFired = true
                 self.lock.unlock()
-                
+
                 // Only fire close event if not already fired
                 if !alreadyClosed {
                     // Check if this is a normal close
@@ -250,13 +273,13 @@ private class WebSocketConnection: @unchecked Sendable {
                         self.runloop.perform {
                             _ = self.onError.call(withArguments: [error.localizedDescription])
                         }
-                        
+
                         // Fire close event
                         self.runloop.perform {
                             let closeEvent = [
-                                "code": 1006, // Abnormal closure
+                                "code": 1006,  // Abnormal closure
                                 "reason": error.localizedDescription,
-                                "wasClean": false
+                                "wasClean": false,
                             ]
                             _ = self.onClose.call(withArguments: [closeEvent])
                         }
@@ -265,7 +288,7 @@ private class WebSocketConnection: @unchecked Sendable {
             }
         }
     }
-    
+
     func send(_ data: JSValue) -> Bool {
         lock.lock()
         guard readyState == 1 else {
@@ -273,13 +296,13 @@ private class WebSocketConnection: @unchecked Sendable {
             return false
         }
         lock.unlock()
-        
+
         if data.isString {
             let message = URLSessionWebSocketTask.Message.string(data.toString())
             task.send(message) { [weak self] error in
-                if let error = error {
-                    self?.runloop.perform {
-                        _ = self?.onError.call(withArguments: [error.localizedDescription])
+                if let error = error, let self = self {
+                    self.runloop.perform {
+                        _ = self.onError.call(withArguments: [error.localizedDescription])
                     }
                 }
             }
@@ -288,61 +311,67 @@ private class WebSocketConnection: @unchecked Sendable {
             // Try to get ArrayBuffer or TypedArray
             var messageData: Data?
             guard let jsContext = JSContext.current() else { return false }
-            
+
             if data.hasProperty("buffer") && data.hasProperty("byteLength") {
                 // TypedArray
                 if let arrayBuffer = data.forProperty("buffer") {
                     var length: size_t = 0
-                    if let bytes = JSObjectGetArrayBufferBytesPtr(jsContext.jsGlobalContextRef, arrayBuffer.jsValueRef, nil) {
-                        length = JSObjectGetArrayBufferByteLength(jsContext.jsGlobalContextRef, arrayBuffer.jsValueRef, nil)
+                    if let bytes = JSObjectGetArrayBufferBytesPtr(
+                        jsContext.jsGlobalContextRef, arrayBuffer.jsValueRef, nil)
+                    {
+                        length = JSObjectGetArrayBufferByteLength(
+                            jsContext.jsGlobalContextRef, arrayBuffer.jsValueRef, nil)
                         messageData = Data(bytes: bytes, count: length)
                     }
                 }
-            } else if let bytes = JSObjectGetArrayBufferBytesPtr(jsContext.jsGlobalContextRef, data.jsValueRef, nil) {
+            } else if let bytes = JSObjectGetArrayBufferBytesPtr(
+                jsContext.jsGlobalContextRef, data.jsValueRef, nil)
+            {
                 // ArrayBuffer
-                let length = JSObjectGetArrayBufferByteLength(jsContext.jsGlobalContextRef, data.jsValueRef, nil)
+                let length = JSObjectGetArrayBufferByteLength(
+                    jsContext.jsGlobalContextRef, data.jsValueRef, nil)
                 messageData = Data(bytes: bytes, count: length)
             }
-            
+
             if let messageData = messageData {
                 let message = URLSessionWebSocketTask.Message.data(messageData)
                 task.send(message) { [weak self] error in
-                    if let error = error {
-                        self?.runloop.perform {
-                            _ = self?.onError.call(withArguments: [error.localizedDescription])
+                    if let error = error, let self = self {
+                        self.runloop.perform {
+                            _ = self.onError.call(withArguments: [error.localizedDescription])
                         }
                     }
                 }
                 return true
             }
         }
-        
+
         return false
     }
-    
+
     func close(code: Int, reason: String) {
         lock.lock()
         guard readyState != 3 else {
             lock.unlock()
             return
         }
-        readyState = 2 // CLOSING
-        closeFired = true // Mark that we're firing the close event
+        readyState = 2  // CLOSING
+        closeFired = true  // Mark that we're firing the close event
         lock.unlock()
-        
+
         let closeCode = URLSessionWebSocketTask.CloseCode(rawValue: code) ?? .normalClosure
         task.cancel(with: closeCode, reason: reason.data(using: .utf8))
-        
+
         lock.lock()
-        readyState = 3 // CLOSED
+        readyState = 3  // CLOSED
         lock.unlock()
-        
+
         // Fire close event
         runloop.perform {
             let closeEvent = [
                 "code": code,
                 "reason": reason,
-                "wasClean": true
+                "wasClean": true,
             ]
             _ = self.onClose.call(withArguments: [closeEvent])
         }

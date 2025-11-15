@@ -187,6 +187,7 @@ class JSWebSocket(
             connection.webSocket = webSocket
             
             sockets[socketId] = connection
+            engine.registerWebSocket(socketId)
             
             return socketId
         } catch (e: Exception) {
@@ -215,6 +216,7 @@ class JSWebSocket(
         Thread {
             Thread.sleep(1000)
             sockets.remove(socketId)
+            engine.unregisterWebSocket(socketId)
         }.start()
         
         return true

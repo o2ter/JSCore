@@ -233,6 +233,9 @@ class JavaScriptEngine(
     // Track active HTTP requests by unique ID (not threads - threads can be reused!)
     private val activeHttpRequests = Collections.synchronizedSet(mutableSetOf<String>())
     
+    // Track active WebSocket connections by socket ID
+    private val activeWebSockets = Collections.synchronizedSet(mutableSetOf<String>())
+    
     // Native Kotlin API implementations - initialized lazily on JS thread
     private lateinit var v8Runtime: V8Runtime
     private lateinit var crypto: Crypto
@@ -309,6 +312,24 @@ class JavaScriptEngine(
     }
     
     /**
+     * Register a WebSocket connection for lifecycle tracking
+     * Internal use only - called by WebSocket
+     * @param socketId Unique identifier for this WebSocket connection
+     */
+    internal fun registerWebSocket(socketId: String) {
+        activeWebSockets.add(socketId)
+    }
+    
+    /**
+     * Unregister a WebSocket connection after closure
+     * Internal use only - called by WebSocket
+     * @param socketId Unique identifier for this WebSocket connection
+     */
+    internal fun unregisterWebSocket(socketId: String) {
+        activeWebSockets.remove(socketId)
+    }
+    
+    /**
      * Check if there are any active JavaScript timers
      * Used by runner to determine when to exit
      */
@@ -348,11 +369,24 @@ class JavaScriptEngine(
         get() = fileSystem.activeFileHandleCount
     
     /**
-     * Check if there are any active async operations (timers, network, or file handles)
+     * Check if there are active WebSocket connections
+     * Used by runner to determine when to exit
+     */
+    val hasActiveWebSockets: Boolean
+        get() = activeWebSockets.isNotEmpty()
+    
+    /**
+     * Get the count of active WebSocket connections
+     */
+    val activeWebSocketCount: Int
+        get() = activeWebSockets.size
+    
+    /**
+     * Check if there are any active async operations (timers, network, file handles, or WebSockets)
      * Used by runner to determine when to exit
      */
     val hasActiveOperations: Boolean
-        get() = hasActiveTimers || hasActiveNetworkRequests || hasActiveFileHandles
+        get() = hasActiveTimers || hasActiveNetworkRequests || hasActiveFileHandles || hasActiveWebSockets
     
     init {
         // Setup executor

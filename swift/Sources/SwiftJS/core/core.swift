@@ -80,10 +80,21 @@ extension SwiftJS {
     public var activeFileHandleCount: Int {
         return self.context.activeFileHandleCount
     }
+    
+    /// Check if there are any active WebSocket connections
+    public var hasActiveWebSockets: Bool {
+        return self.context.hasActiveWebSockets
+    }
 
-    /// Check if there are any active async operations (timers, network, or file handles)
+    /// Get the count of active WebSocket connections
+    public var activeWebSocketCount: Int {
+        return self.context.activeWebSocketCount
+    }
+
+    /// Check if there are any active async operations (timers, network, file handles, or WebSockets)
     public var hasActiveOperations: Bool {
         return hasActiveTimers || hasActiveNetworkRequests || hasActiveFileHandles
+            || hasActiveWebSockets
     }
 }
 

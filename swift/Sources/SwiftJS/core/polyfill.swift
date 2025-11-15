@@ -37,6 +37,10 @@ extension SwiftJS {
         var networkRequests: Set<Int> = []
         private let networkLock = NSLock()
 
+        // WebSocket connection tracking
+        var activeWebSockets: Set<String> = []
+        private let webSocketLock = NSLock()
+
         // File handle management for continuous reading
         var openFileHandles: [Int: FileHandle] = [:]
         var handleCounter = 0
@@ -95,6 +99,34 @@ extension SwiftJS {
             handleLock.lock()
             defer { handleLock.unlock() }
             return openFileHandles.count
+        }
+
+        /// Check if there are any active WebSocket connections
+        var hasActiveWebSockets: Bool {
+            webSocketLock.lock()
+            defer { webSocketLock.unlock() }
+            return !activeWebSockets.isEmpty
+        }
+
+        /// Get count of active WebSocket connections
+        var activeWebSocketCount: Int {
+            webSocketLock.lock()
+            defer { webSocketLock.unlock() }
+            return activeWebSockets.count
+        }
+
+        /// Start tracking a WebSocket connection
+        func startWebSocket(_ socketId: String) {
+            webSocketLock.lock()
+            defer { webSocketLock.unlock() }
+            activeWebSockets.insert(socketId)
+        }
+
+        /// Stop tracking a WebSocket connection
+        func stopWebSocket(_ socketId: String) {
+            webSocketLock.lock()
+            defer { webSocketLock.unlock() }
+            activeWebSockets.remove(socketId)
         }
 
         /// Start tracking a network request
