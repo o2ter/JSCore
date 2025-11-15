@@ -44,9 +44,9 @@ final class URLPatternTests: XCTestCase {
             """
 
         let result = context.evaluateScript(script)
-        XCTAssertTrue(result["match1"].boolValue, "Should match exact path")
-        XCTAssertFalse(result["match2"].boolValue, "Should not match different ID")
-        XCTAssertFalse(result["match3"].boolValue, "Should not match different path")
+        XCTAssertTrue(result["match1"].boolValue ?? false, "Should match exact path")
+        XCTAssertFalse(result["match2"].boolValue ?? true, "Should not match different ID")
+        XCTAssertFalse(result["match3"].boolValue ?? true, "Should not match different path")
     }
 
     func testURLPatternNamedParameters() {
@@ -63,8 +63,8 @@ final class URLPatternTests: XCTestCase {
             """
 
         let result = context.evaluateScript(script)
-        XCTAssertTrue(result["matched"].boolValue, "Should match pattern")
-        XCTAssertTrue(result["hasParams"].boolValue, "Should have params object")
+        XCTAssertTrue(result["matched"].boolValue ?? false, "Should match pattern")
+        XCTAssertTrue(result["hasParams"].boolValue ?? false, "Should have params object")
         XCTAssertEqual(result["id"].stringValue, "123", "Should extract ID parameter")
     }
 
@@ -99,9 +99,9 @@ final class URLPatternTests: XCTestCase {
             """
 
         let result = context.evaluateScript(script)
-        XCTAssertTrue(result["match1"].boolValue, "Should match /static/css/style.css")
-        XCTAssertTrue(result["match2"].boolValue, "Should match /static/js/app.js")
-        XCTAssertFalse(result["match3"].boolValue, "Should not match /api/data")
+        XCTAssertTrue(result["match1"].boolValue ?? false, "Should match /static/css/style.css")
+        XCTAssertTrue(result["match2"].boolValue ?? false, "Should match /static/js/app.js")
+        XCTAssertFalse(result["match3"].boolValue ?? true, "Should not match /api/data")
 
         let exec = result["exec"]
         XCTAssertFalse(exec.isNull, "Should match and return result")
@@ -120,9 +120,9 @@ final class URLPatternTests: XCTestCase {
             """
 
         let result = context.evaluateScript(script)
-        XCTAssertTrue(result["match1"].boolValue, "Should match nested path")
-        XCTAssertTrue(result["match2"].boolValue, "Should match deeply nested path")
-        XCTAssertFalse(result["match3"].boolValue, "Should not match different base path")
+        XCTAssertTrue(result["match1"].boolValue ?? false, "Should match nested path")
+        XCTAssertTrue(result["match2"].boolValue ?? false, "Should match deeply nested path")
+        XCTAssertFalse(result["match3"].boolValue ?? true, "Should not match different base path")
     }
 
     func testURLPatternMixedParameters() {
@@ -139,7 +139,7 @@ final class URLPatternTests: XCTestCase {
             """
 
         let result = context.evaluateScript(script)
-        XCTAssertTrue(result["matched"].boolValue, "Should match complex pattern")
+        XCTAssertTrue(result["matched"].boolValue ?? false, "Should match complex pattern")
         XCTAssertEqual(result["version"].stringValue, "v1", "Should extract version")
         XCTAssertEqual(result["id"].stringValue, "123", "Should extract id")
     }
@@ -169,7 +169,8 @@ final class URLPatternTests: XCTestCase {
             """
 
         let result = context.evaluateScript(script)
-        XCTAssertTrue(result["withoutSlash"].boolValue, "Should match without trailing slash")
+        XCTAssertTrue(
+            result["withoutSlash"].boolValue ?? false, "Should match without trailing slash")
         // Note: Behavior for trailing slash may vary by implementation
     }
 
@@ -185,8 +186,8 @@ final class URLPatternTests: XCTestCase {
             """
 
         let result = context.evaluateScript(script)
-        XCTAssertTrue(result["root"].boolValue, "Should match root path")
-        XCTAssertFalse(result["other"].boolValue, "Should not match non-root path")
+        XCTAssertTrue(result["root"].boolValue ?? false, "Should match root path")
+        XCTAssertFalse(result["other"].boolValue ?? true, "Should not match non-root path")
     }
 
     func testURLPatternSpecialCharacters() {
