@@ -319,29 +319,66 @@ private fun V8Runtime.createProxy(value: Any): V8Value {
 
 @OptIn(ExperimentalReflectionOnLambdas::class)
 private fun V8Runtime.createJSFunction(value: Function<*>): V8Value {
+    // Try reflection first for named functions
     val func = value.reflect()
-    if (func == null) {
-        return this.createV8ValueUndefined()
-    }
+    
+    // Handle different Function arities
     return this.createV8ValueFunction(JavetCallbackContext(
-        func.name,
+        func?.name ?: "lambda",
         JavetCallbackType.DirectCallNoThisAndResult,
         IJavetDirectCallable.NoThisAndResult<Exception> { v8Values ->
-            val args = arrayOfNulls<Any>(func.parameters.size)
-            v8Values.forEachIndexed { index, entry ->
-                if (index > 0 && index <= func.parameters.size) { // Skip the first argument which is 'this'
-                    val param = func.parameters[index - 1]
-                    if (param.isOptional && entry.isNullOrUndefined) {
-                        args[index - 1] = null
+            val result = when (value) {
+                is Function0<*> -> value.invoke()
+                is Function1<*, *> -> {
+                    val arg0 = if (v8Values.isNotEmpty()) convertToAny(v8Values[0]) else null
+                    (value as Function1<Any?, *>).invoke(arg0)
+                }
+                is Function2<*, *, *> -> {
+                    val arg0 = if (v8Values.size > 0) convertToAny(v8Values[0]) else null
+                    val arg1 = if (v8Values.size > 1) convertToAny(v8Values[1]) else null
+                    (value as Function2<Any?, Any?, *>).invoke(arg0, arg1)
+                }
+                is Function3<*, *, *, *> -> {
+                    val arg0 = if (v8Values.size > 0) convertToAny(v8Values[0]) else null
+                    val arg1 = if (v8Values.size > 1) convertToAny(v8Values[1]) else null
+                    val arg2 = if (v8Values.size > 2) convertToAny(v8Values[2]) else null
+                    (value as Function3<Any?, Any?, Any?, *>).invoke(arg0, arg1, arg2)
+                }
+                else -> {
+                    // Fall back to reflection if available
+                    if (func != null) {
+                        val args = arrayOfNulls<Any>(func.parameters.size)
+                        v8Values.forEachIndexed { index, entry ->
+                            if (index < func.parameters.size) {
+                                val param = func.parameters[index]
+                                if (param.isOptional && entry.isNullOrUndefined) {
+                                    args[index] = null
+                                } else {
+                                    args[index] = convertToNativeValue(param.type, entry)
+                                }
+                            }
+                        }
+                        func.call(*args)
                     } else {
-                        args[index - 1] = convertToNativeValue(param.type, entry)
+                        null
                     }
                 }
             }
-            val result = func.call(*args)
             return@NoThisAndResult createJSObject(result)
         }
     ))
+}
+
+private fun V8Runtime.convertToAny(value: V8Value): Any? {
+    return when {
+        value.isNullOrUndefined -> null
+        value is V8ValueBoolean -> value.asBoolean()
+        value is V8ValueInteger -> value.asInt()
+        value is V8ValueLong -> value.asLong()
+        value is V8ValueDouble -> value.asDouble()
+        value is V8ValueString -> value.toString()
+        else -> value.toNative()
+    }
 }
 
 private fun V8Runtime.convertToNativeValue(type: KType, value: V8Value): Any? {
