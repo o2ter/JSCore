@@ -180,7 +180,8 @@ class JSWebSocket(
                 onError = onError,
                 onClose = onClose,
                 engine = engine,
-                v8Runtime = v8Runtime
+                v8Runtime = v8Runtime,
+                manager = this
             )
             
             val webSocket = client.newWebSocket(requestBuilder.build(), connection)
@@ -215,8 +216,7 @@ class JSWebSocket(
         // Clean up after delay
         Thread {
             Thread.sleep(1000)
-            sockets.remove(socketId)
-            engine.unregisterWebSocket(socketId)
+            cleanupSocket(socketId)
         }.start()
         
         return true
@@ -229,6 +229,11 @@ class JSWebSocket(
     fun getBufferedAmount(socketId: String): Int {
         return sockets[socketId]?.bufferedAmount ?: 0
     }
+    
+    internal fun cleanupSocket(socketId: String) {
+        sockets.remove(socketId)
+        engine.unregisterWebSocket(socketId)
+    }
 }
 
 private class WebSocketConnection(
@@ -238,7 +243,8 @@ private class WebSocketConnection(
     val onError: V8ValueFunction,
     val onClose: V8ValueFunction,
     val engine: JavaScriptEngine,
-    val v8Runtime: V8Runtime
+    val v8Runtime: V8Runtime,
+    val manager: JSWebSocket
 ) : WebSocketListener() {
     
     var webSocket: WebSocket? = null
@@ -316,6 +322,9 @@ private class WebSocketConnection(
                 }
             }
         }
+        
+        // Clean up tracking - safe to do immediately as we're already on background thread
+        cleanupSocket()
     }
     
     override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
@@ -343,6 +352,9 @@ private class WebSocketConnection(
                 }
             }
         }
+        
+        // Clean up tracking - safe to do immediately as we're already on background thread
+        cleanupSocket()
     }
     
     fun send(data: V8Value): Boolean {
@@ -387,5 +399,9 @@ private class WebSocketConnection(
                 }
             }
         }
+    }
+    
+    private fun cleanupSocket() {
+        manager.cleanupSocket(socketId)
     }
 }
