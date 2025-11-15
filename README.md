@@ -384,7 +384,7 @@ cd KotlinJS
 ./gradlew build
 
 # Test JavaScript execution
-./gradlew :jscore-runner:run --args="jscore/src/test/resources/test-basic.js"
+./gradlew :jscore-runner:run --args="script.js"
 ```
 
 ## Available APIs
@@ -554,11 +554,6 @@ The project uses a focused testing approach:
 - **JavaScript Execution Tests**: Validate modern ES6+ JavaScript execution capabilities
 - **Integration Tests**: Test JavaScript execution and platform integration
 
-**Key Test Files:**
-- `test-basic.js`: Basic JavaScript execution, variables, and functions
-- `test-timers.js`: Timer functionality (setTimeout, setInterval, clearInterval)
-- `test-console.js`: Console logging and output verification
-
 ## Documentation
 
 - **[JavaScript Environment Analysis](docs/JavaScriptEnvironment.md)**: Detailed analysis of native Javet V8 environment and available APIs (KotlinJS)
@@ -590,7 +585,7 @@ The project uses a focused testing approach:
 2. Create a feature branch
 3. Make your changes
 4. Run tests: `./gradlew test`
-5. Verify functionality: `./gradlew :jscore-runner:run --args="jscore/src/test/resources/test-basic.js"`
+5. Verify functionality: `./gradlew :jscore-runner:run --args="script.js"`
 6. Submit a pull request
 
 #### Development Guidelines for KotlinJS

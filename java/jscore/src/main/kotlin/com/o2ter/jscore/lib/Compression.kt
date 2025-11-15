@@ -26,6 +26,7 @@
 package com.o2ter.jscore.lib
 
 import com.caoccao.javet.interop.V8Runtime
+import com.caoccao.javet.values.V8Value
 import com.caoccao.javet.values.primitive.V8ValueInteger
 import com.caoccao.javet.values.reference.V8ValueTypedArray
 import java.io.ByteArrayInputStream
@@ -68,12 +69,12 @@ class Compression(private val v8Runtime: V8Runtime) {
      * @param format Compression format ("gzip", "deflate", or "deflate-raw")
      * @return Compressed data as Uint8Array
      */
-    fun compress(data: Any, format: String): Any {
+    fun compress(data: V8Value, format: String): V8Value {
         val compressionFormat = CompressionFormat.fromString(format)
-            ?: return v8Runtime.createV8ValueError("Unsupported compression format: $format")
+            ?: throw RuntimeException("Unsupported compression format: $format")
         
         val inputBytes = extractBytes(data)
-            ?: return v8Runtime.createV8ValueError("Invalid input data")
+            ?: throw RuntimeException("Invalid input data")
         
         val compressed = try {
             when (compressionFormat) {
@@ -82,7 +83,7 @@ class Compression(private val v8Runtime: V8Runtime) {
                 CompressionFormat.DEFLATE_RAW -> compressDeflateRaw(inputBytes)
             }
         } catch (e: Exception) {
-            return v8Runtime.createV8ValueError("Compression failed: ${e.message}")
+            throw RuntimeException("Compression failed: ${e.message}", e)
         }
         
         return createUint8Array(compressed)
@@ -94,12 +95,12 @@ class Compression(private val v8Runtime: V8Runtime) {
      * @param format Compression format ("gzip", "deflate", or "deflate-raw")
      * @return Decompressed data as Uint8Array
      */
-    fun decompress(data: Any, format: String): Any {
+    fun decompress(data: V8Value, format: String): V8Value {
         val compressionFormat = CompressionFormat.fromString(format)
-            ?: return v8Runtime.createV8ValueError("Unsupported compression format: $format")
+            ?: throw RuntimeException("Unsupported compression format: $format")
         
         val inputBytes = extractBytes(data)
-            ?: return v8Runtime.createV8ValueError("Invalid input data")
+            ?: throw RuntimeException("Invalid input data")
         
         val decompressed = try {
             when (compressionFormat) {
@@ -108,7 +109,7 @@ class Compression(private val v8Runtime: V8Runtime) {
                 CompressionFormat.DEFLATE_RAW -> decompressDeflateRaw(inputBytes)
             }
         } catch (e: Exception) {
-            return v8Runtime.createV8ValueError("Decompression failed: ${e.message}")
+            throw RuntimeException("Decompression failed: ${e.message}", e)
         }
         
         return createUint8Array(decompressed)
@@ -116,7 +117,7 @@ class Compression(private val v8Runtime: V8Runtime) {
     
     // MARK: - Helper Methods
     
-    private fun extractBytes(data: Any): ByteArray? {
+    private fun extractBytes(data: V8Value): ByteArray? {
         return when (data) {
             is V8ValueTypedArray -> {
                 val byteArray = ByteArray(data.length)
@@ -131,7 +132,7 @@ class Compression(private val v8Runtime: V8Runtime) {
     
     private fun createUint8Array(bytes: ByteArray): V8ValueTypedArray {
         return v8Runtime.createV8ValueTypedArray(
-            com.caoccao.javet.values.reference.V8ValueTypedArray.V8ValueTypedArrayType.Uint8Array,
+            com.caoccao.javet.enums.V8ValueReferenceType.Uint8Array,
             bytes.size
         ).also { array ->
             bytes.forEachIndexed { index, byte ->

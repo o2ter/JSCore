@@ -38,6 +38,7 @@ import com.caoccao.javet.values.primitive.V8ValueDouble
 import com.caoccao.javet.values.reference.V8ValueArray
 import com.caoccao.javet.values.reference.V8ValueFunction
 import com.caoccao.javet.values.reference.V8ValueObject
+import com.o2ter.jscore.lib.Compression
 import com.o2ter.jscore.lib.Crypto
 import com.o2ter.jscore.lib.DeviceInfo
 import com.o2ter.jscore.lib.BundleInfo
@@ -466,20 +467,18 @@ class JavaScriptEngine(
                 JavetCallbackType.DirectCallNoThisAndResult,
                 IJavetDirectCallable.NoThisAndResult<Exception> { v8Values ->
                     if (v8Values.size < 2) {
-                        v8Runtime.createV8ValueError("compress() requires 2 arguments")
-                    } else {
-                        compression.compress(v8Values[0], v8Values[1].toString())
+                        throw RuntimeException("compress() requires 2 arguments")
                     }
+                    compression.compress(v8Values[0], v8Values[1].toString())
                 }))
             
             compressionBridge.bindFunction(JavetCallbackContext("decompress",
                 JavetCallbackType.DirectCallNoThisAndResult,
                 IJavetDirectCallable.NoThisAndResult<Exception> { v8Values ->
                     if (v8Values.size < 2) {
-                        v8Runtime.createV8ValueError("decompress() requires 2 arguments")
-                    } else {
-                        compression.decompress(v8Values[0], v8Values[1].toString())
+                        throw RuntimeException("decompress() requires 2 arguments")
                     }
+                    compression.decompress(v8Values[0], v8Values[1].toString())
                 }))
             
             nativeBridge.set("compression", compressionBridge)
