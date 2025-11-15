@@ -198,13 +198,11 @@ final class ProcessTests: XCTestCase {
         let context = SwiftJS()
         let result = context.evaluateScript(script)
         
-        if result["success"].boolValue ?? false {
-            XCTAssertTrue(result["changedCorrectly"].boolValue ?? false)
-            XCTAssertTrue(result["restoredCorrectly"].boolValue ?? false)
-        } else {
-            // chdir might not be supported on all platforms/configurations
-            XCTAssertTrue(result["error"].isString)
-        }
+        XCTAssertTrue(result["success"].boolValue ?? false, "process.chdir should work")
+        XCTAssertTrue(
+            result["changedCorrectly"].boolValue ?? false, "Should change to temp directory")
+        XCTAssertTrue(
+            result["restoredCorrectly"].boolValue ?? false, "Should restore original directory")
     }
     
     func testProcessChdirErrorHandling() {
@@ -223,10 +221,10 @@ final class ProcessTests: XCTestCase {
         let context = SwiftJS()
         let result = context.evaluateScript(script)
         
-        if result["success"].boolValue ?? false {
-            XCTAssertTrue(result["threwError"].boolValue ?? false)
-            XCTAssertTrue(result["errorIsString"].boolValue ?? false)
-        }
+        XCTAssertTrue(result["success"].boolValue ?? false, "Should catch chdir error")
+        XCTAssertTrue(
+            result["threwError"].boolValue ?? false, "Should throw error for nonexistent directory")
+        XCTAssertTrue(result["errorIsString"].boolValue ?? false, "Error should have message")
     }
     
     // MARK: - Process Exit Tests

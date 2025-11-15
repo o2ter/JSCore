@@ -344,14 +344,12 @@ final class FetchTests: XCTestCase {
         let context = SwiftJS()
         context.globalObject["testCompleted"] = SwiftJS.Value(in: context) { args, this in
             let result = args[0]
-            if result["error"].isString {
-                // Network might not be available, skip the test
-                XCTAssertTrue(true, "Network test skipped: \(result["error"].toString())")
-            } else {
-                XCTAssertTrue(result["ok"].boolValue ?? false)
-                XCTAssertEqual(Int(result["status"].numberValue ?? 0), 200)
-                XCTAssertTrue(result["hasHeaders"].boolValue ?? false)
-            }
+            XCTAssertFalse(
+                result["error"].isString,
+                "Network request should succeed: \(result["error"].toString())")
+            XCTAssertTrue(result["ok"].boolValue ?? false, "Response should be ok")
+            XCTAssertEqual(Int(result["status"].numberValue ?? 0), 200, "Status should be 200")
+            XCTAssertTrue(result["hasHeaders"].boolValue ?? false, "Should have headers")
             expectation.fulfill()
             return SwiftJS.Value.undefined
         }

@@ -90,30 +90,18 @@ final class Base64Tests: XCTestCase {
     
     func testBtoaLatin1Range() {
         let script = """
-            try {
-                ({
-                    success: true,
-                    latin1: btoa('àáâãäå'),
-                    result: 'success'
-                })
-            } catch (error) {
-                ({
-                    success: false,
-                    error: error.message,
-                    result: 'error'
-                })
-            }
+            const latin1 = btoa('àáâãäå');
+            ({
+                latin1: latin1,
+                hasValue: latin1.length > 0
+            })
         """
         let context = SwiftJS()
         let result = context.evaluateScript(script)
         
-        // btoa should work with Latin-1 characters (bytes 0-255)
-        if result["success"].boolValue ?? false {
-            XCTAssertNotEqual(result["latin1"].toString(), "")
-        } else {
-            // Some implementations may throw an error for non-Latin-1 characters
-            XCTAssertTrue(result["error"].isString)
-        }
+        XCTAssertTrue(
+            result["hasValue"].boolValue ?? false, "btoa should encode Latin-1 characters")
+        XCTAssertNotEqual(result["latin1"].toString(), "", "btoa should return non-empty string")
     }
     
     func testBtoaUnicodeError() {
@@ -370,15 +358,14 @@ final class Base64Tests: XCTestCase {
         let context = SwiftJS()
         let result = context.evaluateScript(script)
         
-        if result["success"].boolValue ?? false {
-            XCTAssertEqual(result["originalLength"].numberValue, 256)
-            XCTAssertEqual(result["decodedLength"].numberValue, 256)
-            XCTAssertTrue(result["matches"].boolValue ?? false)
-            XCTAssertGreaterThan(result["encodedLength"].numberValue ?? 0, 256)
-        } else {
-            // Some implementations might not support all byte values
-            XCTAssertTrue(result["error"].isString)
-        }
+        XCTAssertTrue(
+            result["success"].boolValue ?? false, "btoa/atob should handle all byte values")
+        XCTAssertEqual(
+            result["originalLength"].numberValue, 256, "Should encode all 256 byte values")
+        XCTAssertEqual(result["decodedLength"].numberValue, 256, "Should decode back to 256 bytes")
+        XCTAssertTrue(result["matches"].boolValue ?? false, "Round-trip should preserve all values")
+        XCTAssertGreaterThan(
+            result["encodedLength"].numberValue ?? 0, 256, "Base64 encoding should be longer")
     }
     
     // MARK: - Edge Cases

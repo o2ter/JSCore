@@ -62,12 +62,10 @@ final class FetchBodyTypesTests: XCTestCase {
         let context = SwiftJS()
         context.globalObject["testCompleted"] = SwiftJS.Value(in: context) { args, this in
             let result = args[0]
-            if result["success"].boolValue == true {
-                XCTAssertTrue(result["matches"].boolValue ?? false, "String body should match")
-            } else {
-                // Network test - acceptable to skip if no connection
-                XCTAssertTrue(true, "Network test skipped: \(result["error"].toString())")
-            }
+            XCTAssertTrue(
+                result["success"].boolValue == true,
+                "Network request should succeed: \(result["error"].toString())")
+            XCTAssertTrue(result["matches"].boolValue ?? false, "String body should match")
             expectation.fulfill()
             return SwiftJS.Value.undefined
         }
@@ -109,12 +107,12 @@ final class FetchBodyTypesTests: XCTestCase {
         let context = SwiftJS()
         context.globalObject["testCompleted"] = SwiftJS.Value(in: context) { args, this in
             let result = args[0]
-            if result["success"].boolValue == true {
-                XCTAssertTrue(result["hasData"].boolValue ?? false, "Should have received data")
-                XCTAssertGreaterThan(Int(result["originalSize"].numberValue ?? 0), 0, "ArrayBuffer should have size")
-            } else {
-                XCTAssertTrue(true, "Network test skipped: \(result["error"].toString())")
-            }
+            XCTAssertTrue(
+                result["success"].boolValue == true,
+                "Network request should succeed: \(result["error"].toString())")
+            XCTAssertTrue(result["hasData"].boolValue ?? false, "Should have received data")
+            XCTAssertGreaterThan(
+                Int(result["originalSize"].numberValue ?? 0), 0, "ArrayBuffer should have size")
             expectation.fulfill()
             return SwiftJS.Value.undefined
         }
@@ -155,12 +153,13 @@ final class FetchBodyTypesTests: XCTestCase {
         let context = SwiftJS()
         context.globalObject["testCompleted"] = SwiftJS.Value(in: context) { args, this in
             let result = args[0]
-            if result["success"].boolValue == true {
-                XCTAssertGreaterThan(Int(result["blobSize"].numberValue ?? 0), 0, "Blob should have size")
-                XCTAssertEqual(result["blobType"].toString(), "text/plain", "Blob type should be preserved")
-            } else {
-                XCTAssertTrue(true, "Network test skipped: \(result["error"].toString())")
-            }
+            XCTAssertTrue(
+                result["success"].boolValue == true,
+                "Network request should succeed: \(result["error"].toString())")
+            XCTAssertGreaterThan(
+                Int(result["blobSize"].numberValue ?? 0), 0, "Blob should have size")
+            XCTAssertEqual(
+                result["blobType"].toString(), "text/plain", "Blob type should be preserved")
             expectation.fulfill()
             return SwiftJS.Value.undefined
         }
@@ -199,13 +198,14 @@ final class FetchBodyTypesTests: XCTestCase {
         let context = SwiftJS()
         context.globalObject["testCompleted"] = SwiftJS.Value(in: context) { args, this in
             let result = args[0]
-            if result["success"].boolValue == true {
-                XCTAssertTrue(result["hasData"].boolValue ?? false, "Should have received data")
-                XCTAssertEqual(Int(result["arrayLength"].numberValue ?? 0), 11, "Array should have 11 elements")
-                XCTAssertEqual(Int(result["arrayByteLength"].numberValue ?? 0), 11, "Array should have 11 bytes")
-            } else {
-                XCTAssertTrue(true, "Network test skipped: \(result["error"].toString())")
-            }
+            XCTAssertTrue(
+                result["success"].boolValue == true,
+                "Network request should succeed: \(result["error"].toString())")
+            XCTAssertTrue(result["hasData"].boolValue ?? false, "Should have received data")
+            XCTAssertEqual(
+                Int(result["arrayLength"].numberValue ?? 0), 11, "Array should have 11 elements")
+            XCTAssertEqual(
+                Int(result["arrayByteLength"].numberValue ?? 0), 11, "Array should have 11 bytes")
             expectation.fulfill()
             return SwiftJS.Value.undefined
         }
@@ -249,13 +249,15 @@ final class FetchBodyTypesTests: XCTestCase {
         let context = SwiftJS()
         context.globalObject["testCompleted"] = SwiftJS.Value(in: context) { args, this in
             let result = args[0]
-            if result["success"].boolValue == true {
-                XCTAssertTrue(result["hasData"].boolValue ?? false, "Should have received data")
-                XCTAssertEqual(Int(result["dataViewByteLength"].numberValue ?? 0), 16, "DataView should have 16 bytes")
-                XCTAssertEqual(Int(result["bufferByteLength"].numberValue ?? 0), 16, "Buffer should have 16 bytes")
-            } else {
-                XCTAssertTrue(true, "Network test skipped: \(result["error"].toString())")
-            }
+            XCTAssertTrue(
+                result["success"].boolValue == true,
+                "Network request should succeed: \(result["error"].toString())")
+            XCTAssertTrue(result["hasData"].boolValue ?? false, "Should have received data")
+            XCTAssertEqual(
+                Int(result["dataViewByteLength"].numberValue ?? 0), 16,
+                "DataView should have 16 bytes")
+            XCTAssertEqual(
+                Int(result["bufferByteLength"].numberValue ?? 0), 16, "Buffer should have 16 bytes")
             expectation.fulfill()
             return SwiftJS.Value.undefined
         }
@@ -300,12 +302,13 @@ final class FetchBodyTypesTests: XCTestCase {
         let context = SwiftJS()
         context.globalObject["testCompleted"] = SwiftJS.Value(in: context) { args, this in
             let result = args[0]
-            if result["success"].boolValue == true {
-                XCTAssertTrue(result["paramsString"].toString().contains("name=John"), "Should contain form data")
-                XCTAssertTrue(result["paramsString"].toString().contains("age=30"), "Should contain age parameter")
-            } else {
-                XCTAssertTrue(true, "Network test skipped: \(result["error"].toString())")
-            }
+            XCTAssertTrue(
+                result["success"].boolValue == true,
+                "Network request should succeed: \(result["error"].toString())")
+            XCTAssertTrue(
+                result["paramsString"].toString().contains("name=John"), "Should contain form data")
+            XCTAssertTrue(
+                result["paramsString"].toString().contains("age=30"), "Should contain age parameter")
             expectation.fulfill()
             return SwiftJS.Value.undefined
         }
@@ -353,13 +356,13 @@ final class FetchBodyTypesTests: XCTestCase {
         let context = SwiftJS()
         context.globalObject["testCompleted"] = SwiftJS.Value(in: context) { args, this in
             let result = args[0]
-            if result["success"].boolValue == true {
-                XCTAssertTrue(result["hasForm"].boolValue ?? false, "Should have form data")
-                let contentType = result["contentType"].toString()
-                XCTAssertTrue(contentType.contains("multipart/form-data"), "Should use multipart content type")
-            } else {
-                XCTAssertTrue(true, "Network test skipped: \(result["error"].toString())")
-            }
+            XCTAssertTrue(
+                result["success"].boolValue == true,
+                "Network request should succeed: \(result["error"].toString())")
+            XCTAssertTrue(result["hasForm"].boolValue ?? false, "Should have form data")
+            let contentType = result["contentType"].toString()
+            XCTAssertTrue(
+                contentType.contains("multipart/form-data"), "Should use multipart content type")
             expectation.fulfill()
             return SwiftJS.Value.undefined
         }
@@ -404,13 +407,15 @@ final class FetchBodyTypesTests: XCTestCase {
         let context = SwiftJS()
         context.globalObject["testCompleted"] = SwiftJS.Value(in: context) { args, this in
             let result = args[0]
-            if result["success"].boolValue == true {
-                XCTAssertEqual(result["fileName"].toString(), "test-file.txt", "File name should be preserved")
-                XCTAssertEqual(result["fileType"].toString(), "text/plain", "File type should be preserved")
-                XCTAssertGreaterThan(Int(result["fileSize"].numberValue ?? 0), 0, "File should have size")
-            } else {
-                XCTAssertTrue(true, "Network test skipped: \(result["error"].toString())")
-            }
+            XCTAssertTrue(
+                result["success"].boolValue == true,
+                "Network request should succeed: \(result["error"].toString())")
+            XCTAssertEqual(
+                result["fileName"].toString(), "test-file.txt", "File name should be preserved")
+            XCTAssertEqual(
+                result["fileType"].toString(), "text/plain", "File type should be preserved")
+            XCTAssertGreaterThan(
+                Int(result["fileSize"].numberValue ?? 0), 0, "File should have size")
             expectation.fulfill()
             return SwiftJS.Value.undefined
         }
@@ -467,12 +472,14 @@ final class FetchBodyTypesTests: XCTestCase {
         let context = SwiftJS()
         context.globalObject["testCompleted"] = SwiftJS.Value(in: context) { args, this in
             let result = args[0]
-            if result["success"].boolValue == true {
-                XCTAssertTrue(result["hasData"].boolValue ?? false, "Should have received streamed data")
-                XCTAssertGreaterThan(Int(result["originalDataLength"].numberValue ?? 0), 0, "Original data should have length")
-            } else {
-                XCTAssertTrue(true, "Network test skipped: \(result["error"].toString())")
-            }
+            XCTAssertTrue(
+                result["success"].boolValue == true,
+                "Network request should succeed: \(result["error"].toString())")
+            XCTAssertTrue(
+                result["hasData"].boolValue ?? false, "Should have received streamed data")
+            XCTAssertGreaterThan(
+                Int(result["originalDataLength"].numberValue ?? 0), 0,
+                "Original data should have length")
             expectation.fulfill()
             return SwiftJS.Value.undefined
         }
@@ -540,22 +547,23 @@ final class FetchBodyTypesTests: XCTestCase {
             
             XCTAssertGreaterThanOrEqual(resultCount, 4, "Should test 4 body types")
             
-            // Check that at least some body types work
+            // All body types must work
             var successCount = 0
             for i in 0..<resultCount {
                 let testResult = results[i]
                 if testResult["success"].boolValue == true {
                     successCount += 1
-                    XCTAssertTrue(testResult["hasData"].boolValue ?? false, 
-                                "\(testResult["type"].toString()) should have data")
                 }
+                XCTAssertTrue(
+                    testResult["success"].boolValue ?? false,
+                    "\(testResult["type"].toString()) request should succeed: \(testResult["error"].toString())")
+                XCTAssertTrue(
+                    testResult["hasData"].boolValue ?? false,
+                    "\(testResult["type"].toString()) should have data")
             }
             
-            if successCount == 0 {
-                XCTAssertTrue(true, "Network tests skipped - no connection available")
-            } else {
-                XCTAssertGreaterThan(successCount, 0, "At least some body types should work")
-            }
+            XCTAssertEqual(successCount, resultCount, "All body types should work")
+            XCTAssertGreaterThan(successCount, 0, "Should have tested at least one body type")
             
             expectation.fulfill()
             return SwiftJS.Value.undefined

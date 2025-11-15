@@ -269,13 +269,12 @@ final class XMLHttpRequestTests: XCTestCase {
         let context = SwiftJS()
         context.globalObject["testCompleted"] = SwiftJS.Value(in: context) { args, this in
             let result = args[0]
-            if result["error"].isString {
-                // Network might not be available, skip the test
-                XCTAssertTrue(true, "Network test skipped: \(result["error"].toString())")
-            } else {
-                XCTAssertEqual(Int(result["status"].numberValue ?? 0), 200)
-                XCTAssertTrue(result["hasContentType"].boolValue ?? false)
-            }
+            XCTAssertFalse(
+                result["error"].isString,
+                "Network request should succeed: \(result["error"].toString())")
+            XCTAssertEqual(Int(result["status"].numberValue ?? 0), 200, "Status should be 200")
+            XCTAssertTrue(
+                result["hasContentType"].boolValue ?? false, "Should have content-type header")
             expectation.fulfill()
             return SwiftJS.Value.undefined
         }

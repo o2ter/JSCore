@@ -130,14 +130,12 @@ final class WebSocketTests: XCTestCase {
         let context = SwiftJS()
         context.globalObject["testCompleted"] = SwiftJS.Value(in: context) { args, this in
             let result = args[0]
-            if result["error"].isString {
-                XCTAssertTrue(true, "Network test skipped: \(result["error"].toString())")
-            } else if result["timeout"].boolValue == true {
-                XCTAssertTrue(true, "Connection timeout - network might not be available")
-            } else {
-                XCTAssertTrue(result["opened"].boolValue ?? false, "WebSocket should open")
-                XCTAssertEqual(Int(result["readyState"].numberValue ?? -1), 1, "Ready state should be OPEN")
-            }
+            XCTAssertFalse(
+                result["error"].isString, "WebSocket should connect: \(result["error"].toString())")
+            XCTAssertFalse(result["timeout"].boolValue == true, "Connection should not timeout")
+            XCTAssertTrue(result["opened"].boolValue ?? false, "WebSocket should open")
+            XCTAssertEqual(
+                Int(result["readyState"].numberValue ?? -1), 1, "Ready state should be OPEN")
             expectation.fulfill()
             return SwiftJS.Value.undefined
         }
@@ -186,9 +184,9 @@ final class WebSocketTests: XCTestCase {
             let result = args[0]
             if result["error"].isString {
                 XCTAssertTrue(true, "Network test skipped: \(result["error"].toString())")
-            } else if result["timeout"].boolValue == true {
-                XCTAssertTrue(true, "Test timeout - network might not be available")
             } else {
+                XCTAssertFalse(result["timeout"].boolValue == true, "Request should not timeout")
+               
                 XCTAssertTrue(result["success"].boolValue ?? false, "Should successfully send/receive")
                 // Note: echo.websocket.org may return server info instead of echoing, so just verify we got a response
                 let received = result["receivedMessage"].toString()
@@ -240,9 +238,9 @@ final class WebSocketTests: XCTestCase {
             let result = args[0]
             if result["error"].isString {
                 XCTAssertTrue(true, "Network test skipped: \(result["error"].toString())")
-            } else if result["timeout"].boolValue == true {
-                XCTAssertTrue(true, "Test timeout - network might not be available")
             } else {
+                XCTAssertFalse(result["timeout"].boolValue == true, "Request should not timeout")
+               
                 XCTAssertTrue(result["closed"].boolValue ?? false, "Close event should fire")
                 XCTAssertEqual(Int(result["code"].numberValue ?? -1), 1000, "Close code should be 1000")
                 XCTAssertTrue(result["wasClean"].boolValue ?? false, "Should be clean closure")
@@ -329,9 +327,9 @@ final class WebSocketTests: XCTestCase {
             let result = args[0]
             if result["error"].isString {
                 XCTAssertTrue(true, "Network test skipped: \(result["error"].toString())")
-            } else if result["timeout"].boolValue == true {
-                XCTAssertTrue(true, "Test timeout - network might not be available")
             } else {
+                XCTAssertFalse(result["timeout"].boolValue == true, "Request should not timeout")
+               
                 XCTAssertTrue(result["eventListenerWorks"].boolValue ?? false, "addEventListener should work")
                 XCTAssertEqual(Int(result["openCount"].numberValue ?? 0), 1, "Open event should fire once")
             }

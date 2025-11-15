@@ -218,8 +218,7 @@ final class FormDataTests: XCTestCase {
         """
         let context = SwiftJS()
         let result = context.evaluateScript(script)
-        // File API may not be fully implemented, so we check if it doesn't throw an error
-        XCTAssertTrue(result.boolValue ?? true) // Accept both true and undefined/error
+        XCTAssertTrue(result.boolValue ?? false, "FormData should support File API")
     }
     
     // MARK: - FormData Integration with Request Tests

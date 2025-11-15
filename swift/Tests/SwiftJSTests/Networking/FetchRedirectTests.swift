@@ -142,12 +142,12 @@ final class FetchRedirectTests: XCTestCase {
         let context = SwiftJS()
         context.globalObject["testCompleted"] = SwiftJS.Value(in: context) { args, this in
             let result = args[0]
-            if result["success"].boolValue == true {
-                XCTAssertEqual(Int(result["status"].numberValue ?? 0), 200, "Should get 200 after redirect")
-                XCTAssertTrue(result["followedRedirect"].boolValue ?? false, "Should follow redirect")
-            } else {
-                XCTAssertTrue(true, "Network test skipped: \(result["error"].toString())")
-            }
+            XCTAssertTrue(
+                result["success"].boolValue ?? false,
+                "Request should succeed: \(result["error"].toString())")
+            XCTAssertEqual(
+                Int(result["status"].numberValue ?? 0), 200, "Should get 200 after redirect")
+            XCTAssertTrue(result["followedRedirect"].boolValue ?? false, "Should follow redirect")
             expectation.fulfill()
             return SwiftJS.Value.undefined
         }
@@ -192,11 +192,9 @@ final class FetchRedirectTests: XCTestCase {
                 XCTAssertTrue(result["caughtRedirectError"].boolValue ?? false, "Should catch redirect error")
                 XCTAssertTrue(result["isTypeError"].boolValue ?? false, "Should throw TypeError for redirect")
             } else if result["unexpectedSuccess"].boolValue == true {
-                // The underlying HTTP client might follow redirects automatically
-                // This is acceptable behavior
-                XCTAssertTrue(true, "Underlying HTTP client followed redirect automatically")
+                XCTFail("Should throw error on redirect, not follow it automatically")
             } else {
-                XCTAssertTrue(true, "Network test skipped: \(result["error"].toString())")
+                XCTFail("Network request failed: \(result["error"].toString())")
             }
             expectation.fulfill()
             return SwiftJS.Value.undefined

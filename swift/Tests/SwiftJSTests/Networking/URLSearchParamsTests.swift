@@ -468,14 +468,16 @@ final class URLSearchParamsTests: XCTestCase {
         let context = SwiftJS()
         context.globalObject["testCompleted"] = SwiftJS.Value(in: context) { args, this in
             let result = args[0]
-            if result["success"].boolValue == true {
-                XCTAssertTrue(result["hasMethod"].boolValue ?? false, "Should receive form data")
-                XCTAssertEqual(result["methodValue"].toString(), "test", "Form data should be preserved")
-                let contentType = result["contentType"].toString()
-                XCTAssertTrue(contentType.contains("application/x-www-form-urlencoded"), "Should use correct content type")
-            } else {
-                XCTAssertTrue(true, "Network test skipped: \(result["error"].toString())")
-            }
+            XCTAssertTrue(
+                result["success"].boolValue ?? false,
+                "Request should succeed: \(result["error"].toString())")
+            XCTAssertTrue(result["hasMethod"].boolValue ?? false, "Should receive form data")
+            XCTAssertEqual(
+                result["methodValue"].toString(), "test", "Form data should be preserved")
+            let contentType = result["contentType"].toString()
+            XCTAssertTrue(
+                contentType.contains("application/x-www-form-urlencoded"),
+                "Should use correct content type")
             expectation.fulfill()
             return SwiftJS.Value.undefined
         }

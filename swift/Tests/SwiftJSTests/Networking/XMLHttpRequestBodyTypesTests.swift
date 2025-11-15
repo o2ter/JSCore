@@ -98,24 +98,13 @@ final class XMLHttpRequestBodyTypesTests: XCTestCase {
         context.globalObject["testCompleted"] = SwiftJS.Value(in: context) { args, this in
             let result = args[0]
             
-            // Check if it's a network error (we can still verify the body type support works)
-            if !(result["success"].boolValue ?? false) {
-                let error = result["error"].toString()
-                if error.contains("Network") || error.contains("Timeout") || error.contains("HTTP error") {
-                    // Network/HTTP issue - the important thing is URLSearchParams was accepted
-                    XCTAssertTrue(true, "URLSearchParams body type accepted (external service unavailable)")
-                } else {
-                    XCTFail("Unexpected error: \(error)")
-                }
-            } else {
-                // Network succeeded - verify full functionality
-                XCTAssertTrue(result["success"].boolValue ?? false, "Request should succeed")
-                XCTAssertEqual(Int(result["status"].numberValue ?? 0), 200)
-                XCTAssertTrue(result["hasFormData"].boolValue ?? false, "Should have form data")
-                
-                let contentType = result["contentType"].toString()
-                XCTAssertTrue(contentType.contains("application/x-www-form-urlencoded"), 
-                             "Content-Type should be application/x-www-form-urlencoded")
+            XCTAssertTrue(result["success"].boolValue ?? false, "Request should succeed: \(result["error"].toString())")
+            XCTAssertEqual(Int(result["status"].numberValue ?? 0), 200, "Status should be 200")
+            XCTAssertTrue(result["hasFormData"].boolValue ?? false, "Should have form data")
+            
+            let contentType = result["contentType"].toString()
+            XCTAssertTrue(contentType.contains("application/x-www-form-urlencoded"), 
+                         "Content-Type should be application/x-www-form-urlencoded")
             }
             
             expectation.fulfill()
@@ -226,23 +215,12 @@ final class XMLHttpRequestBodyTypesTests: XCTestCase {
         context.globalObject["testCompleted"] = SwiftJS.Value(in: context) { args, this in
             let result = args[0]
             
-            // Check if it's a network error (we can still verify the body type support works)
-            if !(result["success"].boolValue ?? false) {
-                let error = result["error"].toString()
-                if error.contains("Network") || error.contains("Timeout") || error.contains("HTTP error") {
-                    // Network/HTTP issue - the important thing is Blob was accepted
-                    XCTAssertTrue(true, "Blob body type accepted (external service unavailable)")
-                } else {
-                    XCTFail("Unexpected error: \(error)")
-                }
-            } else {
-                // Network succeeded - verify full functionality
-                XCTAssertTrue(result["success"].boolValue ?? false, "Request should succeed")
-                XCTAssertEqual(Int(result["status"].numberValue ?? 0), 200)
-                XCTAssertTrue(result["contentMatches"].boolValue ?? false, "Received data should match sent blob content")
-                
-                let contentType = result["contentType"].toString()
-                XCTAssertTrue(contentType.contains("text/plain"), 
+            XCTAssertTrue(result["success"].boolValue ?? false, "Request should succeed: \(result["error"].toString())")
+            XCTAssertEqual(Int(result["status"].numberValue ?? 0), 200, "Status should be 200")
+            XCTAssertTrue(result["contentMatches"].boolValue ?? false, "Received data should match sent blob content")
+            
+            let contentType = result["contentType"].toString()
+            XCTAssertTrue(contentType.contains("text/plain"), 
                              "Content-Type should be text/plain from blob")
             }
             
@@ -299,24 +277,12 @@ final class XMLHttpRequestBodyTypesTests: XCTestCase {
         context.globalObject["testCompleted"] = SwiftJS.Value(in: context) { args, this in
             let result = args[0]
             
-            // Check if it's a network error (we can still verify the body type support works)
-            if !(result["success"].boolValue ?? false) {
-                let error = result["error"].toString()
-                if error.contains("Network") || error.contains("Timeout") || error.contains("HTTP error") || error.contains("undefined") || error.contains("Unknown") {
-                    // Network/HTTP issue - the important thing is Blob was accepted
-                    XCTAssertTrue(true, "Blob body type accepted (external service unavailable)")
-                } else {
-                    XCTFail("Unexpected error: \(error)")
-                }
-            } else {
-                // Network succeeded - verify full functionality
-                XCTAssertTrue(result["success"].boolValue ?? false, "Request should succeed")
-                XCTAssertEqual(Int(result["status"].numberValue ?? 0), 200)
-                
-                let contentType = result["contentType"].toString()
-                XCTAssertTrue(contentType.contains("application/octet-stream"), 
-                             "Content-Type should default to application/octet-stream")
-            }
+            XCTAssertTrue(result["success"].boolValue ?? false, "Request should succeed: \(result["error"].toString())")
+            XCTAssertEqual(Int(result["status"].numberValue ?? 0), 200, "Status should be 200")
+            
+            let contentType = result["contentType"].toString()
+            XCTAssertTrue(contentType.contains("application/octet-stream"), 
+                         "Content-Type should default to application/octet-stream")
             
             expectation.fulfill()
             return SwiftJS.Value.undefined
