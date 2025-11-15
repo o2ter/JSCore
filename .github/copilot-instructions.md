@@ -53,6 +53,7 @@ JSCore/
 4. **Shared Polyfill Dependency**: The `resources/polyfill.js` file depends on these exact module names and APIs
 
 #### Common Native APIs (Both Engines)
+- `compression`: Compression and decompression (compress, decompress methods for gzip, deflate, deflate-raw)
 - `crypto`: Cryptographic functions (randomUUID, randomBytes, hashing)
 - `processInfo`: Process information (PID, arguments, environment)
 - `processControl`: Process control operations (exit, etc.)

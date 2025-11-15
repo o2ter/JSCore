@@ -39,7 +39,7 @@ println(result) // 6.283185307179586
 | **Engine** | Apple JavaScriptCore | Javet V8 |
 | **Performance** | Native Safari engine | Native Chrome/Node.js engine |
 | **JavaScript Support** | ES6+ | ES6+ |
-| **Web APIs** | Fetch, Crypto, Streams, File | Fetch, Crypto, Streams, File |
+| **Web APIs** | Fetch, Crypto, Streams, File, Compression | Fetch, Crypto, Streams, File, Compression |
 | **Async Support** | Promises, async/await | Promises, async/await |
 | **Platform Integration** | iOS/macOS native APIs | JVM/Android native APIs |
 | **CLI Tool** | SwiftJSRunner | jscore-runner |
@@ -270,6 +270,54 @@ SwiftJS provides access to native platform capabilities:
 ```swift
 let js = SwiftJS()
 
+// Compression Streams API
+js.evaluateScript("""
+    // Compress data using gzip
+    const input = new TextEncoder().encode('Hello, World! This is a test string for compression.');
+    
+    const compressedStream = new ReadableStream({
+        start(controller) {
+            controller.enqueue(input);
+            controller.close();
+        }
+    }).pipeThrough(new CompressionStream('gzip'));
+    
+    // Read compressed data
+    const reader = compressedStream.getReader();
+    const chunks = [];
+    
+    (async () => {
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            chunks.push(value);
+        }
+        
+        console.log('Compressed size:', chunks.reduce((sum, chunk) => sum + chunk.length, 0));
+        
+        // Decompress the data
+        const compressedData = chunks[0]; // For simplicity, assume single chunk
+        const decompressedStream = new ReadableStream({
+            start(controller) {
+                controller.enqueue(compressedData);
+                controller.close();
+            }
+        }).pipeThrough(new DecompressionStream('gzip'));
+        
+        const decompressedReader = decompressedStream.getReader();
+        const decompressedChunks = [];
+        
+        while (true) {
+            const { done, value } = await decompressedReader.read();
+            if (done) break;
+            decompressedChunks.push(value);
+        }
+        
+        const output = new TextDecoder().decode(decompressedChunks[0]);
+        console.log('Decompressed:', output); // "Hello, World! This is a test string for compression."
+    })();
+""")
+
 // Cryptography
 js.evaluateScript("""
     const id = crypto.randomUUID();
@@ -398,6 +446,7 @@ Both SwiftJS and KotlinJS provide comprehensive JavaScript APIs:
 - **Error handling**: Try/catch with proper stack traces
 
 ### Web APIs
+- **Compression Streams**: `CompressionStream`, `DecompressionStream` for gzip, deflate, and deflate-raw compression
 - **Crypto**: `crypto.randomUUID()`, `crypto.randomBytes()`, `crypto.getRandomValues()`
 - **Console**: `console.log/warn/error/info` with proper formatting
 - **Fetch**: `fetch()` for HTTP requests (core functionality, excludes browser security features)
@@ -416,6 +465,270 @@ Both SwiftJS and KotlinJS provide comprehensive JavaScript APIs:
 - **Device Info**: Hardware and system information
 - **Native Crypto**: Direct access to platform crypto functions
 - **HTTP Client**: Advanced networking with streaming support
+
+## Compression Streams API
+
+Both SwiftJS and KotlinJS implement the [Web Compression Streams API](https://wicg.github.io/compression/) standard, providing efficient streaming compression and decompression.
+
+### Supported Formats
+
+- **`gzip`**: GZIP compression (RFC 1952) - Industry-standard compression with CRC32 checksums
+- **`deflate`**: DEFLATE with zlib wrapper (RFC 1950) - Includes Adler-32 checksums
+- **`deflate-raw`**: Raw DEFLATE (RFC 1951) - No wrapper, maximum compatibility
+
+### CompressionStream
+
+Compresses data using the specified format:
+
+```javascript
+// Create a compression stream
+const compressionStream = new CompressionStream('gzip');
+
+// Compress text data
+const input = new TextEncoder().encode('Hello, World!');
+const readableStream = new ReadableStream({
+    start(controller) {
+        controller.enqueue(input);
+        controller.close();
+    }
+});
+
+// Pipe through compression
+const compressedStream = readableStream.pipeThrough(compressionStream);
+
+// Read compressed data
+const reader = compressedStream.getReader();
+const chunks = [];
+
+while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    chunks.push(value);
+}
+
+// Combine chunks
+const totalLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
+const compressed = new Uint8Array(totalLength);
+let offset = 0;
+for (const chunk of chunks) {
+    compressed.set(chunk, offset);
+    offset += chunk.length;
+}
+
+console.log('Original size:', input.length);
+console.log('Compressed size:', compressed.length);
+```
+
+### DecompressionStream
+
+Decompresses data using the specified format:
+
+```javascript
+// Create a decompression stream
+const decompressionStream = new DecompressionStream('gzip');
+
+// Decompress data
+const compressedStream = new ReadableStream({
+    start(controller) {
+        controller.enqueue(compressed); // Previously compressed data
+        controller.close();
+    }
+});
+
+// Pipe through decompression
+const decompressedStream = compressedStream.pipeThrough(decompressionStream);
+
+// Read decompressed data
+const reader = decompressedStream.getReader();
+const chunks = [];
+
+while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    chunks.push(value);
+}
+
+// Decode result
+const totalLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
+const decompressed = new Uint8Array(totalLength);
+let offset = 0;
+for (const chunk of chunks) {
+    decompressed.set(chunk, offset);
+    offset += chunk.length;
+}
+
+const output = new TextDecoder().decode(decompressed);
+console.log('Decompressed:', output); // "Hello, World!"
+```
+
+### Practical Examples
+
+#### Compress and Save to File (SwiftJS)
+
+```javascript
+const data = 'Large text content...'.repeat(1000);
+const input = new TextEncoder().encode(data);
+
+const compressedStream = new ReadableStream({
+    start(controller) {
+        controller.enqueue(input);
+        controller.close();
+    }
+}).pipeThrough(new CompressionStream('gzip'));
+
+// Read all compressed chunks
+const reader = compressedStream.getReader();
+const chunks = [];
+
+while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    chunks.push(value);
+}
+
+// Combine and save
+const totalLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
+const compressed = new Uint8Array(totalLength);
+let offset = 0;
+for (const chunk of chunks) {
+    compressed.set(chunk, offset);
+    offset += chunk.length;
+}
+
+SystemFS.writeFile('/tmp/data.gz', compressed);
+console.log('Compression ratio:', (compressed.length / input.length * 100).toFixed(2) + '%');
+```
+
+#### HTTP Response Compression
+
+```javascript
+// Compress data before sending
+async function compressResponse(data) {
+    const input = new TextEncoder().encode(JSON.stringify(data));
+    
+    const compressedStream = new ReadableStream({
+        start(controller) {
+            controller.enqueue(input);
+            controller.close();
+        }
+    }).pipeThrough(new CompressionStream('gzip'));
+    
+    const reader = compressedStream.getReader();
+    const chunks = [];
+    
+    while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        chunks.push(value);
+    }
+    
+    const totalLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
+    const compressed = new Uint8Array(totalLength);
+    let offset = 0;
+    for (const chunk of chunks) {
+        compressed.set(chunk, offset);
+        offset += chunk.length;
+    }
+    
+    return compressed;
+}
+
+// Usage
+const response = { message: 'Hello', data: [1, 2, 3] };
+const compressed = await compressResponse(response);
+console.log('Compressed size:', compressed.length, 'bytes');
+```
+
+#### Format Comparison
+
+```javascript
+async function compareFormats(text) {
+    const input = new TextEncoder().encode(text);
+    const formats = ['gzip', 'deflate', 'deflate-raw'];
+    
+    for (const format of formats) {
+        const compressed = await compress(input, format);
+        console.log(`${format}: ${compressed.length} bytes (${(compressed.length/input.length*100).toFixed(1)}%)`);
+    }
+}
+
+async function compress(data, format) {
+    const stream = new ReadableStream({
+        start(controller) {
+            controller.enqueue(data);
+            controller.close();
+        }
+    }).pipeThrough(new CompressionStream(format));
+    
+    const reader = stream.getReader();
+    const chunks = [];
+    
+    while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        chunks.push(value);
+    }
+    
+    const totalLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
+    const result = new Uint8Array(totalLength);
+    let offset = 0;
+    for (const chunk of chunks) {
+        result.set(chunk, offset);
+        offset += chunk.length;
+    }
+    
+    return result;
+}
+
+// Compare compression ratios
+compareFormats('Lorem ipsum dolor sit amet...'.repeat(100));
+```
+
+### Error Handling
+
+```javascript
+try {
+    // Invalid format
+    const stream = new CompressionStream('invalid-format');
+} catch (error) {
+    console.error('Error:', error.message); // "Unsupported compression format"
+}
+
+try {
+    // Decompressing invalid data
+    const decompressStream = new DecompressionStream('gzip');
+    const invalidData = new Uint8Array([1, 2, 3, 4, 5]);
+    
+    const stream = new ReadableStream({
+        start(controller) {
+            controller.enqueue(invalidData);
+            controller.close();
+        }
+    }).pipeThrough(decompressStream);
+    
+    const reader = stream.getReader();
+    await reader.read(); // May throw decompression error
+} catch (error) {
+    console.error('Decompression failed:', error.message);
+}
+```
+
+### Performance Considerations
+
+1. **Streaming is efficient**: Use streams for large data to avoid loading everything into memory
+2. **Format selection**:
+   - `gzip`: Best for file storage and HTTP compression (widely compatible)
+   - `deflate`: Good balance of compression and speed
+   - `deflate-raw`: Maximum compatibility, lowest overhead
+3. **Compression ratio**: Longer text compresses better (minimum ~100 bytes for effective compression)
+4. **Chunk processing**: Process data in chunks for better memory efficiency
+
+### Platform-Specific Implementation
+
+**SwiftJS**: Uses Apple's Compression framework with native performance on iOS/macOS
+**KotlinJS**: Uses Java's GZIPOutputStream, DeflaterOutputStream, and Inflater for JVM/Android
+
+Both implementations provide identical JavaScript APIs and behavior, ensuring cross-platform compatibility.
 
 ### KotlinJS Platform APIs
 
