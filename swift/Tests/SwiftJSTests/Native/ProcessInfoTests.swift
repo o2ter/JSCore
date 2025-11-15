@@ -193,12 +193,8 @@ final class ProcessInfoTests: XCTestCase {
         let context = SwiftJS()
         let result = context.evaluateScript(script)
         // argv[0] should be the executable path (if available)
-        let hasArgs = context.evaluateScript("process.argv.length > 0").boolValue ?? false
-        if hasArgs {
-            XCTAssertTrue(result.boolValue ?? false)
-        } else {
-            XCTAssertTrue(true, "No arguments available")
-        }
+        XCTAssertTrue(
+            result.boolValue ?? false, "process.argv should contain at least the executable path")
     }
     
     func testProcessArgvContent() {

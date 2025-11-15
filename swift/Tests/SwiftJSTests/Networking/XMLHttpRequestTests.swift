@@ -310,14 +310,10 @@ final class XMLHttpRequestTests: XCTestCase {
         let context = SwiftJS()
         context.globalObject["testCompleted"] = SwiftJS.Value(in: context) { args, this in
             let result = args[0]
-            if result["error"].isString {
-                // Network might not be available, skip the test
-                XCTAssertTrue(true, "Network test skipped: \(result["error"].toString())")
-            } else {
-                XCTAssertEqual(Int(result["status"].numberValue ?? 0), 200)
-                XCTAssertEqual(result["headersType"].toString(), "string")
-                XCTAssertTrue(result["hasHeaders"].boolValue ?? false)
-            }
+            XCTAssertFalse(result["error"].isString, "Network request should succeed: \(result["error"].toString())")
+            XCTAssertEqual(Int(result["status"].numberValue ?? 0), 200)
+            XCTAssertEqual(result["headersType"].toString(), "string")
+            XCTAssertTrue(result["hasHeaders"].boolValue ?? false)
             expectation.fulfill()
             return SwiftJS.Value.undefined
         }
@@ -387,18 +383,15 @@ final class XMLHttpRequestTests: XCTestCase {
         let context = SwiftJS()
         context.globalObject["testCompleted"] = SwiftJS.Value(in: context) { args, this in
             let result = args[0]
-            if result["finalStatus"].numberValue == 0 {
-                // Network might not be available, skip the test
-                XCTAssertTrue(true, "Network test skipped")
-            } else {
-                XCTAssertEqual(Int(result["finalStatus"].numberValue ?? 0), 200)
-                XCTAssertTrue(result["hasMultipleStates"].boolValue ?? false)
-                
-                let states = result["states"]
-                let stateCount = Int(states["length"].numberValue ?? 0)
-                XCTAssertGreaterThan(stateCount, 0)
-                
-                // Final state should be DONE (4)
+            XCTAssertNotEqual(result["finalStatus"].numberValue ?? 0, 0, "Network request should complete")
+            XCTAssertEqual(Int(result["finalStatus"].numberValue ?? 0), 200)
+            XCTAssertTrue(result["hasMultipleStates"].boolValue ?? false)
+            
+            let states = result["states"]
+            let stateCount = Int(states["length"].numberValue ?? 0)
+            XCTAssertGreaterThan(stateCount, 0)
+            
+            // Final state should be DONE (4)
                 let finalState = Int(states[stateCount - 1].numberValue ?? -1)
                 XCTAssertEqual(finalState, 4)
             }
@@ -438,14 +431,10 @@ final class XMLHttpRequestTests: XCTestCase {
         let context = SwiftJS()
         context.globalObject["testCompleted"] = SwiftJS.Value(in: context) { args, this in
             let result = args[0]
-            if result["error"].isString {
-                // Network might not be available, skip the test
-                XCTAssertTrue(true, "Network test skipped: \(result["error"].toString())")
-            } else {
-                XCTAssertEqual(Int(result["status"].numberValue ?? 0), 200)
-                XCTAssertEqual(Int(result["readyState"].numberValue ?? 0), 4) // DONE
-                XCTAssertTrue(result["hasResponse"].boolValue ?? false)
-            }
+            XCTAssertFalse(result["error"].isString, "Network request should succeed: \(result["error"].toString())")
+            XCTAssertEqual(Int(result["status"].numberValue ?? 0), 200)
+            XCTAssertEqual(Int(result["readyState"].numberValue ?? 0), 4) // DONE
+            XCTAssertTrue(result["hasResponse"].boolValue ?? false)
             expectation.fulfill()
             return SwiftJS.Value.undefined
         }
@@ -493,14 +482,11 @@ final class XMLHttpRequestTests: XCTestCase {
         let context = SwiftJS()
         context.globalObject["testCompleted"] = SwiftJS.Value(in: context) { args, this in
             let result = args[0]
-            if result["error"].isString || result["parseError"].isString {
-                // Network might not be available or response format different, skip the test
-                XCTAssertTrue(true, "Network test skipped")
-            } else {
-                XCTAssertEqual(Int(result["status"].numberValue ?? 0), 200)
-                XCTAssertTrue(result["hasData"].boolValue ?? false)
-                // Message matching might depend on exact server implementation
-            }
+            XCTAssertFalse(result["error"].isString, "Network request should succeed: \(result["error"].toString())")
+            XCTAssertFalse(result["parseError"].isString, "JSON should parse successfully")
+            XCTAssertEqual(Int(result["status"].numberValue ?? 0), 200)
+            XCTAssertTrue(result["hasData"].boolValue ?? false)
+            // Message matching might depend on exact server implementation
             expectation.fulfill()
             return SwiftJS.Value.undefined
         }
@@ -577,12 +563,8 @@ final class XMLHttpRequestTests: XCTestCase {
         let context = SwiftJS()
         context.globalObject["testCompleted"] = SwiftJS.Value(in: context) { args, this in
             let result = args[0]
-            if result["unexpectedLoad"].boolValue == true {
-                // The request might complete faster than we can abort it
-                XCTAssertTrue(true, "Request completed before abort")
-            } else {
-                XCTAssertTrue(result["aborted"].boolValue ?? false)
-            }
+            XCTAssertFalse(result["unexpectedLoad"].boolValue == true, "Request should not complete before abort")
+            XCTAssertTrue(result["aborted"].boolValue ?? false)
             expectation.fulfill()
             return SwiftJS.Value.undefined
         }
@@ -623,16 +605,10 @@ final class XMLHttpRequestTests: XCTestCase {
         let context = SwiftJS()
         context.globalObject["testCompleted"] = SwiftJS.Value(in: context) { args, this in
             let result = args[0]
-            if result["unexpectedLoad"].boolValue == true {
-                // The delay service might not work as expected
-                XCTAssertTrue(true, "Delay service responded faster than expected")
-            } else if result["error"].isString {
-                // Might get network error instead of timeout
-                XCTAssertTrue(true, "Got network error instead of timeout")
-            } else {
-                XCTAssertTrue(result["timedOut"].boolValue ?? false)
-                XCTAssertEqual(Int(result["timeoutValue"].numberValue ?? 0), 1000)
-            }
+            XCTAssertFalse(result["unexpectedLoad"].boolValue == true, "Delay service should work as expected")
+            XCTAssertFalse(result["error"].isString, "Should timeout, not network error: \(result["error"].toString())")
+            XCTAssertTrue(result["timedOut"].boolValue ?? false)
+            XCTAssertEqual(Int(result["timeoutValue"].numberValue ?? 0), 1000)
             expectation.fulfill()
             return SwiftJS.Value.undefined
         }
@@ -719,18 +695,16 @@ final class XMLHttpRequestTests: XCTestCase {
         let context = SwiftJS()
         context.globalObject["testCompleted"] = SwiftJS.Value(in: context) { args, this in
             let result = args[0]
-            if result["error"].isString || result["parseError"].isString {
-                // Network might not be available, skip the test
-                XCTAssertTrue(true, "Network test skipped")
-            } else {
-                XCTAssertEqual(Int(result["status"].numberValue ?? 0), 200)
-                XCTAssertEqual(Int(result["readyState"].numberValue ?? 0), 4)
-                XCTAssertTrue(result["hasData"].boolValue ?? false)
-                XCTAssertTrue(result["headersReceived"].boolValue ?? false)
-                
-                let events = result["events"]
-                let eventCount = Int(events["length"].numberValue ?? 0)
-                XCTAssertGreaterThan(eventCount, 0, "Should have received some events")
+            XCTAssertFalse(result["error"].isString, "Network request should succeed: \(result["error"].toString())")
+            XCTAssertFalse(result["parseError"].isString, "JSON should parse successfully")
+            XCTAssertEqual(Int(result["status"].numberValue ?? 0), 200)
+            XCTAssertEqual(Int(result["readyState"].numberValue ?? 0), 4)
+            XCTAssertTrue(result["hasData"].boolValue ?? false)
+            XCTAssertTrue(result["headersReceived"].boolValue ?? false)
+            
+            let events = result["events"]
+            let eventCount = Int(events["length"].numberValue ?? 0)
+            XCTAssertGreaterThan(eventCount, 0, "Should have received some events")
             }
             expectation.fulfill()
             return SwiftJS.Value.undefined

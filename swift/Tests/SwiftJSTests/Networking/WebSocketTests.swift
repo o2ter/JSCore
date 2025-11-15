@@ -182,16 +182,16 @@ final class WebSocketTests: XCTestCase {
         let context = SwiftJS()
         context.globalObject["testCompleted"] = SwiftJS.Value(in: context) { args, this in
             let result = args[0]
-            if result["error"].isString {
-                XCTAssertTrue(true, "Network test skipped: \(result["error"].toString())")
-            } else {
-                XCTAssertFalse(result["timeout"].boolValue == true, "Request should not timeout")
-               
-                XCTAssertTrue(result["success"].boolValue ?? false, "Should successfully send/receive")
-                // Note: echo.websocket.org may return server info instead of echoing, so just verify we got a response
-                let received = result["receivedMessage"].toString()
-                XCTAssertFalse(received.isEmpty, "Should receive a message (echo server may return server info)")
-            }
+            XCTAssertFalse(
+                result["error"].isString,
+                "Network request should succeed: \(result["error"].toString())")
+            XCTAssertFalse(result["timeout"].boolValue == true, "Request should not timeout")
+
+            XCTAssertTrue(result["success"].boolValue ?? false, "Should successfully send/receive")
+            // Note: echo.websocket.org may return server info instead of echoing, so just verify we got a response
+            let received = result["receivedMessage"].toString()
+            XCTAssertFalse(
+                received.isEmpty, "Should receive a message (echo server may return server info)")
             expectation.fulfill()
             return SwiftJS.Value.undefined
         }
@@ -236,16 +236,16 @@ final class WebSocketTests: XCTestCase {
         let context = SwiftJS()
         context.globalObject["testCompleted"] = SwiftJS.Value(in: context) { args, this in
             let result = args[0]
-            if result["error"].isString {
-                XCTAssertTrue(true, "Network test skipped: \(result["error"].toString())")
-            } else {
-                XCTAssertFalse(result["timeout"].boolValue == true, "Request should not timeout")
-               
-                XCTAssertTrue(result["closed"].boolValue ?? false, "Close event should fire")
-                XCTAssertEqual(Int(result["code"].numberValue ?? -1), 1000, "Close code should be 1000")
-                XCTAssertTrue(result["wasClean"].boolValue ?? false, "Should be clean closure")
-                XCTAssertEqual(Int(result["readyState"].numberValue ?? -1), 3, "Ready state should be CLOSED")
-            }
+            XCTAssertFalse(
+                result["error"].isString,
+                "Network request should succeed: \(result["error"].toString())")
+            XCTAssertFalse(result["timeout"].boolValue == true, "Request should not timeout")
+
+            XCTAssertTrue(result["closed"].boolValue ?? false, "Close event should fire")
+            XCTAssertEqual(Int(result["code"].numberValue ?? -1), 1000, "Close code should be 1000")
+            XCTAssertTrue(result["wasClean"].boolValue ?? false, "Should be clean closure")
+            XCTAssertEqual(
+                Int(result["readyState"].numberValue ?? -1), 3, "Ready state should be CLOSED")
             expectation.fulfill()
             return SwiftJS.Value.undefined
         }
@@ -325,14 +325,15 @@ final class WebSocketTests: XCTestCase {
         let context = SwiftJS()
         context.globalObject["testCompleted"] = SwiftJS.Value(in: context) { args, this in
             let result = args[0]
-            if result["error"].isString {
-                XCTAssertTrue(true, "Network test skipped: \(result["error"].toString())")
-            } else {
-                XCTAssertFalse(result["timeout"].boolValue == true, "Request should not timeout")
-               
-                XCTAssertTrue(result["eventListenerWorks"].boolValue ?? false, "addEventListener should work")
-                XCTAssertEqual(Int(result["openCount"].numberValue ?? 0), 1, "Open event should fire once")
-            }
+            XCTAssertFalse(
+                result["error"].isString,
+                "Network request should succeed: \(result["error"].toString())")
+            XCTAssertFalse(result["timeout"].boolValue == true, "Request should not timeout")
+
+            XCTAssertTrue(
+                result["eventListenerWorks"].boolValue ?? false, "addEventListener should work")
+            XCTAssertEqual(
+                Int(result["openCount"].numberValue ?? 0), 1, "Open event should fire once")
             expectation.fulfill()
             return SwiftJS.Value.undefined
         }

@@ -388,13 +388,9 @@ final class FetchTests: XCTestCase {
         let context = SwiftJS()
         context.globalObject["testCompleted"] = SwiftJS.Value(in: context) { args, this in
             let result = args[0]
-            if result["error"].isString {
-                // Network might not be available, skip the test
-                XCTAssertTrue(true, "Network test skipped: \(result["error"].toString())")
-            } else {
-                XCTAssertTrue(result["hasTestHeader"].boolValue ?? false)
-                XCTAssertEqual(result["testHeaderValue"].toString(), "fetch-test")
-            }
+            XCTAssertFalse(result["error"].isString, "Network request should succeed: \(result["error"].toString())")
+            XCTAssertTrue(result["hasTestHeader"].boolValue ?? false)
+            XCTAssertEqual(result["testHeaderValue"].toString(), "fetch-test")
             expectation.fulfill()
             return SwiftJS.Value.undefined
         }
@@ -432,13 +428,9 @@ final class FetchTests: XCTestCase {
         let context = SwiftJS()
         context.globalObject["testCompleted"] = SwiftJS.Value(in: context) { args, this in
             let result = args[0]
-            if result["error"].isString {
-                // Network might not be available, skip the test
-                XCTAssertTrue(true, "Network test skipped: \(result["error"].toString())")
-            } else {
-                // The exact structure of httpbin response may vary, just check we got some response
-                XCTAssertNotNil(result["contentType"])
-            }
+            XCTAssertFalse(result["error"].isString, "Network request should succeed: \(result["error"].toString())")
+            // The exact structure of httpbin response may vary, just check we got some response
+            XCTAssertNotNil(result["contentType"])
             expectation.fulfill()
             return SwiftJS.Value.undefined
         }
@@ -971,14 +963,10 @@ final class FetchTests: XCTestCase {
         let context = SwiftJS()
         context.globalObject["testCompleted"] = SwiftJS.Value(in: context) { args, this in
             let result = args[0]
-            if result["error"].toString() == "Should have been aborted" {
-                // The abort might not work in all cases, that's ok
-                XCTAssertTrue(true, "Abort not supported or request completed too quickly")
-            } else {
-                XCTAssertTrue(result["aborted"].boolValue ?? false)
-                // The exact error name might vary
-                XCTAssertNotEqual(result["errorName"].toString(), "")
-            }
+            XCTAssertNotEqual(result["error"].toString(), "Should have been aborted", "Abort should work")
+            XCTAssertTrue(result["aborted"].boolValue ?? false)
+            // The exact error name might vary
+            XCTAssertNotEqual(result["errorName"].toString(), "")
             expectation.fulfill()
             return SwiftJS.Value.undefined
         }
@@ -1081,14 +1069,10 @@ final class FetchTests: XCTestCase {
         let context = SwiftJS()
         context.globalObject["testCompleted"] = SwiftJS.Value(in: context) { args, this in
             let result = args[0]
-            if result["error"].isString {
-                // Network might not be available, skip the test
-                XCTAssertTrue(true, "Network test skipped: \(result["error"].toString())")
-            } else {
-                XCTAssertTrue(result["performanceOk"].boolValue ?? false, 
-                            "Request took \(result["duration"]) ms, should be under 10000ms")
-                XCTAssertTrue(result["hasData"].boolValue ?? false)
-            }
+            XCTAssertFalse(result["error"].isString, "Network request should succeed: \(result["error"].toString())")
+            XCTAssertTrue(result["performanceOk"].boolValue ?? false, 
+                        "Request took \(result["duration"]) ms, should be under 10000ms")
+            XCTAssertTrue(result["hasData"].boolValue ?? false)
             expectation.fulfill()
             return SwiftJS.Value.undefined
         }
@@ -1158,17 +1142,15 @@ final class FetchTests: XCTestCase {
         context.globalObject["testCompleted"] = SwiftJS.Value(in: context) { args, this in
             let result = args[0]
 
-            if result["error"].isString {
-                XCTAssertTrue(true, "Network test skipped: \(result["error"].toString())")
-            } else {
-                let totalDuration = result["totalDuration"].numberValue ?? 0
-                let maxExpectedTime = result["maxExpectedTime"].numberValue ?? 0
-                let speedup = result["speedup"].numberValue ?? 0
+            XCTAssertFalse(result["error"].isString, "Network request should succeed: \(result["error"].toString())")
+            let totalDuration = result["totalDuration"].numberValue ?? 0
+            let maxExpectedTime = result["maxExpectedTime"].numberValue ?? 0
+            let speedup = result["speedup"].numberValue ?? 0
 
-                XCTAssertTrue(
-                    result["correctOrder"].boolValue ?? false,
-                    "Requests should complete in order of their delays (1s, 2s, 3s)")
-                XCTAssertGreaterThan(
+            XCTAssertTrue(
+                result["correctOrder"].boolValue ?? false,
+                "Requests should complete in order of their delays (1s, 2s, 3s)")
+            XCTAssertGreaterThan(
                     speedup, 1.2,
                     "Concurrent execution should be at least 1.2x faster than sequential")
                 XCTAssertLessThan(
@@ -1240,17 +1222,15 @@ final class FetchTests: XCTestCase {
         context.globalObject["testCompleted"] = SwiftJS.Value(in: context) { args, this in
             let result = args[0]
 
-            if result["error"].isString {
-                XCTAssertTrue(true, "Network test skipped: \(result["error"].toString())")
-            } else {
-                let totalDuration = result["totalDuration"].numberValue ?? 0
-                let speedup = result["speedup"].numberValue ?? 0
-                let completionSpread = result["completionSpread"].numberValue ?? 0
-                let maxReasonableTime = result["maxReasonableTime"].numberValue ?? 0
+            XCTAssertFalse(result["error"].isString, "Network request should succeed: \(result["error"].toString())")
+            let totalDuration = result["totalDuration"].numberValue ?? 0
+            let speedup = result["speedup"].numberValue ?? 0
+            let completionSpread = result["completionSpread"].numberValue ?? 0
+            let maxReasonableTime = result["maxReasonableTime"].numberValue ?? 0
 
-                XCTAssertTrue(
-                    result["allSuccessful"].boolValue ?? false,
-                    "All concurrent requests should succeed")
+            XCTAssertTrue(
+                result["allSuccessful"].boolValue ?? false,
+                "All concurrent requests should succeed")
                 XCTAssertGreaterThan(
                     speedup, 2.0,
                     "5 concurrent requests should be much faster than sequential (>2x)")
@@ -1322,14 +1302,10 @@ final class FetchTests: XCTestCase {
         let context = SwiftJS()
         context.globalObject["testCompleted"] = SwiftJS.Value(in: context) { args, this in
             let result = args[0]
-            if result["error"].isString {
-                // Network might not be available, skip the test
-                XCTAssertTrue(true, "Network test skipped: \(result["error"].toString())")
-            } else {
-                XCTAssertTrue(result["requestDataMatches"].boolValue ?? false)
-                XCTAssertTrue(result["hasHeaders"].boolValue ?? false)
-                XCTAssertTrue(result["methodCorrect"].boolValue ?? false)
-            }
+            XCTAssertFalse(result["error"].isString, "Network request should succeed: \(result["error"].toString())")
+            XCTAssertTrue(result["requestDataMatches"].boolValue ?? false)
+            XCTAssertTrue(result["hasHeaders"].boolValue ?? false)
+            XCTAssertTrue(result["methodCorrect"].boolValue ?? false)
             expectation.fulfill()
             return SwiftJS.Value.undefined
         }

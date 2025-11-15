@@ -232,16 +232,15 @@ final class FetchRedirectTests: XCTestCase {
         let context = SwiftJS()
         context.globalObject["testCompleted"] = SwiftJS.Value(in: context) { args, this in
             let result = args[0]
-            if result["success"].boolValue == true {
-                let status = Int(result["status"].numberValue ?? 0)
-                if result["isRedirectStatus"].boolValue == true {
-                    XCTAssertTrue(status >= 300 && status < 400, "Should return redirect status code")
-                } else {
-                    // The underlying HTTP client might follow redirects automatically
-                    XCTAssertTrue(true, "Underlying HTTP client behavior varies")
-                }
+            XCTAssertTrue(
+                result["success"].boolValue ?? false,
+                "Request should succeed: \(result["error"].toString())")
+            let status = Int(result["status"].numberValue ?? 0)
+            if result["isRedirectStatus"].boolValue == true {
+                XCTAssertTrue(status >= 300 && status < 400, "Should return redirect status code")
             } else {
-                XCTAssertTrue(true, "Network test skipped: \(result["error"].toString())")
+                // The underlying HTTP client might follow redirects automatically
+                XCTAssertTrue(status == 200, "Should either get redirect status or final 200")
             }
             expectation.fulfill()
             return SwiftJS.Value.undefined
@@ -309,7 +308,7 @@ final class FetchRedirectTests: XCTestCase {
                 let duration = result["duration"].numberValue ?? 0
                 XCTAssertGreaterThan(duration, 50, "Redirect chain should take longer than single request")
             } else {
-                XCTAssertTrue(true, "Network test skipped: \(result["error"].toString())")
+                XCTFail("Network request should succeed: \(result["error"].toString())")
             }
             expectation.fulfill()
             return SwiftJS.Value.undefined
@@ -378,7 +377,7 @@ final class FetchRedirectTests: XCTestCase {
                     "Should reach GET endpoint (simulating POST->GET conversion)")
                 // This test verifies our redirect mechanism works; POST->GET conversion is standard HTTP behavior
             } else {
-                XCTAssertTrue(true, "Network test skipped: \(result["error"].toString())")
+                XCTFail("Network request should succeed: \(result["error"].toString())")
             }
             expectation.fulfill()
             return SwiftJS.Value.undefined
@@ -418,12 +417,15 @@ final class FetchRedirectTests: XCTestCase {
         let context = SwiftJS()
         context.globalObject["testCompleted"] = SwiftJS.Value(in: context) { args, this in
             let result = args[0]
-            if result["success"].boolValue == true {
-                XCTAssertEqual(result["requestRedirect"].toString(), "follow", "Request should preserve redirect option")
-                XCTAssertTrue(result["redirectWorked"].boolValue ?? false, "Redirect should work with Request object")
-            } else {
-                XCTAssertTrue(true, "Network test skipped: \(result["error"].toString())")
-            }
+            XCTAssertTrue(
+                result["success"].boolValue ?? false,
+                "Request should succeed: \(result["error"].toString())")
+            XCTAssertEqual(
+                result["requestRedirect"].toString(), "follow",
+                "Request should preserve redirect option")
+            XCTAssertTrue(
+                result["redirectWorked"].boolValue ?? false,
+                "Redirect should work with Request object")
             expectation.fulfill()
             return SwiftJS.Value.undefined
         }
@@ -473,9 +475,9 @@ final class FetchRedirectTests: XCTestCase {
             if result["success"].boolValue == true {
                 XCTAssertTrue(result["aborted"].boolValue ?? false, "Request should be abortable during redirect")
             } else if result["unexpectedSuccess"].boolValue == true {
-                XCTAssertTrue(true, "Request completed before abort - acceptable timing variance")
+                XCTFail("Request completed before abort - abort timing issue")
             } else {
-                XCTAssertTrue(true, "Network test skipped")
+                XCTFail("Network request should succeed")
             }
             expectation.fulfill()
             return SwiftJS.Value.undefined
@@ -515,12 +517,12 @@ final class FetchRedirectTests: XCTestCase {
         let context = SwiftJS()
         context.globalObject["testCompleted"] = SwiftJS.Value(in: context) { args, this in
             let result = args[0]
-            if result["success"].boolValue == true {
-                XCTAssertGreaterThan(Int(result["headerCount"].numberValue ?? 0), 0, "Should receive some headers")
-                // Note: Custom headers may or may not be preserved across redirects depending on the server
-            } else {
-                XCTAssertTrue(true, "Network test skipped: \(result["error"].toString())")
-            }
+            XCTAssertTrue(
+                result["success"].boolValue ?? false,
+                "Request should succeed: \(result["error"].toString())")
+            XCTAssertGreaterThan(
+                Int(result["headerCount"].numberValue ?? 0), 0, "Should receive some headers")
+            // Note: Custom headers may or may not be preserved across redirects depending on the server
             expectation.fulfill()
             return SwiftJS.Value.undefined
         }
