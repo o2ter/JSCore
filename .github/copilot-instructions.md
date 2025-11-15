@@ -55,6 +55,7 @@ JSCore/
 #### Common Native APIs (Both Engines)
 - `compression`: Compression and decompression (compress, decompress methods for gzip, deflate, deflate-raw)
 - `crypto`: Cryptographic functions (randomUUID, randomBytes, hashing)
+- `performance`: High-resolution timing API (now, mark, measure, getEntries, getEntriesByType, getEntriesByName, clearMarks, clearMeasures)
 - `processInfo`: Process information (PID, arguments, environment)
 - `processControl`: Process control operations (exit, etc.)
 - `deviceInfo`: Device identification
