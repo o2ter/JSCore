@@ -898,7 +898,7 @@ class JavaScriptEngine(
                 try {
                     // Close module objects (V8ValueObjects stored on nativeBridge)
                     val moduleNames = listOf("crypto", "FileSystem", "deviceInfo", "bundleInfo", 
-                                            "processInfo", "processControl", "URLSession")
+                                            "processInfo", "processControl", "URLSession", "WebSocket", "compression")
                     moduleNames.forEach { moduleName ->
                         try {
                             nativeBridge.get<V8ValueObject>(moduleName)?.close()
@@ -924,6 +924,7 @@ class JavaScriptEngine(
                     nativeBridge.delete("processInfo")
                     nativeBridge.delete("processControl")
                     nativeBridge.delete("URLSession")
+                    nativeBridge.delete("WebSocket")
                     nativeBridge.delete("compression")
                 } catch (e: Exception) {
                     // Ignore errors during cleanup
