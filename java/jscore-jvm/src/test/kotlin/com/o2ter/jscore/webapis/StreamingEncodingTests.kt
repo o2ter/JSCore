@@ -29,10 +29,9 @@ package com.o2ter.jscore.webapis
 
 import com.o2ter.jscore.JavaScriptEngine
 import com.o2ter.jscore.jvm.JvmPlatformContext
+import com.o2ter.jscore.executeAsync
 import org.junit.Assert.*
 import org.junit.Test
-import java.util.concurrent.CountDownLatch
-import java.util.concurrent.TimeUnit
 
 class StreamingEncodingTests {
 
@@ -40,10 +39,7 @@ class StreamingEncodingTests {
     fun testTextEncoderStream() {
         val engine = JavaScriptEngine(JvmPlatformContext())
         try {
-        val latch = CountDownLatch(1)
-        var testResult: Map<*, *>? = null
-
-        val script = """
+            val testResult = executeAsync(engine, """
             (async () => {
                 var stream = new ReadableStream({
                     start(controller) {
@@ -73,27 +69,16 @@ class StreamingEncodingTests {
                     isUint8Array: chunks[0] instanceof Uint8Array
                 });
             })()
-        """
+        """) as? Map<*, *>
 
-        engine.executeAsync(script) { result, error ->
-            if (error != null) {
-                fail("JavaScript Error: ${error.message}")
-            } else {
-                testResult = result as? Map<*, *>
-                latch.countDown()
-            }
-        }
+            assertNotNull("Should have result", testResult)
+            val chunkCount = (testResult!!["chunkCount"] as Number).toInt()
+            val totalBytes = (testResult["totalBytes"] as Number).toInt()
+            val isUint8Array = testResult["isUint8Array"] as Boolean
 
-        assertTrue("Test should complete within timeout", latch.await(10, TimeUnit.SECONDS))
-        assertNotNull("Should have result", testResult)
-
-        val chunkCount = (testResult!!["chunkCount"] as Number).toInt()
-        val totalBytes = (testResult!!["totalBytes"] as Number).toInt()
-        val isUint8Array = testResult!!["isUint8Array"] as Boolean
-
-        assertTrue("Should have encoded chunks", chunkCount > 0)
-        assertEquals("Should encode 'Hello World' (11 bytes)", 11, totalBytes)
-        assertTrue("Chunks should be Uint8Array", isUint8Array)
+            assertTrue("Should have encoded chunks", chunkCount > 0)
+            assertEquals("Should encode 'Hello World' (11 bytes)", 11, totalBytes)
+            assertTrue("Chunks should be Uint8Array", isUint8Array)
         } finally {
             engine.close()
         }
