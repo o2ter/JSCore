@@ -29,6 +29,7 @@ package com.o2ter.jscore.webapis
 
 import com.o2ter.jscore.JavaScriptEngine
 import com.o2ter.jscore.jvm.JvmPlatformContext
+import com.o2ter.jscore.executeAsync
 import org.junit.Assert.*
 import org.junit.Test
 import java.util.concurrent.CountDownLatch
