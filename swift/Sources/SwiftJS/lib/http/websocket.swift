@@ -49,6 +49,15 @@ import JavaScriptCore
         self.runloop = runloop
         super.init()
     }
+    
+    // Called by WebSocketConnection when connection fails/closes unexpectedly
+    fileprivate func cleanupAfterError(socketId: String) {
+        socketsLock.lock()
+        sockets.removeValue(forKey: socketId)
+        socketsLock.unlock()
+
+        context.stopWebSocket(socketId)
+    }
 
     func createWebSocket(
         _ url: String, _ protocols: JSValue, _ onOpen: JSValue, _ onMessage: JSValue,
@@ -89,12 +98,14 @@ import JavaScriptCore
 
         // Create connection object
         let connection = WebSocketConnection(
+            socketId: socketId,
             task: webSocketTask,
             onOpen: onOpen,
             onMessage: onMessage,
             onError: onError,
             onClose: onClose,
-            runloop: runloop
+            runloop: runloop,
+            parent: self
         )
 
         socketsLock.lock()
@@ -173,6 +184,8 @@ private class WebSocketConnection: @unchecked Sendable {
     let onError: JSValue
     let onClose: JSValue
     let runloop: RunLoop
+    let socketId: String
+    weak var parent: JSWebSocket?
 
     private(set) var readyState: Int = 0  // 0=CONNECTING, 1=OPEN, 2=CLOSING, 3=CLOSED
     private(set) var bufferedAmount: Int = 0
@@ -180,15 +193,18 @@ private class WebSocketConnection: @unchecked Sendable {
     private let lock = NSLock()
 
     init(
+        socketId: String,
         task: URLSessionWebSocketTask, onOpen: JSValue, onMessage: JSValue, onError: JSValue,
-        onClose: JSValue, runloop: RunLoop
+        onClose: JSValue, runloop: RunLoop, parent: JSWebSocket?
     ) {
+        self.socketId = socketId
         self.task = task
         self.onOpen = onOpen
         self.onMessage = onMessage
         self.onError = onError
         self.onClose = onClose
         self.runloop = runloop
+        self.parent = parent
 
         // Set initial state to CONNECTING
         self.readyState = 0
@@ -273,6 +289,9 @@ private class WebSocketConnection: @unchecked Sendable {
                             ]
                             _ = self.onClose.call(withArguments: [closeEvent])
                         }
+                        
+                        // Clean up tracking when connection fails
+                        self.parent?.cleanupAfterError(socketId: self.socketId)
                     }
                 }
             }
