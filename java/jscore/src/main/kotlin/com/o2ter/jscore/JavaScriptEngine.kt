@@ -765,30 +765,6 @@ class JavaScriptEngine(
         """.trimIndent(), nativeBridge)
     }
     
-    private fun setupPerformanceBridge(nativeBridge: V8ValueObject) {
-        
-        // Performance API bridges
-        val performanceNowCallback = IJavetDirectCallable.NoThisAndResult<Exception> { _ ->
-            v8Runtime.createV8ValueDouble(System.currentTimeMillis().toDouble())
-        }
-        nativeBridge.bindFunction(JavetCallbackContext("performanceNow", JavetCallbackType.DirectCallNoThisAndResult, performanceNowCallback))
-        
-        // Bridge performance API
-        v8Runtime.invokeFunction("""
-            (function(nativeBridge) {
-                if (!nativeBridge || !nativeBridge.performanceNow) return;
-                
-                if (!globalThis.performance) {
-                    globalThis.performance = {
-                        now: function() { return nativeBridge.performanceNow(); }
-                    };
-                } else {
-                    globalThis.performance.now = function() { return nativeBridge.performanceNow(); };
-                }
-            })
-        """.trimIndent(), nativeBridge)
-    }
-    
     private fun loadPolyfill(nativeBridge: V8ValueObject) {
         try {
             val polyfillCode = PolyfillLoader.getPolyfillCode()
