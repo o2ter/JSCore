@@ -5634,8 +5634,8 @@
                         i += 2;
                         continue;
                     } else {
-                        // Single asterisk - match segment
-                        regexpSource += '([^/]*)';
+                        // Single asterisk - match segment (everything after last /)
+                        regexpSource += '(.*)';
                         i += 1;
                         continue;
                     }
@@ -5665,55 +5665,95 @@
         }
 
         exec(input, baseURL) {
-            // Parse input URL
-            let url;
-            try {
-                if (typeof input === 'string') {
-                    url = new URL(input, baseURL);
-                } else if (input && typeof input === 'object') {
-                    // Input is URL object or URL-like object
-                    url = input;
+            // Parse input - handle both full URLs and path-only strings
+            let pathname;
+            let url = null;
+
+            if (typeof input === 'string') {
+                // Check if it's a path-only string (starts with /)
+                if (input.startsWith('/')) {
+                    pathname = input;
                 } else {
-                    return null;
+                    // Try to parse as full URL
+                    try {
+                        url = new URL(input, baseURL);
+                        pathname = url.pathname;
+                    } catch (e) {
+                        return null;
+                    }
                 }
-            } catch (e) {
+            } else if (input && typeof input === 'object') {
+                // Input is URL object or URL-like object
+                url = input;
+                pathname = url.pathname || '';
+            } else {
                 return null;
             }
 
-            // Match each component
-            const inputs = {
-                protocol: url.protocol ? url.protocol.slice(0, -1) : '',
-                username: url.username || '',
-                password: url.password || '',
-                hostname: url.hostname || '',
-                port: url.port || '',
-                pathname: url.pathname || '',
-                search: url.search ? url.search.slice(1) : '',
-                hash: url.hash ? url.hash.slice(1) : ''
+            // Match pathname against pattern
+            const pathnameRegexp = this.#regexps.pathname;
+            const pathnameMatch = pathnameRegexp.exec(pathname);
+
+            if (!pathnameMatch) {
+                return null; // Pattern doesn't match
+            }
+
+            // Extract all named parameters from pathname
+            const params = {};
+            const pathnameKeys = this.#keys.pathname;
+            for (let i = 0; i < pathnameKeys.length; i++) {
+                params[pathnameKeys[i]] = pathnameMatch[i + 1];
+            }
+
+            // Build result object
+            const result = {
+                pathname: {
+                    input: pathname,
+                    groups: {}
+                },
+                params: params
             };
 
-            const result = {};
+            // Copy named parameters to pathname.groups for compatibility
+            for (const key of pathnameKeys) {
+                result.pathname.groups[key] = params[key];
+            }
 
-            for (const [key, regexp] of Object.entries(this.#regexps)) {
-                const input = inputs[key];
-                const match = regexp.exec(input);
-
-                if (!match) {
-                    return null; // Pattern doesn't match
-                }
-
-                const groups = {};
-                const keys = this.#keys[key];
-
-                // Extract named groups
-                for (let i = 0; i < keys.length; i++) {
-                    groups[keys[i]] = match[i + 1];
-                }
-
-                result[key] = {
-                    input: input,
-                    groups: groups
+            // If we have a full URL, match other components
+            if (url) {
+                const inputs = {
+                    protocol: url.protocol ? url.protocol.slice(0, -1) : '',
+                    username: url.username || '',
+                    password: url.password || '',
+                    hostname: url.hostname || '',
+                    port: url.port || '',
+                    search: url.search ? url.search.slice(1) : '',
+                    hash: url.hash ? url.hash.slice(1) : ''
                 };
+
+                for (const [key, regexp] of Object.entries(this.#regexps)) {
+                    if (key === 'pathname') continue; // Already handled
+
+                    const input = inputs[key];
+                    const match = regexp.exec(input);
+
+                    if (!match) {
+                        return null; // Pattern doesn't match
+                    }
+
+                    const groups = {};
+                    const keys = this.#keys[key];
+
+                    // Extract named groups
+                    for (let i = 0; i < keys.length; i++) {
+                        groups[keys[i]] = match[i + 1];
+                    }
+
+                    result[key] = {
+                        input: input,
+                        groups: groups
+                    };
+                }
             }
 
             return result;
