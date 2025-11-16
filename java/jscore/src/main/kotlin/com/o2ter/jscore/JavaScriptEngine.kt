@@ -600,6 +600,11 @@ class JavaScriptEngine(
                 fileSystem.close()
             }
             
+            // Close URL session
+            if (::urlSession.isInitialized) {
+                urlSession.close()
+            }
+            
             // Clean up native bridge
             // Module objects (crypto, FileSystem, etc.) were closed after setup
             // But we must still delete ALL properties to release callback contexts properly
