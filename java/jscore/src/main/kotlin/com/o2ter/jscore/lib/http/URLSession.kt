@@ -364,6 +364,13 @@ class URLSession(
     fun setupBridge(nativeBridge: V8ValueObject) {
         val urlSessionBridge = v8Runtime.createV8ValueObject()
         try {
+            // Add shared() function that returns the URLSession instance
+            urlSessionBridge.bindFunction(JavetCallbackContext("shared",
+                JavetCallbackType.DirectCallNoThisAndResult,
+                IJavetDirectCallable.NoThisAndResult<Exception> { _ ->
+                    urlSessionBridge
+                }))
+            
             urlSessionBridge.bindFunction(JavetCallbackContext("httpRequestWithRequest",
                 JavetCallbackType.DirectCallNoThisAndResult,
                 IJavetDirectCallable.NoThisAndResult<Exception> { v8Values ->
