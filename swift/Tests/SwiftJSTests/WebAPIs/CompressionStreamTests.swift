@@ -145,7 +145,7 @@ final class CompressionStreamTests: XCTestCase {
                 result: result,
                 match: original === result
             });
-        })())
+        })()
         """
         
         context.globalObject["testCompleted"] = SwiftJS.Value(in: context) { args, this in
@@ -197,7 +197,7 @@ final class CompressionStreamTests: XCTestCase {
             var originalSize = encoder.encode(original).length;
             
             return compressedSize < originalSize;
-        })())
+        })()
         """
         
         context.globalObject["testCompleted"] = SwiftJS.Value(in: context) { args, this in
@@ -327,7 +327,7 @@ final class CompressionStreamTests: XCTestCase {
             
             var result = decoder.decode(decompressedChunks[0]);
             return original === result;
-        })())
+        })()
         """
         
         context.globalObject["testCompleted"] = SwiftJS.Value(in: context) { args, this in
