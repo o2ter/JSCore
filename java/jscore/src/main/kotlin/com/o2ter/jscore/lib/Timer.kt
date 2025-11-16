@@ -136,7 +136,7 @@ class JSTimer(
             activeTimers[id] = task
             timer.schedule(task, delay)
             
-            v8Runtime.createV8ValueInteger(id)
+            return@NoThisAndResult v8Runtime.createV8ValueInteger(id)
         }
         nativeBridge.bindFunction(JavetCallbackContext("setTimeout", JavetCallbackType.DirectCallNoThisAndResult, setTimeoutCallback))
         
@@ -180,7 +180,7 @@ class JSTimer(
             activeTimers[id] = task
             timer.schedule(task, delay, delay)
             
-            v8Runtime.createV8ValueInteger(id)
+            return@NoThisAndResult v8Runtime.createV8ValueInteger(id)
         }
         nativeBridge.bindFunction(JavetCallbackContext("setInterval", JavetCallbackType.DirectCallNoThisAndResult, setIntervalCallback))
         
