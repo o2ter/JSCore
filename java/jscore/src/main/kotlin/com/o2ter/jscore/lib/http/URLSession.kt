@@ -354,7 +354,7 @@ class URLSession(
             ),
             methods = mapOf(
                 "valueForHTTPHeaderField" to IJavetDirectCallable.NoThisAndResult<Exception> { args ->
-                    if (args.isNotEmpty()) {
+                    return@NoThisAndResult if (args.isNotEmpty()) {
                         val field = args[0].toString()
                         val value = response.valueForHTTPHeaderField(field)
                         if (value != null) {
@@ -382,7 +382,7 @@ class URLSession(
             instance.bindFunction(JavetCallbackContext("httpRequestWithRequest",
                 JavetCallbackType.DirectCallNoThisAndResult,
                 IJavetDirectCallable.NoThisAndResult<Exception> { v8Values ->
-                    httpRequestWithRequest(v8Values)
+                    return@NoThisAndResult httpRequestWithRequest(v8Values)
                 }))
             sharedInstance = instance
             
@@ -390,7 +390,7 @@ class URLSession(
             urlSessionBridge.bindFunction(JavetCallbackContext("shared",
                 JavetCallbackType.DirectCallNoThisAndResult,
                 IJavetDirectCallable.NoThisAndResult<Exception> { _ ->
-                    sharedInstance!!
+                    return@NoThisAndResult sharedInstance!!
                 }))
             
             nativeBridge.set("URLSession", urlSessionBridge)

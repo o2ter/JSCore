@@ -53,7 +53,7 @@ class DeviceInfo(
                 "identifierForVendor",
                 JavetCallbackType.DirectCallNoThisAndResult,
                 IJavetDirectCallable.NoThisAndResult<Exception> { _ ->
-                    v8Runtime.createV8ValueString(platformContext.deviceInfo.getIdentifierForVendor())
+                    return@NoThisAndResult v8Runtime.createV8ValueString(platformContext.deviceInfo.getIdentifierForVendor())
                 }
             ))
             

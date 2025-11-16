@@ -120,33 +120,33 @@ class ProcessInfo(
                 ),
                 methods = mapOf(
                     "physicalMemory" to IJavetDirectCallable.NoThisAndResult<Exception> { _ ->
-                        v8Runtime.createV8ValueLong(runtime.maxMemory())
+                        return@NoThisAndResult v8Runtime.createV8ValueLong(runtime.maxMemory())
                     },
                     "processorCount" to IJavetDirectCallable.NoThisAndResult<Exception> { _ ->
-                        v8Runtime.createV8ValueInteger(runtime.availableProcessors())
+                        return@NoThisAndResult v8Runtime.createV8ValueInteger(runtime.availableProcessors())
                     },
                     "activeProcessorCount" to IJavetDirectCallable.NoThisAndResult<Exception> { _ ->
-                        v8Runtime.createV8ValueInteger(runtime.availableProcessors())
+                        return@NoThisAndResult v8Runtime.createV8ValueInteger(runtime.availableProcessors())
                     },
                     "systemUptime" to IJavetDirectCallable.NoThisAndResult<Exception> { _ ->
-                        v8Runtime.createV8ValueDouble(
+                        return@NoThisAndResult v8Runtime.createV8ValueDouble(
                             java.lang.management.ManagementFactory.getRuntimeMXBean().uptime / 1000.0
                         )
                     },
                     "getuid" to IJavetDirectCallable.NoThisAndResult<Exception> { _ ->
-                        v8Runtime.createV8ValueInteger(platformContext.processInfo.getuid())
+                        return@NoThisAndResult v8Runtime.createV8ValueInteger(platformContext.processInfo.getuid())
                     },
                     "geteuid" to IJavetDirectCallable.NoThisAndResult<Exception> { _ ->
-                        v8Runtime.createV8ValueInteger(platformContext.processInfo.geteuid())
+                        return@NoThisAndResult v8Runtime.createV8ValueInteger(platformContext.processInfo.geteuid())
                     },
                     "getgid" to IJavetDirectCallable.NoThisAndResult<Exception> { _ ->
-                        v8Runtime.createV8ValueInteger(platformContext.processInfo.getgid())
+                        return@NoThisAndResult v8Runtime.createV8ValueInteger(platformContext.processInfo.getgid())
                     },
                     "getegid" to IJavetDirectCallable.NoThisAndResult<Exception> { _ ->
-                        v8Runtime.createV8ValueInteger(platformContext.processInfo.getegid())
+                        return@NoThisAndResult v8Runtime.createV8ValueInteger(platformContext.processInfo.getegid())
                     },
                     "getgroups" to IJavetDirectCallable.NoThisAndResult<Exception> { _ ->
-                        v8Runtime.toV8Value(platformContext.processInfo.getgroups())
+                        return@NoThisAndResult v8Runtime.toV8Value(platformContext.processInfo.getgroups())
                     }
                 )
             )

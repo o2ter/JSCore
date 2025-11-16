@@ -354,13 +354,13 @@ class Compression(private val v8Runtime: V8Runtime) {
             JavetCallbackType.DirectCallNoThisAndResult,
             IJavetDirectCallable.NoThisAndResult<Exception> { args -> 
                 if (args.isEmpty()) throw RuntimeException("transform() requires 1 argument")
-                streamObj.transform(args[0])
+                return@NoThisAndResult streamObj.transform(args[0])
             }
         ))
         obj.bindFunction(JavetCallbackContext(
             "flush",
             JavetCallbackType.DirectCallNoThisAndResult,
-            IJavetDirectCallable.NoThisAndResult<Exception> { _ -> streamObj.flush() }
+            IJavetDirectCallable.NoThisAndResult<Exception> { _ -> return@NoThisAndResult streamObj.flush() }
         ))
         return obj
     }
@@ -383,13 +383,13 @@ class Compression(private val v8Runtime: V8Runtime) {
             JavetCallbackType.DirectCallNoThisAndResult,
             IJavetDirectCallable.NoThisAndResult<Exception> { args -> 
                 if (args.isEmpty()) throw RuntimeException("transform() requires 1 argument")
-                streamObj.transform(args[0])
+                return@NoThisAndResult streamObj.transform(args[0])
             }
         ))
         obj.bindFunction(JavetCallbackContext(
             "flush",
             JavetCallbackType.DirectCallNoThisAndResult,
-            IJavetDirectCallable.NoThisAndResult<Exception> { _ -> streamObj.flush() }
+            IJavetDirectCallable.NoThisAndResult<Exception> { _ -> return@NoThisAndResult streamObj.flush() }
         ))
         return obj
     }
@@ -407,7 +407,7 @@ class Compression(private val v8Runtime: V8Runtime) {
                     if (v8Values.isEmpty()) {
                         throw RuntimeException("createCompressionStream() requires 1 argument")
                     }
-                    createCompressionStream(v8Values[0].toString())
+                    return@NoThisAndResult createCompressionStream(v8Values[0].toString())
                 }))
             
             compressionBridge.bindFunction(JavetCallbackContext("createDecompressionStream",
@@ -416,7 +416,7 @@ class Compression(private val v8Runtime: V8Runtime) {
                     if (v8Values.isEmpty()) {
                         throw RuntimeException("createDecompressionStream() requires 1 argument")
                     }
-                    createDecompressionStream(v8Values[0].toString())
+                    return@NoThisAndResult createDecompressionStream(v8Values[0].toString())
                 }))
             
             nativeBridge.set("compression", compressionBridge)

@@ -85,7 +85,7 @@ class Crypto(
                 "randomUUID" to IJavetDirectCallable.NoThisAndResult<Exception> { _ ->
                     try {
                         val uuid = java.util.UUID.randomUUID().toString()
-                        v8Runtime.createV8ValueString(uuid)
+                        return@NoThisAndResult v8Runtime.createV8ValueString(uuid)
                     } catch (e: Exception) {
                         throw e
                     }
@@ -109,7 +109,7 @@ class Crypto(
                         length
                     )
                     array.fromBytes(bytes)
-                    array
+                    return@NoThisAndResult array
                 },
                 "getRandomValues" to IJavetDirectCallable.NoThisAndResult<Exception> { args ->
                     if (args.isEmpty() || args[0] !is V8ValueTypedArray) {
@@ -127,7 +127,7 @@ class Crypto(
                     secureRandom.nextBytes(bytes)
                     array.fromBytes(bytes)
                     
-                    array
+                    return@NoThisAndResult array
                 },
                 "createHash" to IJavetDirectCallable.NoThisAndResult<Exception> { args ->
                     if (args.isEmpty()) {
@@ -148,7 +148,7 @@ class Crypto(
                     val digest = Digest(messageDigest)
                     
                     // Create digest object with update(), digest(), and clone() methods
-                    createDigestObject(digest)
+                    return@NoThisAndResult createDigestObject(digest)
                 },
                 "createHmac" to IJavetDirectCallable.NoThisAndResult<Exception> { args ->
                     if (args.size < 2) {
@@ -176,7 +176,7 @@ class Crypto(
                     val digest = Digest(mac)
                     
                     // Create digest object with update(), digest(), and clone() methods
-                    createDigestObject(digest)
+                    return@NoThisAndResult createDigestObject(digest)
                 }
             )
         )
@@ -219,7 +219,7 @@ class Crypto(
                     hashBytes.size
                 )
                 array.fromBytes(hashBytes)
-                array
+                return@NoThisAndResult array
             }
         ))
         
@@ -228,7 +228,7 @@ class Crypto(
             "clone",
             JavetCallbackType.DirectCallNoThisAndResult,
             IJavetDirectCallable.NoThisAndResult<Exception> { _ ->
-                createDigestObject(digest.clone())
+                return@NoThisAndResult createDigestObject(digest.clone())
             }
         ))
         

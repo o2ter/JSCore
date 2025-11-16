@@ -385,7 +385,7 @@ fun setupWebSocketBridge(nativeBridge: V8ValueObject, jsWebSocket: JSWebSocket, 
                 onClose.setWeak()
                 
                 val socketId = jsWebSocket.createWebSocket(url, protocols, onOpen, onMessage, onError, onClose)
-                v8Runtime.createV8ValueString(socketId)
+                return@NoThisAndResult v8Runtime.createV8ValueString(socketId)
             }))
         
         webSocketBridge.bindFunction(JavetCallbackContext("send",
@@ -397,7 +397,7 @@ fun setupWebSocketBridge(nativeBridge: V8ValueObject, jsWebSocket: JSWebSocket, 
                 val socketId = v8Values[0].toString()
                 val data = v8Values[1]
                 jsWebSocket.send(socketId, data)
-                v8Runtime.createV8ValueBoolean(true)
+                return@NoThisAndResult v8Runtime.createV8ValueBoolean(true)
             }))
         
         webSocketBridge.bindFunction(JavetCallbackContext("close",
@@ -410,7 +410,7 @@ fun setupWebSocketBridge(nativeBridge: V8ValueObject, jsWebSocket: JSWebSocket, 
                 val code = if (v8Values.size > 1) v8Values[1].asInt() else 1000
                 val reason = if (v8Values.size > 2) v8Values[2].toString() else ""
                 val success = jsWebSocket.close(socketId, code, reason)
-                v8Runtime.createV8ValueBoolean(success)
+                return@NoThisAndResult v8Runtime.createV8ValueBoolean(success)
             }))
         
         webSocketBridge.bindFunction(JavetCallbackContext("getReadyState",
@@ -421,7 +421,7 @@ fun setupWebSocketBridge(nativeBridge: V8ValueObject, jsWebSocket: JSWebSocket, 
                 }
                 val socketId = v8Values[0].toString()
                 val state = jsWebSocket.getReadyState(socketId)
-                v8Runtime.createV8ValueInteger(state)
+                return@NoThisAndResult v8Runtime.createV8ValueInteger(state)
             }))
         
         webSocketBridge.bindFunction(JavetCallbackContext("getBufferedAmount",
@@ -432,7 +432,7 @@ fun setupWebSocketBridge(nativeBridge: V8ValueObject, jsWebSocket: JSWebSocket, 
                 }
                 val socketId = v8Values[0].toString()
                 val amount = jsWebSocket.getBufferedAmount(socketId)
-                v8Runtime.createV8ValueInteger(amount)
+                return@NoThisAndResult v8Runtime.createV8ValueInteger(amount)
             }))
         
         nativeBridge.set("WebSocket", webSocketBridge)
