@@ -218,6 +218,9 @@ Reference: [Javet Memory Management Documentation](https://www.caoccao.com/Javet
 
 **⚠️ Debugging Note:** "Runtime is already closed" errors are often misleading - the engine may still execute JavaScript successfully. This error typically indicates threading or weak reference issues, not actual engine shutdown. Always test actual functionality before assuming the engine is broken.
 
+**⚠️ Important Note About `.close()` Method:**
+The `.close()` method only closes the V8 object handle on the native side - it does **not** affect the JavaScript object's lifecycle or trigger garbage collection. The JavaScript object remains alive and functional in the JavaScript heap until the JavaScript garbage collector determines it's no longer reachable. Calling `.close()` simply releases the native reference, preventing further access from Kotlin/Java code.
+
 **1. Try-with-resource (for objects you create and use immediately):**
 ```kotlin
 v8Runtime.createV8ValueObject().use { v8ValueObject ->
