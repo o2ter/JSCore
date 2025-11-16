@@ -44,6 +44,7 @@ import com.o2ter.jscore.toStringMap
 import java.io.InputStream
 import java.net.HttpURLConnection
 import java.net.URL
+import java.util.Collections
 
 /**
  * Native HTTP session implementation bridged to JavaScript
@@ -57,8 +58,37 @@ class URLSession(
 ) {
     private var nextRequestId = 0
     
+    // Track active HTTP requests by unique ID (not threads - threads can be reused!)
+    private val activeHttpRequests = Collections.synchronizedSet(mutableSetOf<String>())
+    
     // Store progress handler functions by request ID (prevents GC and avoids global pollution)
     private val progressHandlers = mutableMapOf<String, V8ValueFunction>()
+    
+    /**
+     * Check if there are active network requests
+     */
+    val hasActiveNetworkRequests: Boolean
+        get() = activeHttpRequests.isNotEmpty()
+    
+    /**
+     * Get the count of active network requests
+     */
+    val activeNetworkRequestCount: Int
+        get() = activeHttpRequests.size
+    
+    /**
+     * Register an HTTP request for lifecycle tracking
+     */
+    internal fun registerHttpRequest(requestId: String) {
+        activeHttpRequests.add(requestId)
+    }
+    
+    /**
+     * Unregister an HTTP request after completion
+     */
+    internal fun unregisterHttpRequest(requestId: String) {
+        activeHttpRequests.remove(requestId)
+    }
     
     private fun httpRequestWithRequest(v8Values: Array<out com.caoccao.javet.values.V8Value>): V8ValuePromise {
         if (v8Values.isEmpty()) {
@@ -116,7 +146,7 @@ class URLSession(
         val resolver = v8Runtime.createV8ValuePromise()
         
         // Register this request for lifecycle tracking
-        engine.registerHttpRequest(requestId)
+        registerHttpRequest(requestId)
         
         // Execute request in a background thread
         val httpThread = Thread {
@@ -246,7 +276,7 @@ class URLSession(
                                 progressHandlers.remove(requestId)
                                 
                                 // Unregister HTTP request AFTER all callbacks complete
-                                engine.unregisterHttpRequest(requestId)
+                                unregisterHttpRequest(requestId)
                             }
                         } catch (e: Exception) {
                             // Call progress handler with error on JS thread
@@ -270,7 +300,7 @@ class URLSession(
                                 progressHandlers.remove(requestId)
                                 
                                 // Unregister HTTP request after stream error
-                                engine.unregisterHttpRequest(requestId)
+                                unregisterHttpRequest(requestId)
                             }
                         }
                     }
@@ -288,13 +318,13 @@ class URLSession(
                     errorMsg.close()
                     
                     // Unregister HTTP request after error handling
-                    engine.unregisterHttpRequest(requestId)
+                    unregisterHttpRequest(requestId)
                 }
             }
             
             // If no progress handler, unregister here (promise already resolved)
             if (!hasProgressHandler) {
-                engine.unregisterHttpRequest(requestId)
+                unregisterHttpRequest(requestId)
             }
         }
         httpThread.start()

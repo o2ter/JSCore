@@ -40,6 +40,7 @@ import com.o2ter.jscore.JavaScriptEngine
 import com.o2ter.jscore.PlatformContext
 import java.net.URI
 import java.nio.ByteBuffer
+import java.util.Collections
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
@@ -62,9 +63,38 @@ class JSWebSocket(
 ) {
     private val sockets = ConcurrentHashMap<String, WebSocketConnection>()
     
+    // Track active WebSocket connections by socket ID
+    private val activeWebSockets = Collections.synchronizedSet(mutableSetOf<String>())
+    
     private val client = OkHttpClient.Builder()
         .readTimeout(0, TimeUnit.MILLISECONDS)
         .build()
+    
+    /**
+     * Check if there are active WebSocket connections
+     */
+    val hasActiveWebSockets: Boolean
+        get() = activeWebSockets.isNotEmpty()
+    
+    /**
+     * Get the count of active WebSocket connections
+     */
+    val activeWebSocketCount: Int
+        get() = activeWebSockets.size
+    
+    /**
+     * Register a WebSocket connection for lifecycle tracking
+     */
+    internal fun registerWebSocket(socketId: String) {
+        activeWebSockets.add(socketId)
+    }
+    
+    /**
+     * Unregister a WebSocket connection after closure
+     */
+    internal fun unregisterWebSocket(socketId: String) {
+        activeWebSockets.remove(socketId)
+    }
     
     fun createWebSocket(
         url: String,
@@ -110,7 +140,7 @@ class JSWebSocket(
             connection.webSocket = webSocket
             
             sockets[socketId] = connection
-            engine.registerWebSocket(socketId)
+            registerWebSocket(socketId)
             
             return socketId
         } catch (e: Exception) {
@@ -154,7 +184,7 @@ class JSWebSocket(
     
     internal fun cleanupSocket(socketId: String) {
         sockets.remove(socketId)
-        engine.unregisterWebSocket(socketId)
+        unregisterWebSocket(socketId)
     }
 }
 

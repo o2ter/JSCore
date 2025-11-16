@@ -39,12 +39,15 @@ import com.caoccao.javet.values.reference.V8ValueArray
 import com.caoccao.javet.values.reference.V8ValueFunction
 import com.caoccao.javet.values.reference.V8ValueObject
 import com.o2ter.jscore.lib.Compression
+import com.o2ter.jscore.lib.Console
 import com.o2ter.jscore.lib.Crypto
 import com.o2ter.jscore.lib.DeviceInfo
 import com.o2ter.jscore.lib.BundleInfo
 import com.o2ter.jscore.lib.FileSystem
+import com.o2ter.jscore.lib.Performance
 import com.o2ter.jscore.lib.ProcessControl
 import com.o2ter.jscore.lib.ProcessInfo
+import com.o2ter.jscore.lib.JSTimer
 import com.o2ter.jscore.lib.http.URLSession
 import com.o2ter.jscore.lib.http.JSWebSocket
 import com.o2ter.jscore.lib.http.setupWebSocketBridge
@@ -228,18 +231,11 @@ class JavaScriptEngine(
         }
     }
     
-    private val timer = Timer("JSCoreTimer", true)
-    private val activeTimers = ConcurrentHashMap<Int, TimerTask>()
-    private val nextTimerId = AtomicInteger(0)
-    
-    // Track active HTTP requests by unique ID (not threads - threads can be reused!)
-    private val activeHttpRequests = Collections.synchronizedSet(mutableSetOf<String>())
-    
-    // Track active WebSocket connections by socket ID
-    private val activeWebSockets = Collections.synchronizedSet(mutableSetOf<String>())
-    
     // Native Kotlin API implementations - initialized lazily on JS thread
     private lateinit var v8Runtime: V8Runtime
+    private lateinit var console: Console
+    private lateinit var jsTimer: JSTimer
+    private lateinit var performance: Performance
     private lateinit var crypto: Crypto
     private lateinit var compression: Compression
     private lateinit var fileSystem: FileSystem
@@ -249,7 +245,6 @@ class JavaScriptEngine(
     private lateinit var processControl: ProcessControl
     private lateinit var urlSession: URLSession
     private lateinit var jsWebSocket: JSWebSocket
-    private lateinit var timerNamespace: V8ValueObject // Timer namespace for proper cleanup
     private lateinit var nativeBridge: V8ValueObject // Native bridge object that holds all callback contexts
     
     /**
@@ -299,66 +294,30 @@ class JavaScriptEngine(
     }
     
     /**
-     * Register an HTTP request for lifecycle tracking
-     * Internal use only - called by URLSession
-     * @param requestId Unique identifier for this HTTP request
-     */
-    internal fun registerHttpRequest(requestId: String) {
-        activeHttpRequests.add(requestId)
-    }
-    
-    /**
-     * Unregister an HTTP request after completion
-     * Internal use only - called by URLSession
-     * @param requestId Unique identifier for this HTTP request
-     */
-    internal fun unregisterHttpRequest(requestId: String) {
-        activeHttpRequests.remove(requestId)
-    }
-    
-    /**
-     * Register a WebSocket connection for lifecycle tracking
-     * Internal use only - called by WebSocket
-     * @param socketId Unique identifier for this WebSocket connection
-     */
-    internal fun registerWebSocket(socketId: String) {
-        activeWebSockets.add(socketId)
-    }
-    
-    /**
-     * Unregister a WebSocket connection after closure
-     * Internal use only - called by WebSocket
-     * @param socketId Unique identifier for this WebSocket connection
-     */
-    internal fun unregisterWebSocket(socketId: String) {
-        activeWebSockets.remove(socketId)
-    }
-    
-    /**
      * Check if there are any active JavaScript timers
      * Used by runner to determine when to exit
      */
     val hasActiveTimers: Boolean
-        get() = activeTimers.isNotEmpty()
+        get() = jsTimer.hasActiveTimers
     
     /**
      * Get the count of active JavaScript timers
      */
     val activeTimerCount: Int
-        get() = activeTimers.size
+        get() = jsTimer.activeTimerCount
     
     /**
      * Check if there are active network requests
      * Used by runner to determine when to exit
      */
     val hasActiveNetworkRequests: Boolean
-        get() = activeHttpRequests.isNotEmpty()
+        get() = urlSession.hasActiveNetworkRequests
     
     /**
      * Get the count of active network requests
      */
     val activeNetworkRequestCount: Int
-        get() = activeHttpRequests.size
+        get() = urlSession.activeNetworkRequestCount
     
     /**
      * Check if there are any active file handles
@@ -378,13 +337,13 @@ class JavaScriptEngine(
      * Used by runner to determine when to exit
      */
     val hasActiveWebSockets: Boolean
-        get() = activeWebSockets.isNotEmpty()
+        get() = jsWebSocket.hasActiveWebSockets
     
     /**
      * Get the count of active WebSocket connections
      */
     val activeWebSocketCount: Int
-        get() = activeWebSockets.size
+        get() = jsWebSocket.activeWebSocketCount
     
     /**
      * Check if there are any active async operations (timers, network, file handles, or WebSockets)
@@ -429,6 +388,9 @@ class JavaScriptEngine(
             }
             
             // Initialize everything else
+            console = Console(v8Runtime, platformContext)
+            jsTimer = JSTimer(v8Runtime, platformContext)
+            performance = Performance(v8Runtime)
             crypto = Crypto(v8Runtime, platformContext)
             compression = Compression(v8Runtime)
             fileSystem = FileSystem(v8Runtime, platformContext)
@@ -448,9 +410,9 @@ class JavaScriptEngine(
     
     private fun setupNativeBridges(nativeBridge: V8ValueObject) {
         // Core runtime bridges (console, timers, performance)
-        setupConsoleBridge(nativeBridge)
-        setupTimerBridges(nativeBridge)
-        setupPerformanceBridge(nativeBridge)
+        console.setupBridge(nativeBridge)
+        jsTimer.setupBridge(nativeBridge)
+        performance.setupBridge(nativeBridge)
         
         // Platform information bridges (device, bundle, process)
         deviceInfo.setupBridge(nativeBridge)
@@ -468,279 +430,6 @@ class JavaScriptEngine(
         // Network bridges (HTTP and WebSocket)
         urlSession.setupBridge(nativeBridge)
         setupWebSocketBridge(nativeBridge, jsWebSocket, v8Runtime)
-    }
-    
-    private fun setupPerformanceBridge(nativeBridge: V8ValueObject) {
-        // Create Performance instance
-        val performance = com.o2ter.jscore.lib.Performance(v8Runtime)
-        
-        // Create performance bridge object
-        val performanceBridge = v8Runtime.createV8ValueObject()
-        try {
-            // Bind performance methods
-            performanceBridge.bindFunction(JavetCallbackContext("now",
-                JavetCallbackType.DirectCallNoThisAndResult,
-                IJavetDirectCallable.NoThisAndResult<Exception> { _ ->
-                    v8Runtime.createV8ValueDouble(performance.now())
-                }))
-            
-            performanceBridge.bindFunction(JavetCallbackContext("mark",
-                JavetCallbackType.DirectCallNoThisAndResult,
-                IJavetDirectCallable.NoThisAndResult<Exception> { v8Values ->
-                    if (v8Values.isEmpty()) {
-                        throw RuntimeException("mark() requires 1 argument")
-                    }
-                    performance.mark(v8Values[0].toString())
-                }))
-            
-            performanceBridge.bindFunction(JavetCallbackContext("measure",
-                JavetCallbackType.DirectCallNoThisAndResult,
-                IJavetDirectCallable.NoThisAndResult<Exception> { v8Values ->
-                    if (v8Values.isEmpty()) {
-                        throw RuntimeException("measure() requires at least 1 argument")
-                    }
-                    val name = v8Values[0].toString()
-                    val startMark = if (v8Values.size > 1 && !v8Values[1].isNullOrUndefined) v8Values[1].toString() else null
-                    val endMark = if (v8Values.size > 2 && !v8Values[2].isNullOrUndefined) v8Values[2].toString() else null
-                    performance.measure(name, startMark, endMark)
-                }))
-            
-            performanceBridge.bindFunction(JavetCallbackContext("getEntriesByType",
-                JavetCallbackType.DirectCallNoThisAndResult,
-                IJavetDirectCallable.NoThisAndResult<Exception> { v8Values ->
-                    if (v8Values.isEmpty()) {
-                        throw RuntimeException("getEntriesByType() requires 1 argument")
-                    }
-                    performance.getEntriesByType(v8Values[0].toString())
-                }))
-            
-            performanceBridge.bindFunction(JavetCallbackContext("getEntriesByName",
-                JavetCallbackType.DirectCallNoThisAndResult,
-                IJavetDirectCallable.NoThisAndResult<Exception> { v8Values ->
-                    if (v8Values.isEmpty()) {
-                        throw RuntimeException("getEntriesByName() requires at least 1 argument")
-                    }
-                    val name = v8Values[0].toString()
-                    val type = if (v8Values.size > 1 && !v8Values[1].isNullOrUndefined) v8Values[1].toString() else null
-                    performance.getEntriesByName(name, type)
-                }))
-            
-            performanceBridge.bindFunction(JavetCallbackContext("getEntries",
-                JavetCallbackType.DirectCallNoThisAndResult,
-                IJavetDirectCallable.NoThisAndResult<Exception> { _ ->
-                    performance.getEntries()
-                }))
-            
-            performanceBridge.bindFunction(JavetCallbackContext("clearMarks",
-                JavetCallbackType.DirectCallNoThisAndNoResult,
-                IJavetDirectCallable.NoThisAndNoResult<Exception> { v8Values ->
-                    val name = if (v8Values.isNotEmpty() && !v8Values[0].isNullOrUndefined) v8Values[0].toString() else null
-                    performance.clearMarks(name)
-                }))
-            
-            performanceBridge.bindFunction(JavetCallbackContext("clearMeasures",
-                JavetCallbackType.DirectCallNoThisAndNoResult,
-                IJavetDirectCallable.NoThisAndNoResult<Exception> { v8Values ->
-                    val name = if (v8Values.isNotEmpty() && !v8Values[0].isNullOrUndefined) v8Values[0].toString() else null
-                    performance.clearMeasures(name)
-                }))
-            
-            nativeBridge.set("performance", performanceBridge)
-        } finally {
-            performanceBridge.close()
-        }
-    }
-    
-    private fun setupConsoleBridge(nativeBridge: V8ValueObject) {
-        // Console API bridges
-        nativeBridge.bindFunction(JavetCallbackContext("consoleLog", JavetCallbackType.DirectCallNoThisAndNoResult,
-            IJavetDirectCallable.NoThisAndNoResult<Exception> { v8Values ->
-                val message = v8Values.joinToString(" ") { it.toString() }
-                platformContext.logger.info("JSConsole", message)
-            }))
-        nativeBridge.bindFunction(JavetCallbackContext("consoleError", JavetCallbackType.DirectCallNoThisAndNoResult,
-            IJavetDirectCallable.NoThisAndNoResult<Exception> { v8Values ->
-                val message = v8Values.joinToString(" ") { it.toString() }
-                platformContext.logger.error("JSConsole", message)
-            }))
-        nativeBridge.bindFunction(JavetCallbackContext("consoleWarn", JavetCallbackType.DirectCallNoThisAndNoResult,
-            IJavetDirectCallable.NoThisAndNoResult<Exception> { v8Values ->
-                val message = v8Values.joinToString(" ") { it.toString() }
-                platformContext.logger.warning("JSConsole", message)
-            }))
-        nativeBridge.bindFunction(JavetCallbackContext("consoleDebug", JavetCallbackType.DirectCallNoThisAndNoResult,
-            IJavetDirectCallable.NoThisAndNoResult<Exception> { v8Values ->
-                val message = v8Values.joinToString(" ") { it.toString() }
-                platformContext.logger.debug("JSConsole", message)
-            }))
-        
-        // Setup console forwarding
-        v8Runtime.invokeFunction("""
-            (function(nativeBridge) {
-                if (!nativeBridge) return;
-                
-                globalThis.console = {
-                    log: function(...args) { nativeBridge.consoleLog.apply(null, args); },
-                    error: function(...args) { nativeBridge.consoleError.apply(null, args); },
-                    warn: function(...args) { nativeBridge.consoleWarn.apply(null, args); },
-                    debug: function(...args) { nativeBridge.consoleDebug.apply(null, args); },
-                    info: function(...args) { nativeBridge.consoleLog.apply(null, args); }
-                };
-            })
-        """.trimIndent(), nativeBridge)
-    }
-    
-    private fun setupTimerBridges(nativeBridge: V8ValueObject) {
-        
-        // Create timer namespace object directly without globalThis pollution
-        val timerNamespaceCode = """
-            (function() {
-                // Private timer namespace - never exposed to globalThis
-                const timerNamespace = {
-                    callbacks: new Map(),
-                    executeCallback: function(id) {
-                        const callback = this.callbacks.get(id);
-                        if (callback) {
-                            this.callbacks.delete(id);
-                            callback();
-                        }
-                    },
-                    executeIntervalCallback: function(id) {
-                        const callback = this.callbacks.get(id);
-                        if (callback) {
-                            callback();
-                        }
-                    },
-                    clearCallback: function(id) {
-                        this.callbacks.delete(id);
-                    },
-                    setCallback: function(id, callback) {
-                        this.callbacks.set(id, callback);
-                    }
-                };
-                return timerNamespace;
-            })();
-        """
-        
-        // Get the timer namespace object directly and store it for cleanup
-        // Don't use .use {} here because we need to keep the reference for the engine lifetime
-        timerNamespace = v8Runtime.getExecutor(timerNamespaceCode).execute<V8ValueObject>()
-        
-        // Timer bridges - setTimeout
-        val setTimeoutCallback = IJavetDirectCallable.NoThisAndResult<Exception> { v8Values ->
-            val id = nextTimerId.incrementAndGet()
-            
-            // Store callback using the timer namespace directly
-            if (v8Values.isNotEmpty() && v8Values[0] is V8ValueFunction) {
-                timerNamespace.invoke<V8Value>("setCallback", id, v8Values[0]).close()
-            }
-            
-            val delay = if (v8Values.size > 1) {
-                when (val delayValue = v8Values[1]) {
-                    is V8ValueInteger -> delayValue.value.toLong()
-                    is V8ValueLong -> delayValue.value
-                    else -> 0L
-                }
-            } else 0L
-            
-            val task = object : TimerTask() {
-                override fun run() {
-                    try {
-                        // Execute callback using the timer namespace directly
-                        timerNamespace.invoke<V8Value>("executeCallback", id).close()
-                    } catch (e: Exception) {
-                        platformContext.logger.error("JSCore", "Timer execution failed: ${e.message}")
-                    } finally {
-                        activeTimers.remove(id)
-                    }
-                }
-            }
-            activeTimers[id] = task
-            timer.schedule(task, delay)
-            
-            v8Runtime.createV8ValueInteger(id)
-        }
-        nativeBridge.bindFunction(JavetCallbackContext("setTimeout", JavetCallbackType.DirectCallNoThisAndResult, setTimeoutCallback))
-        
-        // clearTimeout
-        val clearTimeoutCallback = IJavetDirectCallable.NoThisAndNoResult<Exception> { v8Values ->
-            val id = if (v8Values.isNotEmpty() && v8Values[0] is V8ValueInteger) {
-                (v8Values[0] as V8ValueInteger).value
-            } else 0
-            activeTimers.remove(id)?.cancel()
-            timerNamespace.invoke<V8Value>("clearCallback", id).close()
-        }
-        nativeBridge.bindFunction(JavetCallbackContext("clearTimeout", JavetCallbackType.DirectCallNoThisAndNoResult, clearTimeoutCallback))
-        
-        // setInterval
-        val setIntervalCallback = IJavetDirectCallable.NoThisAndResult<Exception> { v8Values ->
-            val id = nextTimerId.incrementAndGet()
-            
-            // Store callback using the timer namespace directly
-            if (v8Values.isNotEmpty() && v8Values[0] is V8ValueFunction) {
-                timerNamespace.invoke<V8Value>("setCallback", id, v8Values[0]).close()
-            }
-            
-            val delay = if (v8Values.size > 1) {
-                when (val delayValue = v8Values[1]) {
-                    is V8ValueInteger -> delayValue.value.toLong()
-                    is V8ValueLong -> delayValue.value
-                    else -> 0L
-                }
-            } else 0L
-            
-            val task = object : TimerTask() {
-                override fun run() {
-                    try {
-                        // For intervals, callback stays in the registry
-                        timerNamespace.invoke<V8Value>("executeIntervalCallback", id).close()
-                    } catch (e: Exception) {
-                        platformContext.logger.error("JSCore", "Interval execution failed: ${e.message}")
-                    }
-                }
-            }
-            activeTimers[id] = task
-            timer.schedule(task, delay, delay)
-            
-            v8Runtime.createV8ValueInteger(id)
-        }
-        nativeBridge.bindFunction(JavetCallbackContext("setInterval", JavetCallbackType.DirectCallNoThisAndResult, setIntervalCallback))
-        
-        // clearInterval
-        val clearIntervalCallback = IJavetDirectCallable.NoThisAndNoResult<Exception> { v8Values ->
-            val id = if (v8Values.isNotEmpty() && v8Values[0] is V8ValueInteger) {
-                (v8Values[0] as V8ValueInteger).value
-            } else 0
-            activeTimers.remove(id)?.cancel()
-            timerNamespace.invoke<V8Value>("clearCallback", id).close()
-        }
-        nativeBridge.bindFunction(JavetCallbackContext("clearInterval", JavetCallbackType.DirectCallNoThisAndNoResult, clearIntervalCallback))
-        
-        // Bridge timer functions to JavaScript
-        v8Runtime.invokeFunction("""
-            (function(nativeBridge) {
-                if (!nativeBridge) return;
-                
-                globalThis.setTimeout = function(callback, delay, ...args) {
-                    const wrappedCallback = args.length > 0 
-                        ? function() { callback(...args); }
-                        : callback;
-                    return nativeBridge.setTimeout(wrappedCallback, delay || 0);
-                };
-                globalThis.clearTimeout = function(id) {
-                    nativeBridge.clearTimeout(id);
-                };
-                globalThis.setInterval = function(callback, delay, ...args) {
-                    const wrappedCallback = args.length > 0 
-                        ? function() { callback(...args); }
-                        : callback;
-                    return nativeBridge.setInterval(wrappedCallback, delay || 0);
-                };
-                globalThis.clearInterval = function(id) {
-                    nativeBridge.clearInterval(id);
-                };
-            })
-        """.trimIndent(), nativeBridge)
     }
     
     private fun loadPolyfill(nativeBridge: V8ValueObject) {
@@ -901,30 +590,14 @@ class JavaScriptEngine(
         super.close()
         
         try {
-            // Cancel all timers and clear callbacks from timer namespace
-            timer.cancel()
-            activeTimers.values.forEach { it.cancel() }
-            activeTimers.clear()
-            
-            // Clear all timer callbacks from the namespace to prevent memory leaks
-            if (::timerNamespace.isInitialized && !timerNamespace.isClosed) {
-                try {
-                    timerNamespace.get<V8ValueObject>("callbacks")?.use { callbacks ->
-                        callbacks.invoke<V8Value>("clear", *emptyArray<Any>()).close()
-                    }
-                } catch (e: Exception) {
-                    // Ignore cleanup errors - engine is shutting down
-                }
+            // Close timer manager
+            if (::jsTimer.isInitialized) {
+                jsTimer.close()
             }
             
             // Close file system
             if (::fileSystem.isInitialized) {
                 fileSystem.close()
-            }
-            
-            // Close timer namespace
-            if (::timerNamespace.isInitialized && !timerNamespace.isClosed) {
-                timerNamespace.close()
             }
             
             // Clean up native bridge

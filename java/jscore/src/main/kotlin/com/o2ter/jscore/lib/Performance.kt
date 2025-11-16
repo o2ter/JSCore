@@ -25,9 +25,12 @@
 
 package com.o2ter.jscore.lib
 
-import com.caoccao.javet.values.V8Value
-import com.caoccao.javet.values.primitive.V8ValueDouble
 import com.caoccao.javet.interop.V8Runtime
+import com.caoccao.javet.interop.callback.IJavetDirectCallable
+import com.caoccao.javet.interop.callback.JavetCallbackContext
+import com.caoccao.javet.interop.callback.JavetCallbackType
+import com.caoccao.javet.values.V8Value
+import com.caoccao.javet.values.reference.V8ValueObject
 import com.o2ter.jscore.createJSObject
 import java.util.concurrent.ConcurrentHashMap
 
@@ -235,6 +238,86 @@ class Performance(private val v8Runtime: V8Runtime) {
             measures.remove(name)
         } else {
             measures.clear()
+        }
+    }
+    
+    /**
+     * Setup performance bridge in the native bridge object
+     * @param nativeBridge The native bridge object to register performance APIs
+     */
+    fun setupBridge(nativeBridge: V8ValueObject) {
+        val performanceBridge = v8Runtime.createV8ValueObject()
+        try {
+            performanceBridge.bindFunction(JavetCallbackContext("now",
+                JavetCallbackType.DirectCallNoThisAndResult,
+                IJavetDirectCallable.NoThisAndResult<Exception> { _ ->
+                    v8Runtime.createV8ValueDouble(now())
+                }))
+            
+            performanceBridge.bindFunction(JavetCallbackContext("mark",
+                JavetCallbackType.DirectCallNoThisAndResult,
+                IJavetDirectCallable.NoThisAndResult<Exception> { v8Values ->
+                    if (v8Values.isEmpty()) {
+                        throw RuntimeException("mark() requires 1 argument")
+                    }
+                    mark(v8Values[0].toString())
+                }))
+            
+            performanceBridge.bindFunction(JavetCallbackContext("measure",
+                JavetCallbackType.DirectCallNoThisAndResult,
+                IJavetDirectCallable.NoThisAndResult<Exception> { v8Values ->
+                    if (v8Values.isEmpty()) {
+                        throw RuntimeException("measure() requires at least 1 argument")
+                    }
+                    val name = v8Values[0].toString()
+                    val startMark = if (v8Values.size > 1 && !v8Values[1].isNullOrUndefined) v8Values[1].toString() else null
+                    val endMark = if (v8Values.size > 2 && !v8Values[2].isNullOrUndefined) v8Values[2].toString() else null
+                    measure(name, startMark, endMark)
+                }))
+            
+            performanceBridge.bindFunction(JavetCallbackContext("getEntriesByType",
+                JavetCallbackType.DirectCallNoThisAndResult,
+                IJavetDirectCallable.NoThisAndResult<Exception> { v8Values ->
+                    if (v8Values.isEmpty()) {
+                        throw RuntimeException("getEntriesByType() requires 1 argument")
+                    }
+                    getEntriesByType(v8Values[0].toString())
+                }))
+            
+            performanceBridge.bindFunction(JavetCallbackContext("getEntriesByName",
+                JavetCallbackType.DirectCallNoThisAndResult,
+                IJavetDirectCallable.NoThisAndResult<Exception> { v8Values ->
+                    if (v8Values.isEmpty()) {
+                        throw RuntimeException("getEntriesByName() requires at least 1 argument")
+                    }
+                    val name = v8Values[0].toString()
+                    val type = if (v8Values.size > 1 && !v8Values[1].isNullOrUndefined) v8Values[1].toString() else null
+                    getEntriesByName(name, type)
+                }))
+            
+            performanceBridge.bindFunction(JavetCallbackContext("getEntries",
+                JavetCallbackType.DirectCallNoThisAndResult,
+                IJavetDirectCallable.NoThisAndResult<Exception> { _ ->
+                    getEntries()
+                }))
+            
+            performanceBridge.bindFunction(JavetCallbackContext("clearMarks",
+                JavetCallbackType.DirectCallNoThisAndNoResult,
+                IJavetDirectCallable.NoThisAndNoResult<Exception> { v8Values ->
+                    val name = if (v8Values.isNotEmpty() && !v8Values[0].isNullOrUndefined) v8Values[0].toString() else null
+                    clearMarks(name)
+                }))
+            
+            performanceBridge.bindFunction(JavetCallbackContext("clearMeasures",
+                JavetCallbackType.DirectCallNoThisAndNoResult,
+                IJavetDirectCallable.NoThisAndNoResult<Exception> { v8Values ->
+                    val name = if (v8Values.isNotEmpty() && !v8Values[0].isNullOrUndefined) v8Values[0].toString() else null
+                    clearMeasures(name)
+                }))
+            
+            nativeBridge.set("performance", performanceBridge)
+        } finally {
+            performanceBridge.close()
         }
     }
 }
