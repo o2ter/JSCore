@@ -230,7 +230,7 @@ final class StreamingEncodingTests: XCTestCase {
             }
             
             return chunks.join('');
-        })())
+        })()
         """
         
         context.globalObject["testCompleted"] = SwiftJS.Value(in: context) { args, this in
@@ -285,7 +285,7 @@ final class StreamingEncodingTests: XCTestCase {
                 result: result,
                 match: original === result
             });
-        })())
+        })()
         """
         
         context.globalObject["testCompleted"] = SwiftJS.Value(in: context) { args, this in
