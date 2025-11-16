@@ -463,22 +463,23 @@ class JavaScriptEngine(
         val compression = Compression(v8Runtime)
         val compressionBridge = v8Runtime.createV8ValueObject()
         try {
-            compressionBridge.bindFunction(JavetCallbackContext("compress",
+            // Streaming compression APIs - return objects with transform() and flush() methods
+            compressionBridge.bindFunction(JavetCallbackContext("createCompressionStream",
                 JavetCallbackType.DirectCallNoThisAndResult,
                 IJavetDirectCallable.NoThisAndResult<Exception> { v8Values ->
-                    if (v8Values.size < 2) {
-                        throw RuntimeException("compress() requires 2 arguments")
+                    if (v8Values.isEmpty()) {
+                        throw RuntimeException("createCompressionStream() requires 1 argument")
                     }
-                    compression.compress(v8Values[0], v8Values[1].toString())
+                    compression.createCompressionStream(v8Values[0].toString())
                 }))
             
-            compressionBridge.bindFunction(JavetCallbackContext("decompress",
+            compressionBridge.bindFunction(JavetCallbackContext("createDecompressionStream",
                 JavetCallbackType.DirectCallNoThisAndResult,
                 IJavetDirectCallable.NoThisAndResult<Exception> { v8Values ->
-                    if (v8Values.size < 2) {
-                        throw RuntimeException("decompress() requires 2 arguments")
+                    if (v8Values.isEmpty()) {
+                        throw RuntimeException("createDecompressionStream() requires 1 argument")
                     }
-                    compression.decompress(v8Values[0], v8Values[1].toString())
+                    compression.createDecompressionStream(v8Values[0].toString())
                 }))
             
             nativeBridge.set("compression", compressionBridge)

@@ -5317,7 +5317,10 @@
 
             this.#format = format;
 
-            // Create a TransformStream that compresses data chunk-by-chunk
+            // Create native streaming compression context (returns stream object instance)
+            const streamObj = __NATIVE_BRIDGE__.compression.createCompressionStream(format);
+
+            // Create a TransformStream that calls instance methods on the stream object
             this.#transform = new TransformStream({
                 transform(chunk, controller) {
                     try {
@@ -5326,11 +5329,26 @@
                             ? chunk
                             : new Uint8Array(chunk);
 
-                        // Call native compression
-                        const compressed = __NATIVE_BRIDGE__.compression.compress(inputData, format);
+                        // Process chunk through native stream's transform method
+                        const compressed = streamObj.transform(inputData);
 
-                        // Enqueue compressed data
-                        controller.enqueue(compressed);
+                        // Enqueue if we got data back
+                        if (compressed && compressed.length > 0) {
+                            controller.enqueue(compressed);
+                        }
+                    } catch (error) {
+                        controller.error(error);
+                    }
+                },
+                flush(controller) {
+                    try {
+                        // Finalize compression and get remaining data
+                        const final = streamObj.flush();
+
+                        // Enqueue final chunk
+                        if (final && final.length > 0) {
+                            controller.enqueue(final);
+                        }
                     } catch (error) {
                         controller.error(error);
                     }
@@ -5358,7 +5376,10 @@
 
             this.#format = format;
 
-            // Create a TransformStream that decompresses data chunk-by-chunk
+            // Create native streaming decompression context (returns stream object instance)
+            const streamObj = __NATIVE_BRIDGE__.compression.createDecompressionStream(format);
+
+            // Create a TransformStream that calls instance methods on the stream object
             this.#transform = new TransformStream({
                 transform(chunk, controller) {
                     try {
@@ -5367,11 +5388,26 @@
                             ? chunk
                             : new Uint8Array(chunk);
 
-                        // Call native decompression
-                        const decompressed = __NATIVE_BRIDGE__.compression.decompress(inputData, format);
+                        // Process chunk through native stream's transform method
+                        const decompressed = streamObj.transform(inputData);
 
-                        // Enqueue decompressed data
-                        controller.enqueue(decompressed);
+                        // Enqueue if we got data back (null means not enough data yet)
+                        if (decompressed !== null && decompressed !== undefined && decompressed.length > 0) {
+                            controller.enqueue(decompressed);
+                        }
+                    } catch (error) {
+                        controller.error(error);
+                    }
+                },
+                flush(controller) {
+                    try {
+                        // Finalize decompression and get remaining data
+                        const final = streamObj.flush();
+
+                        // Enqueue final chunk
+                        if (final !== null && final !== undefined && final.length > 0) {
+                            controller.enqueue(final);
+                        }
                     } catch (error) {
                         controller.error(error);
                     }
