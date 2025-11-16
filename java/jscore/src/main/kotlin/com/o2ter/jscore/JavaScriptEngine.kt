@@ -47,6 +47,7 @@ import com.o2ter.jscore.lib.ProcessControl
 import com.o2ter.jscore.lib.ProcessInfo
 import com.o2ter.jscore.lib.http.URLSession
 import com.o2ter.jscore.lib.http.JSWebSocket
+import com.o2ter.jscore.lib.http.setupWebSocketBridge
 import java.util.Timer
 import java.util.TimerTask
 import java.util.Collections
@@ -240,11 +241,14 @@ class JavaScriptEngine(
     // Native Kotlin API implementations - initialized lazily on JS thread
     private lateinit var v8Runtime: V8Runtime
     private lateinit var crypto: Crypto
+    private lateinit var compression: Compression
     private lateinit var fileSystem: FileSystem
     private lateinit var deviceInfo: DeviceInfo
     private lateinit var bundleInfo: BundleInfo
     private lateinit var processInfo: ProcessInfo
     private lateinit var processControl: ProcessControl
+    private lateinit var urlSession: URLSession
+    private lateinit var jsWebSocket: JSWebSocket
     private lateinit var timerNamespace: V8ValueObject // Timer namespace for proper cleanup
     private lateinit var nativeBridge: V8ValueObject // Native bridge object that holds all callback contexts
     
@@ -426,11 +430,14 @@ class JavaScriptEngine(
             
             // Initialize everything else
             crypto = Crypto(v8Runtime, platformContext)
+            compression = Compression(v8Runtime)
             fileSystem = FileSystem(v8Runtime, platformContext)
             deviceInfo = DeviceInfo(v8Runtime, platformContext)
             bundleInfo = BundleInfo(v8Runtime, platformContext)
             processInfo = ProcessInfo(v8Runtime, platformContext)
             processControl = ProcessControl(v8Runtime, platformContext)
+            urlSession = URLSession(v8Runtime, platformContext, this)
+            jsWebSocket = JSWebSocket(v8Runtime, platformContext, this)
             
             // Create the __NATIVE_BRIDGE__ global object and store reference for cleanup
             nativeBridge = v8Runtime.createV8ValueObject()
@@ -440,57 +447,27 @@ class JavaScriptEngine(
     }
     
     private fun setupNativeBridges(nativeBridge: V8ValueObject) {
-        // Setup modular native bridges
-        crypto.setupBridge(nativeBridge)
-        fileSystem.setupBridge(nativeBridge)
+        // Core runtime bridges (console, timers, performance)
+        setupConsoleBridge(nativeBridge)
+        setupTimerBridges(nativeBridge)
+        setupPerformanceBridge(nativeBridge)
+        
+        // Platform information bridges (device, bundle, process)
         deviceInfo.setupBridge(nativeBridge)
         bundleInfo.setupBridge(nativeBridge)
         processInfo.setupBridge(nativeBridge)
         processControl.setupBridge(nativeBridge)
         
-        // Setup HTTP bridge - pass engine for thread-safe async operations
-        URLSession.register(this, v8Runtime, platformContext, nativeBridge)
+        // Cryptography and compression bridges
+        crypto.setupBridge(nativeBridge)
+        compression.setupBridge(nativeBridge)
         
-        // Setup WebSocket bridge
-        val webSocketBridge = JSWebSocket.createNativeBridge(v8Runtime, platformContext, this)
-        try {
-            nativeBridge.set("WebSocket", webSocketBridge)
-        } finally {
-            webSocketBridge.close()
-        }
+        // File system bridge
+        fileSystem.setupBridge(nativeBridge)
         
-        // Setup Compression bridge
-        val compression = Compression(v8Runtime)
-        val compressionBridge = v8Runtime.createV8ValueObject()
-        try {
-            // Streaming compression APIs - return objects with transform() and flush() methods
-            compressionBridge.bindFunction(JavetCallbackContext("createCompressionStream",
-                JavetCallbackType.DirectCallNoThisAndResult,
-                IJavetDirectCallable.NoThisAndResult<Exception> { v8Values ->
-                    if (v8Values.isEmpty()) {
-                        throw RuntimeException("createCompressionStream() requires 1 argument")
-                    }
-                    compression.createCompressionStream(v8Values[0].toString())
-                }))
-            
-            compressionBridge.bindFunction(JavetCallbackContext("createDecompressionStream",
-                JavetCallbackType.DirectCallNoThisAndResult,
-                IJavetDirectCallable.NoThisAndResult<Exception> { v8Values ->
-                    if (v8Values.isEmpty()) {
-                        throw RuntimeException("createDecompressionStream() requires 1 argument")
-                    }
-                    compression.createDecompressionStream(v8Values[0].toString())
-                }))
-            
-            nativeBridge.set("compression", compressionBridge)
-        } finally {
-            compressionBridge.close()
-        }
-        
-        // Setup console and timer bridges (these remain here as they're core runtime features)
-        setupConsoleBridge(nativeBridge)
-        setupTimerBridges(nativeBridge)
-        setupPerformanceBridge(nativeBridge)
+        // Network bridges (HTTP and WebSocket)
+        urlSession.setupBridge(nativeBridge)
+        setupWebSocketBridge(nativeBridge, jsWebSocket, v8Runtime)
     }
     
     private fun setupPerformanceBridge(nativeBridge: V8ValueObject) {

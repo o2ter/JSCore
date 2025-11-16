@@ -60,31 +60,6 @@ class URLSession(
     // Store progress handler functions by request ID (prevents GC and avoids global pollution)
     private val progressHandlers = mutableMapOf<String, V8ValueFunction>()
     
-    companion object {
-        fun register(engine: JavaScriptEngine, v8Runtime: V8Runtime, platformContext: PlatformContext, nativeBridge: V8ValueObject) {
-            val session = URLSession(v8Runtime, platformContext, engine)
-            
-        // Create URLSession bridge object with methods using helper
-        val urlSessionBridge = v8Runtime.createJSObject(
-            methods = mapOf(
-                "shared" to IJavetDirectCallable.NoThisAndResult<Exception> { _ ->
-                    // Return self reference
-                    nativeBridge.get("URLSession")
-                },
-                "httpRequestWithRequest" to IJavetDirectCallable.NoThisAndResult<Exception> { args ->
-                    session.httpRequestWithRequest(args)
-                }
-            )
-        )
-        
-        try {
-            nativeBridge.set("URLSession", urlSessionBridge)
-        } finally {
-            urlSessionBridge.close() // Close to release callback contexts
-        }
-        }
-    }
-    
     private fun httpRequestWithRequest(v8Values: Array<out com.caoccao.javet.values.V8Value>): V8ValuePromise {
         if (v8Values.isEmpty()) {
             throw IllegalArgumentException("httpRequestWithRequest requires at least 1 argument")
@@ -350,5 +325,24 @@ class URLSession(
                 }
             )
         )
+    }
+    
+    /**
+     * Setup URLSession bridge in the native bridge object
+     * @param nativeBridge The native bridge object to register URLSession APIs
+     */
+    fun setupBridge(nativeBridge: V8ValueObject) {
+        val urlSessionBridge = v8Runtime.createV8ValueObject()
+        try {
+            urlSessionBridge.bindFunction(JavetCallbackContext("httpRequestWithRequest",
+                JavetCallbackType.DirectCallNoThisAndResult,
+                IJavetDirectCallable.NoThisAndResult<Exception> { v8Values ->
+                    httpRequestWithRequest(v8Values)
+                }))
+            
+            nativeBridge.set("URLSession", urlSessionBridge)
+        } finally {
+            urlSessionBridge.close()
+        }
     }
 }

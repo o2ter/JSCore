@@ -26,8 +26,12 @@
 package com.o2ter.jscore.lib
 
 import com.caoccao.javet.interop.V8Runtime
+import com.caoccao.javet.interop.callback.IJavetDirectCallable
+import com.caoccao.javet.interop.callback.JavetCallbackContext
+import com.caoccao.javet.interop.callback.JavetCallbackType
 import com.caoccao.javet.values.V8Value
 import com.caoccao.javet.values.primitive.V8ValueInteger
+import com.caoccao.javet.values.reference.V8ValueObject
 import com.caoccao.javet.values.reference.V8ValueTypedArray
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
@@ -344,10 +348,21 @@ class Compression(private val v8Runtime: V8Runtime) {
         val streamObj = CompressionStreamObject(compressionFormat)
         
         // Create V8 object with transform and flush methods
-        return v8Runtime.createV8ValueObject().apply {
-            bind("transform", true, streamObj::transform)
-            bind("flush", true, streamObj::flush)
-        }
+        val obj = v8Runtime.createV8ValueObject()
+        obj.bindFunction(JavetCallbackContext(
+            "transform",
+            JavetCallbackType.DirectCallNoThisAndResult,
+            IJavetDirectCallable.NoThisAndResult<Exception> { args -> 
+                if (args.isEmpty()) throw RuntimeException("transform() requires 1 argument")
+                streamObj.transform(args[0])
+            }
+        ))
+        obj.bindFunction(JavetCallbackContext(
+            "flush",
+            JavetCallbackType.DirectCallNoThisAndResult,
+            IJavetDirectCallable.NoThisAndResult<Exception> { _ -> streamObj.flush() }
+        ))
+        return obj
     }
     
     /**
@@ -362,9 +377,51 @@ class Compression(private val v8Runtime: V8Runtime) {
         val streamObj = DecompressionStreamObject(compressionFormat)
         
         // Create V8 object with transform and flush methods
-        return v8Runtime.createV8ValueObject().apply {
-            bind("transform", true, streamObj::transform)
-            bind("flush", true, streamObj::flush)
+        val obj = v8Runtime.createV8ValueObject()
+        obj.bindFunction(JavetCallbackContext(
+            "transform",
+            JavetCallbackType.DirectCallNoThisAndResult,
+            IJavetDirectCallable.NoThisAndResult<Exception> { args -> 
+                if (args.isEmpty()) throw RuntimeException("transform() requires 1 argument")
+                streamObj.transform(args[0])
+            }
+        ))
+        obj.bindFunction(JavetCallbackContext(
+            "flush",
+            JavetCallbackType.DirectCallNoThisAndResult,
+            IJavetDirectCallable.NoThisAndResult<Exception> { _ -> streamObj.flush() }
+        ))
+        return obj
+    }
+    
+    /**
+     * Setup compression bridge in the native bridge object
+     * @param nativeBridge The native bridge object to register compression APIs
+     */
+    fun setupBridge(nativeBridge: V8ValueObject) {
+        val compressionBridge = v8Runtime.createV8ValueObject()
+        try {
+            compressionBridge.bindFunction(JavetCallbackContext("createCompressionStream",
+                JavetCallbackType.DirectCallNoThisAndResult,
+                IJavetDirectCallable.NoThisAndResult<Exception> { v8Values ->
+                    if (v8Values.isEmpty()) {
+                        throw RuntimeException("createCompressionStream() requires 1 argument")
+                    }
+                    createCompressionStream(v8Values[0].toString())
+                }))
+            
+            compressionBridge.bindFunction(JavetCallbackContext("createDecompressionStream",
+                JavetCallbackType.DirectCallNoThisAndResult,
+                IJavetDirectCallable.NoThisAndResult<Exception> { v8Values ->
+                    if (v8Values.isEmpty()) {
+                        throw RuntimeException("createDecompressionStream() requires 1 argument")
+                    }
+                    createDecompressionStream(v8Values[0].toString())
+                }))
+            
+            nativeBridge.set("compression", compressionBridge)
+        } finally {
+            compressionBridge.close()
         }
     }
 }

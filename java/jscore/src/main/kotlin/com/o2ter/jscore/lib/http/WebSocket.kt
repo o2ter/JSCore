@@ -66,84 +66,6 @@ class JSWebSocket(
         .readTimeout(0, TimeUnit.MILLISECONDS)
         .build()
     
-    companion object {
-        fun createNativeBridge(
-            v8Runtime: V8Runtime,
-            platformContext: PlatformContext,
-            engine: JavaScriptEngine
-        ): V8ValueObject {
-            val bridge = v8Runtime.createV8ValueObject()
-            val wsInstance = JSWebSocket(v8Runtime, platformContext, engine)
-            
-            bridge.bindFunction(JavetCallbackContext(
-                "createWebSocket",
-                JavetCallbackType.DirectCallNoThisAndResult,
-                IJavetDirectCallable.NoThisAndResult<Exception> { v8Values ->
-                    val url = v8Values[0].toString()
-                    val protocols = v8Values[1] as? V8ValueArray
-                    val onOpen = v8Values[2] as V8ValueFunction
-                    val onMessage = v8Values[3] as V8ValueFunction
-                    val onError = v8Values[4] as V8ValueFunction
-                    val onClose = v8Values[5] as V8ValueFunction
-                    
-                    // Set callbacks as weak to prevent GC
-                    onOpen.setWeak()
-                    onMessage.setWeak()
-                    onError.setWeak()
-                    onClose.setWeak()
-                    
-                    val socketId = wsInstance.createWebSocket(url, protocols, onOpen, onMessage, onError, onClose)
-                    v8Runtime.createV8ValueString(socketId)
-                }
-            ))
-            
-            bridge.bindFunction(JavetCallbackContext(
-                "send",
-                JavetCallbackType.DirectCallNoThisAndResult,
-                IJavetDirectCallable.NoThisAndResult<Exception> { v8Values ->
-                    val socketId = v8Values[0].toString()
-                    val data = v8Values[1]
-                    val success = wsInstance.send(socketId, data)
-                    v8Runtime.createV8ValueBoolean(success)
-                }
-            ))
-            
-            bridge.bindFunction(JavetCallbackContext(
-                "close",
-                JavetCallbackType.DirectCallNoThisAndResult,
-                IJavetDirectCallable.NoThisAndResult<Exception> { v8Values ->
-                    val socketId = v8Values[0].toString()
-                    val code = v8Values[1].asInt()
-                    val reason = v8Values[2].toString()
-                    val success = wsInstance.close(socketId, code, reason)
-                    v8Runtime.createV8ValueBoolean(success)
-                }
-            ))
-            
-            bridge.bindFunction(JavetCallbackContext(
-                "getReadyState",
-                JavetCallbackType.DirectCallNoThisAndResult,
-                IJavetDirectCallable.NoThisAndResult<Exception> { v8Values ->
-                    val socketId = v8Values[0].toString()
-                    val state = wsInstance.getReadyState(socketId)
-                    v8Runtime.createV8ValueInteger(state)
-                }
-            ))
-            
-            bridge.bindFunction(JavetCallbackContext(
-                "getBufferedAmount",
-                JavetCallbackType.DirectCallNoThisAndResult,
-                IJavetDirectCallable.NoThisAndResult<Exception> { v8Values ->
-                    val socketId = v8Values[0].toString()
-                    val amount = wsInstance.getBufferedAmount(socketId)
-                    v8Runtime.createV8ValueInteger(amount)
-                }
-            ))
-            
-            return bridge
-        }
-    }
-    
     fun createWebSocket(
         url: String,
         protocols: V8ValueArray?,
@@ -403,5 +325,88 @@ private class WebSocketConnection(
     
     private fun cleanupSocket() {
         manager.cleanupSocket(socketId)
+    }
+}
+
+/**
+ * Setup WebSocket bridge in the native bridge object
+ * @param nativeBridge The native bridge object to register WebSocket APIs
+ * @param jsWebSocket The JSWebSocket instance to use
+ */
+fun setupWebSocketBridge(nativeBridge: V8ValueObject, jsWebSocket: JSWebSocket, v8Runtime: V8Runtime) {
+    val webSocketBridge = v8Runtime.createV8ValueObject()
+    try {
+        webSocketBridge.bindFunction(JavetCallbackContext("createWebSocket",
+            JavetCallbackType.DirectCallNoThisAndResult,
+            IJavetDirectCallable.NoThisAndResult<Exception> { v8Values ->
+                if (v8Values.size < 6) {
+                    throw RuntimeException("createWebSocket() requires 6 arguments")
+                }
+                val url = v8Values[0].toString()
+                val protocols = v8Values[1] as? V8ValueArray
+                val onOpen = v8Values[2] as V8ValueFunction
+                val onMessage = v8Values[3] as V8ValueFunction
+                val onError = v8Values[4] as V8ValueFunction
+                val onClose = v8Values[5] as V8ValueFunction
+                
+                onOpen.setWeak()
+                onMessage.setWeak()
+                onError.setWeak()
+                onClose.setWeak()
+                
+                val socketId = jsWebSocket.createWebSocket(url, protocols, onOpen, onMessage, onError, onClose)
+                v8Runtime.createV8ValueString(socketId)
+            }))
+        
+        webSocketBridge.bindFunction(JavetCallbackContext("send",
+            JavetCallbackType.DirectCallNoThisAndResult,
+            IJavetDirectCallable.NoThisAndResult<Exception> { v8Values ->
+                if (v8Values.size < 2) {
+                    throw RuntimeException("send() requires 2 arguments")
+                }
+                val socketId = v8Values[0].toString()
+                val data = v8Values[1]
+                jsWebSocket.send(socketId, data)
+                v8Runtime.createV8ValueBoolean(true)
+            }))
+        
+        webSocketBridge.bindFunction(JavetCallbackContext("close",
+            JavetCallbackType.DirectCallNoThisAndResult,
+            IJavetDirectCallable.NoThisAndResult<Exception> { v8Values ->
+                if (v8Values.isEmpty()) {
+                    throw RuntimeException("close() requires at least 1 argument")
+                }
+                val socketId = v8Values[0].toString()
+                val code = if (v8Values.size > 1) v8Values[1].asInt() else 1000
+                val reason = if (v8Values.size > 2) v8Values[2].toString() else ""
+                val success = jsWebSocket.close(socketId, code, reason)
+                v8Runtime.createV8ValueBoolean(success)
+            }))
+        
+        webSocketBridge.bindFunction(JavetCallbackContext("getReadyState",
+            JavetCallbackType.DirectCallNoThisAndResult,
+            IJavetDirectCallable.NoThisAndResult<Exception> { v8Values ->
+                if (v8Values.isEmpty()) {
+                    throw RuntimeException("getReadyState() requires 1 argument")
+                }
+                val socketId = v8Values[0].toString()
+                val state = jsWebSocket.getReadyState(socketId)
+                v8Runtime.createV8ValueInteger(state)
+            }))
+        
+        webSocketBridge.bindFunction(JavetCallbackContext("getBufferedAmount",
+            JavetCallbackType.DirectCallNoThisAndResult,
+            IJavetDirectCallable.NoThisAndResult<Exception> { v8Values ->
+                if (v8Values.isEmpty()) {
+                    throw RuntimeException("getBufferedAmount() requires 1 argument")
+                }
+                val socketId = v8Values[0].toString()
+                val amount = jsWebSocket.getBufferedAmount(socketId)
+                v8Runtime.createV8ValueInteger(amount)
+            }))
+        
+        nativeBridge.set("WebSocket", webSocketBridge)
+    } finally {
+        webSocketBridge.close()
     }
 }
