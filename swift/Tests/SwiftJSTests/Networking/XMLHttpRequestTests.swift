@@ -459,16 +459,21 @@ final class XMLHttpRequestTests: XCTestCase {
             xhr.onload = function() {
                 try {
                     const response = JSON.parse(xhr.responseText);
-                    const receivedData = JSON.parse(response.data || '{}');
+                    // Note: postman-echo returns data as an object, not a string
+                    const receivedData = response.data || {};
                     
                     testCompleted({
                         status: xhr.status,
                         hasData: !!response.data,
                         messageMatch: receivedData.message === 'Hello from XMLHttpRequest',
-                        contentType: response.headers ? response.headers['Content-Type'] : null
+                        contentType: response.headers ? response.headers['content-type'] : null
                     });
                 } catch (parseError) {
-                    testCompleted({ parseError: parseError.message });
+                    testCompleted({ 
+                        parseError: parseError.message,
+                        status: xhr.status,
+                        responseText: xhr.responseText
+                    });
                 }
             };
             
@@ -483,10 +488,11 @@ final class XMLHttpRequestTests: XCTestCase {
         context.globalObject["testCompleted"] = SwiftJS.Value(in: context) { args, this in
             let result = args[0]
             XCTAssertFalse(result["error"].isString, "Network request should succeed: \(result["error"].toString())")
-            XCTAssertFalse(result["parseError"].isString, "JSON should parse successfully")
-            XCTAssertEqual(Int(result["status"].numberValue ?? 0), 200)
-            XCTAssertTrue(result["hasData"].boolValue ?? false)
-            // Message matching might depend on exact server implementation
+            XCTAssertFalse(result["parseError"].isString, "JSON should parse successfully: \(result["parseError"].toString())")
+            XCTAssertEqual(Int(result["status"].numberValue ?? 0), 200, "HTTP status should be 200")
+            XCTAssertTrue(result["hasData"].boolValue ?? false, "Response should have data field")
+            XCTAssertTrue(result["messageMatch"].boolValue ?? false, "Message should match what was sent")
+            
             expectation.fulfill()
             return SwiftJS.Value.undefined
         }

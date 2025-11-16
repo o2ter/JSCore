@@ -40,9 +40,9 @@ import QuartzCore
 
 @objc final class JSPerformance: NSObject, JSPerformanceExport {
     
-    // Store performance entries
-    private var marks: [String: Double] = [:]
-    private var measures: [String: [String: Any]] = [:]
+    // Store performance entries - marks can have duplicate names
+    private var markEntries: [[String: Any]] = []
+    private var measureEntries: [[String: Any]] = []
     private let lock = NSLock()
     
     // Reference time (application start time)
@@ -66,15 +66,16 @@ import QuartzCore
         defer { lock.unlock() }
         
         let timestamp = now()
-        marks[name] = timestamp
         
-        // Return PerformanceMark object
+        // Store mark entry (can have duplicates)
         let entry: [String: Any] = [
             "name": name,
             "entryType": "mark",
             "startTime": timestamp,
             "duration": 0
         ]
+        
+        markEntries.append(entry)
         
         return JSValue(object: entry, in: context)
     }
@@ -93,7 +94,9 @@ import QuartzCore
         
         // Determine end time
         if let endMarkName = endMark {
-            guard let endMarkTime = marks[endMarkName] else {
+            // Find the most recent mark with this name
+            guard let endMarkEntry = markEntries.last(where: { ($0["name"] as? String) == endMarkName }),
+                  let endMarkTime = endMarkEntry["startTime"] as? Double else {
                 return JSValue(
                     newErrorFromMessage: "The mark '\(endMarkName)' does not exist",
                     in: context
@@ -106,7 +109,9 @@ import QuartzCore
         
         // Determine start time
         if let startMarkName = startMark {
-            guard let startMarkTime = marks[startMarkName] else {
+            // Find the most recent mark with this name
+            guard let startMarkEntry = markEntries.last(where: { ($0["name"] as? String) == startMarkName }),
+                  let startMarkTime = startMarkEntry["startTime"] as? Double else {
                 return JSValue(
                     newErrorFromMessage: "The mark '\(startMarkName)' does not exist",
                     in: context
@@ -127,7 +132,7 @@ import QuartzCore
             "duration": duration
         ]
         
-        measures[name] = entry
+        measureEntries.append(entry)
         
         return JSValue(object: entry, in: context)
     }
@@ -144,16 +149,9 @@ import QuartzCore
         var entries: [[String: Any]] = []
         
         if type == "mark" {
-            for (name, timestamp) in marks {
-                entries.append([
-                    "name": name,
-                    "entryType": "mark",
-                    "startTime": timestamp,
-                    "duration": 0
-                ])
-            }
+            entries = markEntries
         } else if type == "measure" {
-            entries = Array(measures.values)
+            entries = measureEntries
         }
         
         // Sort by startTime
@@ -177,23 +175,19 @@ import QuartzCore
         
         var entries: [[String: Any]] = []
         
+        // Handle JavaScript null which gets converted to "null" string by JavaScriptCore
+        let entryType = (type == nil || type == "null") ? nil : type
+        
         // Check marks
-        if type == nil || type == "mark" {
-            if let timestamp = marks[name] {
-                entries.append([
-                    "name": name,
-                    "entryType": "mark",
-                    "startTime": timestamp,
-                    "duration": 0
-                ])
-            }
+        if entryType == nil || entryType == "mark" {
+            let matchingMarks = markEntries.filter { ($0["name"] as? String) == name }
+            entries.append(contentsOf: matchingMarks)
         }
         
         // Check measures
-        if type == nil || type == "measure" {
-            if let measure = measures[name] {
-                entries.append(measure)
-            }
+        if entryType == nil || entryType == "measure" {
+            let matchingMeasures = measureEntries.filter { ($0["name"] as? String) == name }
+            entries.append(contentsOf: matchingMeasures)
         }
         
         // Sort by startTime
@@ -218,17 +212,10 @@ import QuartzCore
         var entries: [[String: Any]] = []
         
         // Add all marks
-        for (name, timestamp) in marks {
-            entries.append([
-                "name": name,
-                "entryType": "mark",
-                "startTime": timestamp,
-                "duration": 0
-            ])
-        }
+        entries.append(contentsOf: markEntries)
         
         // Add all measures
-        entries.append(contentsOf: Array(measures.values))
+        entries.append(contentsOf: measureEntries)
         
         // Sort by startTime
         entries.sort { (a, b) in
@@ -245,10 +232,11 @@ import QuartzCore
         lock.lock()
         defer { lock.unlock() }
         
-        if let markName = name {
-            marks.removeValue(forKey: markName)
+        // Handle JavaScript null which gets converted to "null" string by JavaScriptCore
+        if let markName = name, markName != "null" {
+            markEntries.removeAll { ($0["name"] as? String) == markName }
         } else {
-            marks.removeAll()
+            markEntries.removeAll()
         }
     }
     
@@ -257,10 +245,11 @@ import QuartzCore
         lock.lock()
         defer { lock.unlock() }
         
-        if let measureName = name {
-            measures.removeValue(forKey: measureName)
+        // Handle JavaScript null which gets converted to "null" string by JavaScriptCore
+        if let measureName = name, measureName != "null" {
+            measureEntries.removeAll { ($0["name"] as? String) == measureName }
         } else {
-            measures.removeAll()
+            measureEntries.removeAll()
         }
     }
 }
