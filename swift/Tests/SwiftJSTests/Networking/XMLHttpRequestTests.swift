@@ -614,7 +614,10 @@ final class XMLHttpRequestTests: XCTestCase {
             XCTAssertFalse(result["unexpectedLoad"].boolValue == true, "Delay service should work as expected")
             XCTAssertFalse(result["error"].isString, "Should timeout, not network error: \(result["error"].toString())")
             XCTAssertTrue(result["timedOut"].boolValue ?? false)
-            XCTAssertEqual(Int(result["timeoutValue"].numberValue ?? 0), 1000)
+            let timeoutDouble = result["timeoutValue"].numberValue ?? 0
+            let timeoutInt =
+                timeoutDouble.isNaN || timeoutDouble.isInfinite ? 0 : Int(timeoutDouble)
+            XCTAssertEqual(timeoutInt, 1000)
             expectation.fulfill()
             return SwiftJS.Value.undefined
         }

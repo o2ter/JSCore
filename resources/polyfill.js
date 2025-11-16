@@ -2711,8 +2711,17 @@
         #handleError(error) {
             if (this.#aborted) return;
 
+            // Check if this is a timeout error from the native URLSession
+            const errorString = String(error || '').toLowerCase();
+            const isTimeoutError = errorString.includes('timeout') || errorString.includes('timed out');
+
             this.#setReadyState(XMLHttpRequest.DONE);
-            this.#dispatchEvent('error');
+
+            if (isTimeoutError && this.timeout > 0) {
+                this.#dispatchEvent('timeout');
+            } else {
+                this.#dispatchEvent('error');
+            }
             this.#dispatchEvent('loadend');
         }
 
