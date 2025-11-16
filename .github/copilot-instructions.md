@@ -243,6 +243,85 @@ engine.executeOnJSThreadAsync {
 }
 ```
 
+#### **CRITICAL:** Javet Callback Return Statement Requirements
+**ALL Javet callbacks of type `IJavetDirectCallable.NoThisAndResult` MUST have explicit `return@NoThisAndResult` statements.**
+
+**Why this is critical:**
+- Without explicit returns, Kotlin lambda expressions can return `null` in some code paths
+- Javet's native layer receives a Java `null` object reference instead of a V8Value
+- This causes `SIGSEGV` crashes in `Javet::Converter::ToV8Value` with null pointer (x0=0x0)
+- The crash happens because Javet tries to dereference a null `_jobject*` pointer
+
+**Pattern Analysis - Common Causes of Missing Returns:**
+
+1. **If/else blocks without explicit return:**
+```kotlin
+// ❌ WRONG - No explicit return, can return null!
+IJavetDirectCallable.NoThisAndResult<Exception> { v8Values ->
+    if (condition) {
+        this.createV8ValueString("result")
+    } else {
+        this.createV8ValueUndefined()
+    }
+}
+
+// ✅ CORRECT - Explicit return statement
+IJavetDirectCallable.NoThisAndResult<Exception> { v8Values ->
+    return@NoThisAndResult if (condition) {
+        this.createV8ValueString("result")
+    } else {
+        this.createV8ValueUndefined()
+    }
+}
+```
+
+2. **Try/catch blocks without explicit return:**
+```kotlin
+// ❌ WRONG - Exception path has no return!
+IJavetDirectCallable.NoThisAndResult<Exception> { v8Values ->
+    try {
+        val result = someOperation()
+        createJSObject(result)
+    } catch (e: Exception) {
+        this.createV8ValueString("Error: ${e.message}")
+    }
+}
+
+// ✅ CORRECT - Explicit return in both paths
+IJavetDirectCallable.NoThisAndResult<Exception> { v8Values ->
+    try {
+        val result = someOperation()
+        return@NoThisAndResult createJSObject(result)
+    } catch (e: Exception) {
+        return@NoThisAndResult this.createV8ValueString("Error: ${e.message}")
+    }
+}
+```
+
+3. **Last expression without explicit return:**
+```kotlin
+// ❌ WRONG - Last expression might not be returned properly
+IJavetDirectCallable.NoThisAndResult<Exception> { v8Values ->
+    val array = this.createV8ValueArray()
+    items.forEach { item ->
+        array.push(item)
+    }
+    array  // Implicit return - risky!
+}
+
+// ✅ CORRECT - Explicit return statement
+IJavetDirectCallable.NoThisAndResult<Exception> { v8Values ->
+    val array = this.createV8ValueArray()
+    items.forEach { item ->
+        array.push(item)
+    }
+    return@NoThisAndResult array
+}
+```
+
+**Debugging Tip:**
+When you see SIGSEGV crashes in `Javet::Converter::ToV8Value` with register `x0=0x0`, search for all `IJavetDirectCallable.NoThisAndResult` lambdas and verify each has an explicit `return@NoThisAndResult` statement.
+
 #### KotlinJS Threading Model
 
 **CRITICAL: V8 Thread Confinement Requirement**
