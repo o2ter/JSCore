@@ -259,6 +259,55 @@ private inline fun <T> executeOnJSThread(crossinline block: () -> T): T {
 }
 ```
 
+#### **CRITICAL:** Async Callback Shutdown Pattern
+
+**Problem:** Background threads (HTTP requests, timers, etc.) may queue JavaScript callbacks after the engine has been closed, causing crashes when those callbacks try to access V8Runtime.
+
+**WRONG Approach - Using Timeouts:**
+```kotlin
+// ❌ NEVER wait for pending requests with timeouts
+fun close() {
+    waitForPendingRequests(timeoutMs = 5000)  // BAD: causes 5-second delays, unreliable
+    v8Runtime.close()
+}
+```
+
+**Problems with timeout approach:**
+- Causes test delays (5+ seconds per aborted request)
+- Unreliable - requests may still complete after timeout
+- Doesn't prevent crashes - just delays them
+- Makes tests slower and less predictable
+
+**CORRECT Approach - Check Runtime State in Callbacks:**
+```kotlin
+// ✅ ALWAYS check if v8Runtime is closed before accessing it
+engine.executeOnJSThreadAsync {
+    if (!v8Runtime.isClosed) {
+        // Safe to create V8 objects and execute JavaScript
+        val result = v8Runtime.createV8ValueString("data")
+        callback.callVoid(null, result)
+        result.close()
+    }
+    // Always clean up tracking even if runtime is closed
+    unregisterRequest(requestId)
+}
+```
+
+**Why this works:**
+- `executeOnJSThreadAsync` already checks `engine.isClosed` and returns early
+- Additional `v8Runtime.isClosed` check prevents V8 object creation after shutdown
+- No delays - callbacks execute immediately or are skipped
+- Clean shutdown - pending callbacks complete without errors
+- Tests run fast - no artificial timeouts
+
+**Implementation Checklist:**
+1. ✅ All background HTTP callbacks check `!v8Runtime.isClosed` before V8 operations
+2. ✅ All timer callbacks check `!v8Runtime.isClosed` before V8 operations
+3. ✅ WebSocket callbacks check `!v8Runtime.isClosed` before V8 operations
+4. ✅ Stream callbacks check `!v8Runtime.isClosed` before V8 operations
+5. ❌ NEVER use `Thread.sleep()` or timeouts to wait for pending operations
+6. ❌ NEVER assume callbacks will execute - always check runtime state
+
 #### SwiftJS Timer Management
 **CRITICAL Threading Requirement:** Timer creation must happen on the JavaScript context's RunLoop thread:
 
