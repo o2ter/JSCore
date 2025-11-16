@@ -363,23 +363,21 @@ class URLSession(
      */
     fun setupBridge(nativeBridge: V8ValueObject) {
         val urlSessionBridge = v8Runtime.createV8ValueObject()
-        try {
-            // Add shared() function that returns the URLSession instance
-            urlSessionBridge.bindFunction(JavetCallbackContext("shared",
-                JavetCallbackType.DirectCallNoThisAndResult,
-                IJavetDirectCallable.NoThisAndResult<Exception> { _ ->
-                    urlSessionBridge
-                }))
-            
-            urlSessionBridge.bindFunction(JavetCallbackContext("httpRequestWithRequest",
-                JavetCallbackType.DirectCallNoThisAndResult,
-                IJavetDirectCallable.NoThisAndResult<Exception> { v8Values ->
-                    httpRequestWithRequest(v8Values)
-                }))
-            
-            nativeBridge.set("URLSession", urlSessionBridge)
-        } finally {
-            urlSessionBridge.close()
-        }
+        
+        // Add shared() function that returns the URLSession instance itself
+        urlSessionBridge.bindFunction(JavetCallbackContext("shared",
+            JavetCallbackType.DirectCallNoThisAndResult,
+            IJavetDirectCallable.NoThisAndResult<Exception> { _ ->
+                urlSessionBridge
+            }))
+        
+        urlSessionBridge.bindFunction(JavetCallbackContext("httpRequestWithRequest",
+            JavetCallbackType.DirectCallNoThisAndResult,
+            IJavetDirectCallable.NoThisAndResult<Exception> { v8Values ->
+                httpRequestWithRequest(v8Values)
+            }))
+        
+        // Don't close urlSessionBridge - it needs to stay alive for the lifetime of the engine
+        nativeBridge.set("URLSession", urlSessionBridge)
     }
 }
