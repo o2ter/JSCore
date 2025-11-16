@@ -64,9 +64,6 @@ class URLSession(
     // Store progress handler functions by request ID (prevents GC and avoids global pollution)
     private val progressHandlers = mutableMapOf<String, V8ValueFunction>()
     
-    // Store the bridge object to keep it alive for the engine's lifetime
-    private var bridgeObject: V8ValueObject? = null
-    
     /**
      * Check if there are active network requests
      */
@@ -366,32 +363,24 @@ class URLSession(
      */
     fun setupBridge(nativeBridge: V8ValueObject) {
         val urlSessionBridge = v8Runtime.createV8ValueObject()
-        
-        // Add shared() function that returns the URLSession bridge instance
-        urlSessionBridge.bindFunction(JavetCallbackContext("shared",
-            JavetCallbackType.DirectCallNoThisAndResult,
-            IJavetDirectCallable.NoThisAndResult<Exception> { _ ->
-                urlSessionBridge
-            }))
-        
-        urlSessionBridge.bindFunction(JavetCallbackContext("httpRequestWithRequest",
-            JavetCallbackType.DirectCallNoThisAndResult,
-            IJavetDirectCallable.NoThisAndResult<Exception> { v8Values ->
-                httpRequestWithRequest(v8Values)
-            }))
-        
-        // Store bridge object to keep it alive for engine's lifetime
-        bridgeObject = urlSessionBridge
-        
-        // Don't close urlSessionBridge - it must stay alive for the lifetime of the engine
-        nativeBridge.set("URLSession", urlSessionBridge)
-    }
-    
-    /**
-     * Clean up resources when the engine is closed
-     */
-    fun close() {
-        bridgeObject?.close()
-        bridgeObject = null
+        try {
+            // Add shared() function that returns a new object with httpRequestWithRequest method
+            urlSessionBridge.bindFunction(JavetCallbackContext("shared",
+                JavetCallbackType.DirectCallNoThisAndResult,
+                IJavetDirectCallable.NoThisAndResult<Exception> { _ ->
+                    // Create a fresh instance each time shared() is called
+                    val instance = v8Runtime.createV8ValueObject()
+                    instance.bindFunction(JavetCallbackContext("httpRequestWithRequest",
+                        JavetCallbackType.DirectCallNoThisAndResult,
+                        IJavetDirectCallable.NoThisAndResult<Exception> { v8Values ->
+                            httpRequestWithRequest(v8Values)
+                        }))
+                    instance
+                }))
+            
+            nativeBridge.set("URLSession", urlSessionBridge)
+        } finally {
+            urlSessionBridge.close()
+        }
     }
 }
