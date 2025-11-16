@@ -220,9 +220,11 @@ class URLSession(
                     
                     // Resolve promise immediately with response metadata (standard web behavior)
                     engine.executeOnJSThreadAsync {
-                        val responseBridge = createResponseBridge(response)
-                        resolver.resolve(responseBridge)
-                        responseBridge.close()
+                        if (!v8Runtime.isClosed) {
+                            val responseBridge = createResponseBridge(response)
+                            resolver.resolve(responseBridge)
+                            responseBridge.close()
+                        }
                     }
                     
                     // Stream response body if progress handler is provided
@@ -238,19 +240,21 @@ class URLSession(
                                     
                                     // Call progress handler on JS thread with chunk
                                     engine.executeOnJSThreadAsync {
-                                        val handler = progressHandlers[requestId]
-                                        if (handler != null && !handler.isClosed) {
-                                            // Create typed array for the chunk
-                                            val typedArray = v8Runtime.createV8ValueTypedArray(
-                                                com.caoccao.javet.enums.V8ValueReferenceType.Uint8Array,
-                                                chunk.size
-                                            )
-                                            typedArray.use {
-                                                typedArray.fromBytes(chunk)
-                                                val nullValue = v8Runtime.createV8ValueNull()
-                                                nullValue.use {
-                                                    // Call handler
-                                                    handler.callVoid(null, typedArray, nullValue)
+                                        if (!v8Runtime.isClosed) {
+                                            val handler = progressHandlers[requestId]
+                                            if (handler != null && !handler.isClosed) {
+                                                // Create typed array for the chunk
+                                                val typedArray = v8Runtime.createV8ValueTypedArray(
+                                                    com.caoccao.javet.enums.V8ValueReferenceType.Uint8Array,
+                                                    chunk.size
+                                                )
+                                                typedArray.use {
+                                                    typedArray.fromBytes(chunk)
+                                                    val nullValue = v8Runtime.createV8ValueNull()
+                                                    nullValue.use {
+                                                        // Call handler
+                                                        handler.callVoid(null, typedArray, nullValue)
+                                                    }
                                                 }
                                             }
                                         }
@@ -260,17 +264,19 @@ class URLSession(
                             
                             // Signal completion with empty chunk
                             engine.executeOnJSThreadAsync {
-                                val handler = progressHandlers[requestId]
-                                if (handler != null && !handler.isClosed) {
-                                    val emptyArray = v8Runtime.createV8ValueTypedArray(
-                                        com.caoccao.javet.enums.V8ValueReferenceType.Uint8Array,
-                                        0
-                                    )
-                                    emptyArray.use {
-                                        val nullValue = v8Runtime.createV8ValueNull()
-                                        nullValue.use {
-                                            // Signal completion
-                                            handler.callVoid(null, emptyArray, nullValue)
+                                if (!v8Runtime.isClosed) {
+                                    val handler = progressHandlers[requestId]
+                                    if (handler != null && !handler.isClosed) {
+                                        val emptyArray = v8Runtime.createV8ValueTypedArray(
+                                            com.caoccao.javet.enums.V8ValueReferenceType.Uint8Array,
+                                            0
+                                        )
+                                        emptyArray.use {
+                                            val nullValue = v8Runtime.createV8ValueNull()
+                                            nullValue.use {
+                                                // Signal completion
+                                                handler.callVoid(null, emptyArray, nullValue)
+                                            }
                                         }
                                     }
                                 }
@@ -284,17 +290,19 @@ class URLSession(
                         } catch (e: Exception) {
                             // Call progress handler with error on JS thread
                             engine.executeOnJSThreadAsync {
-                                val handler = progressHandlers[requestId]
-                                if (handler != null && !handler.isClosed) {
-                                    val emptyArray = v8Runtime.createV8ValueTypedArray(
-                                        com.caoccao.javet.enums.V8ValueReferenceType.Uint8Array,
-                                        0
-                                    )
-                                    emptyArray.use {
-                                        val errorValue = v8Runtime.getExecutor("new Error('${e.message?.replace("'", "\\'") ?: "Stream read error"}')").execute<V8Value>()
-                                        errorValue.use {
-                                            // Call handler with error
-                                            handler.callVoid(null, emptyArray, errorValue)
+                                if (!v8Runtime.isClosed) {
+                                    val handler = progressHandlers[requestId]
+                                    if (handler != null && !handler.isClosed) {
+                                        val emptyArray = v8Runtime.createV8ValueTypedArray(
+                                            com.caoccao.javet.enums.V8ValueReferenceType.Uint8Array,
+                                            0
+                                        )
+                                        emptyArray.use {
+                                            val errorValue = v8Runtime.getExecutor("new Error('${e.message?.replace("'", "\\'") ?: "Stream read error"}')").execute<V8Value>()
+                                            errorValue.use {
+                                                // Call handler with error
+                                                handler.callVoid(null, emptyArray, errorValue)
+                                            }
                                         }
                                     }
                                 }
@@ -316,9 +324,11 @@ class URLSession(
                 }
             } catch (e: Exception) {
                 engine.executeOnJSThreadAsync {
-                    val errorMsg = v8Runtime.createV8ValueString(e.message ?: "Unknown error")
-                    resolver.reject(errorMsg)
-                    errorMsg.close()
+                    if (!v8Runtime.isClosed) {
+                        val errorMsg = v8Runtime.createV8ValueString(e.message ?: "Unknown error")
+                        resolver.reject(errorMsg)
+                        errorMsg.close()
+                    }
                     
                     // Unregister HTTP request after error handling
                     unregisterHttpRequest(requestId)
