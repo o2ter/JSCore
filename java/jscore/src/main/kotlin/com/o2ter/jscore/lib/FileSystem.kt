@@ -90,7 +90,7 @@ class FileSystem(
                 "homeDirectory",
                 JavetCallbackType.DirectCallNoThisAndResult,
                 IJavetDirectCallable.NoThisAndResult<Exception> { _ ->
-                    v8Runtime.createV8ValueString(System.getProperty("user.home"))
+                    return@NoThisAndResult v8Runtime.createV8ValueString(System.getProperty("user.home"))
                 }
             ))
             
@@ -106,7 +106,7 @@ class FileSystem(
                     } else {
                         tempDir
                     }
-                    v8Runtime.createV8ValueString(normalized)
+                    return@NoThisAndResult v8Runtime.createV8ValueString(normalized)
                 }
             ))
             
@@ -115,7 +115,7 @@ class FileSystem(
                 "currentDirectoryPath",
                 JavetCallbackType.DirectCallNoThisAndResult,
                 IJavetDirectCallable.NoThisAndResult<Exception> { _ ->
-                    v8Runtime.createV8ValueString(System.getProperty("user.dir"))
+                    return@NoThisAndResult v8Runtime.createV8ValueString(System.getProperty("user.dir"))
                 }
             ))
             
@@ -131,7 +131,7 @@ class FileSystem(
                     val path = (v8Values[0] as V8ValueString).value
                     val dir = File(path)
                     
-                    if (dir.exists() && dir.isDirectory) {
+                    return@NoThisAndResult if (dir.exists() && dir.isDirectory) {
                         System.setProperty("user.dir", dir.absolutePath)
                         v8Runtime.createV8ValueBoolean(true)
                     } else {
@@ -150,7 +150,7 @@ class FileSystem(
                     }
                     
                     val path = (v8Values[0] as V8ValueString).value
-                    v8Runtime.createV8ValueBoolean(File(path).exists())
+                    return@NoThisAndResult v8Runtime.createV8ValueBoolean(File(path).exists())
                 }
             ))
             
@@ -164,7 +164,7 @@ class FileSystem(
                     }
                     
                     val path = (v8Values[0] as V8ValueString).value
-                    v8Runtime.createV8ValueBoolean(File(path).isDirectory)
+                    return@NoThisAndResult v8Runtime.createV8ValueBoolean(File(path).isDirectory)
                 }
             ))
             
@@ -178,7 +178,7 @@ class FileSystem(
                     }
                     
                     val path = (v8Values[0] as V8ValueString).value
-                    v8Runtime.createV8ValueBoolean(File(path).isFile)
+                    return@NoThisAndResult v8Runtime.createV8ValueBoolean(File(path).isFile)
                 }
             ))
             
@@ -262,7 +262,7 @@ class FileSystem(
                         stat
                     } catch (e: Exception) {
                         platformContext.logger.error("FileSystem", "stat failed: ${e.message}")
-                        v8Runtime.createV8ValueNull()
+                        return@NoThisAndResult v8Runtime.createV8ValueNull()
                     }
                 }
             ))
@@ -290,10 +290,10 @@ class FileSystem(
                             bytes.size
                         )
                         array.fromBytes(bytes)
-                        array
+                        return@NoThisAndResult array
                     } catch (e: Exception) {
                         platformContext.logger.error("FileSystem", "readFileData failed: ${e.message}")
-                        v8Runtime.createV8ValueNull()
+                        return@NoThisAndResult v8Runtime.createV8ValueNull()
                     }
                 }
             ))
@@ -376,16 +376,16 @@ class FileSystem(
                                 bytes.size
                             )
                             array.fromBytes(bytes)
-                            array
+                            return@NoThisAndResult array
                         } else {
                             // Return string for text data (encoding is handled by JavaScript if needed)
                             // Note: start/end not supported for text mode
                             val content = file.readText(Charsets.UTF_8)
-                            v8Runtime.createV8ValueString(content)
+                            return@NoThisAndResult v8Runtime.createV8ValueString(content)
                         }
                     } catch (e: Exception) {
                         platformContext.logger.error("FileSystem", "readFile failed: ${e.message}")
-                        v8Runtime.createV8ValueNull()
+                        return@NoThisAndResult v8Runtime.createV8ValueNull()
                     }
                 }
             ))
@@ -435,10 +435,10 @@ class FileSystem(
                             file.writeBytes(bytes)
                         }
                         
-                        v8Runtime.createV8ValueBoolean(true)
+                        return@NoThisAndResult v8Runtime.createV8ValueBoolean(true)
                     } catch (e: Exception) {
                         platformContext.logger.error("FileSystem", "writeFile failed: ${e.message}")
-                        v8Runtime.createV8ValueBoolean(false)
+                        return@NoThisAndResult v8Runtime.createV8ValueBoolean(false)
                     }
                 }
             ))
@@ -465,10 +465,10 @@ class FileSystem(
                         entries.forEachIndexed { index, entry ->
                             array.set(index, entry)
                         }
-                        array
+                        return@NoThisAndResult array
                     } catch (e: Exception) {
                         platformContext.logger.error("FileSystem", "readDirectory failed: ${e.message}")
-                        v8Runtime.createV8ValueNull()
+                        return@NoThisAndResult v8Runtime.createV8ValueNull()
                     }
                 }
             ))
@@ -485,10 +485,10 @@ class FileSystem(
                     try {
                         val path = (v8Values[0] as V8ValueString).value
                         val result = File(path).mkdirs()
-                        v8Runtime.createV8ValueBoolean(result)
+                        return@NoThisAndResult v8Runtime.createV8ValueBoolean(result)
                     } catch (e: Exception) {
                         platformContext.logger.error("FileSystem", "createDirectory failed: ${e.message}")
-                        v8Runtime.createV8ValueBoolean(false)
+                        return@NoThisAndResult v8Runtime.createV8ValueBoolean(false)
                     }
                 }
             ))
@@ -506,10 +506,10 @@ class FileSystem(
                         val path = (v8Values[0] as V8ValueString).value
                         val file = File(path)
                         val result = file.deleteRecursively()
-                        v8Runtime.createV8ValueBoolean(result)
+                        return@NoThisAndResult v8Runtime.createV8ValueBoolean(result)
                     } catch (e: Exception) {
                         platformContext.logger.error("FileSystem", "removeItem failed: ${e.message}")
-                        v8Runtime.createV8ValueBoolean(false)
+                        return@NoThisAndResult v8Runtime.createV8ValueBoolean(false)
                     }
                 }
             ))
@@ -534,10 +534,10 @@ class FileSystem(
                             Paths.get(dest),
                             StandardCopyOption.REPLACE_EXISTING
                         )
-                        v8Runtime.createV8ValueBoolean(true)
+                        return@NoThisAndResult v8Runtime.createV8ValueBoolean(true)
                     } catch (e: Exception) {
                         platformContext.logger.error("FileSystem", "copyItem failed: ${e.message}")
-                        v8Runtime.createV8ValueBoolean(false)
+                        return@NoThisAndResult v8Runtime.createV8ValueBoolean(false)
                     }
                 }
             ))
@@ -562,10 +562,10 @@ class FileSystem(
                             Paths.get(dest),
                             StandardCopyOption.REPLACE_EXISTING
                         )
-                        v8Runtime.createV8ValueBoolean(true)
+                        return@NoThisAndResult v8Runtime.createV8ValueBoolean(true)
                     } catch (e: Exception) {
                         platformContext.logger.error("FileSystem", "moveItem failed: ${e.message}")
-                        v8Runtime.createV8ValueBoolean(false)
+                        return@NoThisAndResult v8Runtime.createV8ValueBoolean(false)
                     }
                 }
             ))
@@ -726,9 +726,9 @@ class FileSystem(
                     try {
                         val path = (v8Values[0] as V8ValueString).value
                         val size = File(path).length()
-                        v8Runtime.createV8ValueLong(size)
+                        return@NoThisAndResult v8Runtime.createV8ValueLong(size)
                     } catch (e: Exception) {
-                        v8Runtime.createV8ValueInteger(0)
+                        return@NoThisAndResult v8Runtime.createV8ValueInteger(0)
                     }
                 }
             ))
@@ -747,10 +747,10 @@ class FileSystem(
                         val file = RandomAccessFile(path, "r")
                         val handleId = handleCounter.incrementAndGet()
                         openFileHandles[handleId] = file
-                        v8Runtime.createV8ValueInteger(handleId)
+                        return@NoThisAndResult v8Runtime.createV8ValueInteger(handleId)
                     } catch (e: Exception) {
                         platformContext.logger.error("FileSystem", "createReadFileHandle failed: ${e.message}")
-                        v8Runtime.createV8ValueInteger(-1)
+                        return@NoThisAndResult v8Runtime.createV8ValueInteger(-1)
                     }
                 }
             ))
@@ -794,10 +794,10 @@ class FileSystem(
                             actualData.size
                         )
                         array.fromBytes(actualData)
-                        array
+                        return@NoThisAndResult array
                     } catch (e: Exception) {
                         platformContext.logger.error("FileSystem", "readFileHandleChunk failed: ${e.message}")
-                        v8Runtime.createV8ValueNull()
+                        return@NoThisAndResult v8Runtime.createV8ValueNull()
                     }
                 }
             ))
@@ -855,10 +855,10 @@ class FileSystem(
                         
                         val handleId = handleCounter.incrementAndGet()
                         openFileHandles[handleId] = raf
-                        v8Runtime.createV8ValueInteger(handleId)
+                        return@NoThisAndResult v8Runtime.createV8ValueInteger(handleId)
                     } catch (e: Exception) {
                         platformContext.logger.error("FileSystem", "createWriteFileHandle failed: ${e.message}")
-                        v8Runtime.createV8ValueInteger(-1)
+                        return@NoThisAndResult v8Runtime.createV8ValueInteger(-1)
                     }
                 }
             ))
@@ -892,10 +892,10 @@ class FileSystem(
                         }
                         
                         file.write(bytes)
-                        v8Runtime.createV8ValueBoolean(true)
+                        return@NoThisAndResult v8Runtime.createV8ValueBoolean(true)
                     } catch (e: Exception) {
                         platformContext.logger.error("FileSystem", "writeFileHandleChunk failed: ${e.message}")
-                        v8Runtime.createV8ValueBoolean(false)
+                        return@NoThisAndResult v8Runtime.createV8ValueBoolean(false)
                     }
                 }
             ))
@@ -924,10 +924,10 @@ class FileSystem(
                         
                         val handleId = directoryHandleCounter.incrementAndGet()
                         openDirectoryStreams[handleId] = iterator
-                        v8Runtime.createV8ValueInteger(handleId)
+                        return@NoThisAndResult v8Runtime.createV8ValueInteger(handleId)
                     } catch (e: Exception) {
                         platformContext.logger.error("FileSystem", "openDirectoryStream failed: ${e.message}")
-                        v8Runtime.createV8ValueInteger(-1)
+                        return@NoThisAndResult v8Runtime.createV8ValueInteger(-1)
                     }
                 }
             ))
@@ -1023,7 +1023,7 @@ class FileSystem(
                 "closeDirectoryStream",
                 JavetCallbackType.DirectCallNoThisAndResult,
                 IJavetDirectCallable.NoThisAndResult<Exception> { v8Values ->
-                    if (v8Values.isNotEmpty() && v8Values[0] is V8ValueInteger) {
+                    return@NoThisAndResult if (v8Values.isNotEmpty() && v8Values[0] is V8ValueInteger) {
                         val handleId = (v8Values[0] as V8ValueInteger).value
                         openDirectoryStreams.remove(handleId)
                         v8Runtime.createV8ValueBoolean(true)
@@ -1045,10 +1045,10 @@ class FileSystem(
                     try {
                         val fileExtension = (v8Values[0] as V8ValueString).value
                         val mimeType = detectMimeType(fileExtension)
-                        v8Runtime.createV8ValueString(mimeType)
+                        return@NoThisAndResult v8Runtime.createV8ValueString(mimeType)
                     } catch (e: Exception) {
                         platformContext.logger.error("FileSystem", "getMimeType failed: ${e.message}")
-                        v8Runtime.createV8ValueString("application/octet-stream")
+                        return@NoThisAndResult v8Runtime.createV8ValueString("application/octet-stream")
                     }
                 }
             ))
