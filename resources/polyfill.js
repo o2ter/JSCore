@@ -1118,9 +1118,13 @@
             return length;
         }
 
-        encode(string = '') {
-            // Convert non-string inputs to strings like browsers do
-            if (typeof string !== 'string') {
+        encode(string) {
+            // Convert undefined/null and non-string inputs to strings like browsers do
+            if (string === undefined) {
+                string = 'undefined';
+            } else if (string === null) {
+                string = 'null';
+            } else if (typeof string !== 'string') {
                 string = String(string);
             }
 
@@ -1256,7 +1260,8 @@
                     }
                 }
                 else {
-                    // Invalid byte - skip it
+                    // Invalid byte - use Unicode replacement character U+FFFD
+                    result += '\uFFFD';
                     i++;
                 }
             }

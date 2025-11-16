@@ -412,7 +412,7 @@ final class FetchTests: XCTestCase {
             })
                 .then(response => response.json())
                 .then(data => {
-                    const receivedData = JSON.parse(data.data || '{}');
+                    const receivedData = data.data || {};
                     testCompleted({
                         method: data.headers ? data.headers['X-Http-Method-Override'] || 'POST' : 'POST',
                         contentType: data.headers ? data.headers['Content-Type'] : null,
@@ -1281,8 +1281,8 @@ final class FetchTests: XCTestCase {
                     return response.json();
                 })
                 .then(responseData => {
-                    // httpbin echoes back the request data
-                    const receivedData = JSON.parse(responseData.data || '{}');
+                    // postman-echo returns data as an object, not a JSON string
+                    const receivedData = responseData.data || {};
                     
                     testCompleted({
                         requestDataMatches: receivedData.testId === requestData.testId,
