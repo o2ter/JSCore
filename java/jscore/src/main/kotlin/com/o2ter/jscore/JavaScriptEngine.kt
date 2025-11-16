@@ -626,7 +626,7 @@ class JavaScriptEngine(
                 nativeBridge.close()
             }
             
-            // Close V8Runtime - this will naturally fail any pending callbacks
+            // Close V8Runtime
             if (::v8Runtime.isInitialized && !v8Runtime.isClosed) {
                 // Trigger low memory notification to force GC and cleanup
                 try {
