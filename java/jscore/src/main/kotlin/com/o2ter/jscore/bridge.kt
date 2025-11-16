@@ -96,15 +96,14 @@ fun V8Value.toNative(): Any? {
 fun V8ValueObject.toStringMap(): Map<String, String> {
     val result = mutableMapOf<String, String>()
     try {
-        this.use {
-            val propertyNames = it.getOwnPropertyNames()
-            propertyNames.use { names ->
-                for (i in 0 until names.length) {
-                    val key = names.getString(i)
-                    val value = it.getString(key)
-                    if (key != null && value != null) {
-                        result[key] = value
-                    }
+        // Don't use .use {} on 'this' - caller owns the lifecycle
+        val propertyNames = this.getOwnPropertyNames()
+        propertyNames.use { names ->
+            for (i in 0 until names.length) {
+                val key = names.getString(i)
+                val value = this.getString(key)
+                if (key != null && value != null) {
+                    result[key] = value
                 }
             }
         }
@@ -180,7 +179,7 @@ private fun V8Runtime.createProxy(value: Any): V8Value {
             value::class.memberFunctions.forEach { function ->
                 array.set(index++, function.name)
             }
-            array
+            return@NoThisAndResult array
         }
     ))
     
@@ -195,7 +194,7 @@ private fun V8Runtime.createProxy(value: Any): V8Value {
             val hasProperty = value::class.memberProperties.any { it.name == prop }
             val hasMethod = value::class.memberFunctions.any { it.name == prop }
             
-            this.createV8ValueBoolean(hasProperty || hasMethod)
+            return@NoThisAndResult this.createV8ValueBoolean(hasProperty || hasMethod)
         }
     ))
     
@@ -210,7 +209,7 @@ private fun V8Runtime.createProxy(value: Any): V8Value {
             val property = value::class.memberProperties.find { it.name == prop }
             val hasMethod = value::class.memberFunctions.any { it.name == prop }
             
-            if (property != null || hasMethod) {
+            return@NoThisAndResult if (property != null || hasMethod) {
                 // Return descriptor that makes the property enumerable and configurable
                 // Properties are writable if they're mutable (var), methods are not writable
                 this.createV8ValueObject().apply {
@@ -233,39 +232,41 @@ private fun V8Runtime.createProxy(value: Any): V8Value {
             
             // Try to find property first
             val property = value::class.memberProperties.find { it.name == prop }
-            if (property != null) {
+            return@NoThisAndResult if (property != null) {
                 val propValue = (property as KProperty1<Any, *>).get(value)
-                return@NoThisAndResult createJSObject(propValue)
-            }
-            
-            // Try to find member function
-            val method = value::class.memberFunctions.find { it.name == prop }
-            if (method != null) {
-                // Create a callback that binds the method to the object instance
-                return@NoThisAndResult this.createV8ValueFunction(JavetCallbackContext(
-                    method.name,
-                    JavetCallbackType.DirectCallNoThisAndResult,
-                    IJavetDirectCallable.NoThisAndResult<Exception> { args ->
-                        try {
-                            // Handle null args array (when JavaScript calls function with no arguments)
-                            val safeArgs = args ?: emptyArray()
-                            
-                            // Convert V8 arguments to native types using toNative()
-                            val nativeArgs = safeArgs.map { arg -> arg.toNative() }
-                            
-                            // Use call() - first argument is the receiver (instance), followed by method arguments
-                            val allArgs = arrayOf(value, *nativeArgs.toTypedArray())
-                            val result = method.call(*allArgs)
-                            createJSObject(result)
-                        } catch (e: Exception) {
-                            // Return error message on failure
-                            this.createV8ValueString("Error calling ${method.name}: ${e::class.simpleName}: ${e.message ?: "no message"}")
+                // Ensure we always return a V8Value, never null
+                createJSObject(propValue)
+            } else {
+                // Try to find member function
+                val method = value::class.memberFunctions.find { it.name == prop }
+                if (method != null) {
+                    // Create a callback that binds the method to the object instance
+                    this.createV8ValueFunction(JavetCallbackContext(
+                        method.name,
+                        JavetCallbackType.DirectCallNoThisAndResult,
+                        IJavetDirectCallable.NoThisAndResult<Exception> { args ->
+                            try {
+                                // Handle null args array (when JavaScript calls function with no arguments)
+                                val safeArgs = args ?: emptyArray()
+                                
+                                // Convert V8 arguments to native types using toNative()
+                                val nativeArgs = safeArgs.map { arg -> arg.toNative() }
+                                
+                                // Use call() - first argument is the receiver (instance), followed by method arguments
+                                val allArgs = arrayOf(value, *nativeArgs.toTypedArray())
+                                val result = method.call(*allArgs)
+                                // Ensure we always return a V8Value, never null
+                                return@NoThisAndResult createJSObject(result)
+                            } catch (e: Exception) {
+                                // Return error message on failure
+                                return@NoThisAndResult this.createV8ValueString("Error calling ${method.name}: ${e::class.simpleName}: ${e.message ?: "no message"}")
+                            }
                         }
-                    }
-                ))
+                    ))
+                } else {
+                    this.createV8ValueUndefined()
+                }
             }
-            
-            this.createV8ValueUndefined()
         }
     ))
     
@@ -279,7 +280,7 @@ private fun V8Runtime.createProxy(value: Any): V8Value {
             
             // Try to find mutable property
             val property = value::class.memberProperties.find { it.name == prop }
-            if (property is kotlin.reflect.KMutableProperty1) {
+            return@NoThisAndResult if (property is kotlin.reflect.KMutableProperty1) {
                 try {
                     // Convert JavaScript value to native type
                     val nativeValue = newValue.toNative()
@@ -288,15 +289,15 @@ private fun V8Runtime.createProxy(value: Any): V8Value {
                     @Suppress("UNCHECKED_CAST")
                     (property as kotlin.reflect.KMutableProperty1<Any, Any?>).set(value, nativeValue)
                     
-                    return@NoThisAndResult this.createV8ValueBoolean(true)
+                    this.createV8ValueBoolean(true)
                 } catch (e: Exception) {
                     // Setting failed - return false
-                    return@NoThisAndResult this.createV8ValueBoolean(false)
+                    this.createV8ValueBoolean(false)
                 }
+            } else {
+                // Property not found or not mutable - return false
+                this.createV8ValueBoolean(false)
             }
-            
-            // Property not found or not mutable - return false
-            this.createV8ValueBoolean(false)
         }
     ))
     
@@ -307,7 +308,7 @@ private fun V8Runtime.createProxy(value: Any): V8Value {
         IJavetDirectCallable.NoThisAndResult<Exception> { v8Values ->
             // Kotlin object properties cannot be deleted
             // Return false to indicate deletion is not allowed
-            this.createV8ValueBoolean(false)
+            return@NoThisAndResult this.createV8ValueBoolean(false)
         }
     ))
     return try {
@@ -472,7 +473,7 @@ fun V8Runtime.createJSObject(
                 getterName,
                 JavetCallbackType.DirectCallNoThisAndResult,
                 IJavetDirectCallable.NoThisAndResult<Exception> { _ ->
-                    createJSObject(property.getter())
+                    return@NoThisAndResult createJSObject(property.getter())
                 }
             ))
             
