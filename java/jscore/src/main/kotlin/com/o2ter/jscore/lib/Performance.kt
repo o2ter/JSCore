@@ -251,7 +251,7 @@ class Performance(private val v8Runtime: V8Runtime) {
             performanceBridge.bindFunction(JavetCallbackContext("now",
                 JavetCallbackType.DirectCallNoThisAndResult,
                 IJavetDirectCallable.NoThisAndResult<Exception> { _ ->
-                    v8Runtime.createV8ValueDouble(now())
+                    return@NoThisAndResult v8Runtime.createV8ValueDouble(now())
                 }))
             
             performanceBridge.bindFunction(JavetCallbackContext("mark",
@@ -260,7 +260,7 @@ class Performance(private val v8Runtime: V8Runtime) {
                     if (v8Values.isEmpty()) {
                         throw RuntimeException("mark() requires 1 argument")
                     }
-                    mark(v8Values[0].toString())
+                    return@NoThisAndResult mark(v8Values[0].toString())
                 }))
             
             performanceBridge.bindFunction(JavetCallbackContext("measure",
@@ -272,7 +272,7 @@ class Performance(private val v8Runtime: V8Runtime) {
                     val name = v8Values[0].toString()
                     val startMark = if (v8Values.size > 1 && !v8Values[1].isNullOrUndefined) v8Values[1].toString() else null
                     val endMark = if (v8Values.size > 2 && !v8Values[2].isNullOrUndefined) v8Values[2].toString() else null
-                    measure(name, startMark, endMark)
+                    return@NoThisAndResult measure(name, startMark, endMark)
                 }))
             
             performanceBridge.bindFunction(JavetCallbackContext("getEntriesByType",
@@ -281,7 +281,7 @@ class Performance(private val v8Runtime: V8Runtime) {
                     if (v8Values.isEmpty()) {
                         throw RuntimeException("getEntriesByType() requires 1 argument")
                     }
-                    getEntriesByType(v8Values[0].toString())
+                    return@NoThisAndResult getEntriesByType(v8Values[0].toString())
                 }))
             
             performanceBridge.bindFunction(JavetCallbackContext("getEntriesByName",
@@ -292,13 +292,13 @@ class Performance(private val v8Runtime: V8Runtime) {
                     }
                     val name = v8Values[0].toString()
                     val type = if (v8Values.size > 1 && !v8Values[1].isNullOrUndefined) v8Values[1].toString() else null
-                    getEntriesByName(name, type)
+                    return@NoThisAndResult getEntriesByName(name, type)
                 }))
             
             performanceBridge.bindFunction(JavetCallbackContext("getEntries",
                 JavetCallbackType.DirectCallNoThisAndResult,
                 IJavetDirectCallable.NoThisAndResult<Exception> { _ ->
-                    getEntries()
+                    return@NoThisAndResult getEntries()
                 }))
             
             performanceBridge.bindFunction(JavetCallbackContext("clearMarks",
