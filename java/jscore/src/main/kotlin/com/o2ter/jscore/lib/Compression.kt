@@ -70,6 +70,7 @@ class Compression(private val v8Runtime: V8Runtime) {
     inner class CompressionStreamObject(private val format: CompressionFormat) {
         private val buffer = ByteArrayOutputStream()
         private var headerWritten = false
+        private var lastReturnedSize = 0
         
         private val gzipStream: GZIPOutputStream? = if (format == CompressionFormat.GZIP) {
             GZIPOutputStream(buffer)
@@ -132,23 +133,34 @@ class Compression(private val v8Runtime: V8Runtime) {
                 ByteArray(0)
             }
             
+            lastReturnedSize = allData.size
+            
             return createUint8Array(compressed)
         }
         
         fun flush(): V8Value {
+            val beforeSize = buffer.size()
+            
             // Close streams to finalize
             gzipStream?.finish()
             deflaterStream?.finish()
             deflater?.finish()
             
-            val result = buffer.toByteArray()
+            val allData = buffer.toByteArray()
+            
+            // Return only the final chunk that hasn't been returned yet
+            val finalChunk = if (lastReturnedSize < allData.size) {
+                allData.sliceArray(lastReturnedSize until allData.size)
+            } else {
+                ByteArray(0)
+            }
             
             // Clean up
             gzipStream?.close()
             deflaterStream?.close()
             deflater?.end()
             
-            return createUint8Array(result)
+            return createUint8Array(finalChunk)
         }
     }
     
