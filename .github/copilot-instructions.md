@@ -322,6 +322,32 @@ IJavetDirectCallable.NoThisAndResult<Exception> { v8Values ->
 **Debugging Tip:**
 When you see SIGSEGV crashes in `Javet::Converter::ToV8Value` with register `x0=0x0`, search for all `IJavetDirectCallable.NoThisAndResult` lambdas and verify each has an explicit `return@NoThisAndResult` statement.
 
+4. **Non-null assertion operator (`!!`) in callbacks:**
+```kotlin
+// ❌ WRONG - Non-null assertion can throw NPE, callback returns null to Javet
+IJavetDirectCallable.NoThisAndResult<Exception> { _ ->
+    return@NoThisAndResult sharedInstance!!  // NPE → null return → SIGSEGV crash
+}
+
+// ✅ CORRECT - Proper null checking with safe fallback
+IJavetDirectCallable.NoThisAndResult<Exception> { _ ->
+    val instance = sharedInstance
+    if (instance == null || instance.isClosed) {
+        return@NoThisAndResult v8Runtime.createV8ValueUndefined()
+    }
+    return@NoThisAndResult instance
+}
+```
+
+**Why this crashes:**
+- The `!!` operator throws `NullPointerException` if the value is null
+- Exceptions in Javet callbacks can cause the callback to return `null` to the native layer
+- Javet's `ToV8Value` receives a null `_jobject*` pointer and crashes with SIGSEGV
+- **Always use explicit null checks** instead of `!!` in Javet callbacks
+- Return `createV8ValueUndefined()` or `createV8ValueNull()` for missing values
+
+**Real-world example:** The `URLSession.shared()` callback crashed when using `sharedInstance!!`. The fix was to check for null/closed state and return undefined instead of relying on the non-null assertion operator.
+
 #### KotlinJS Threading Model
 
 **CRITICAL: V8 Thread Confinement Requirement**
