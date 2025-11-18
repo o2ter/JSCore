@@ -69,7 +69,6 @@ class Compression(private val v8Runtime: V8Runtime) {
      */
     inner class CompressionStreamObject(private val format: CompressionFormat) {
         private val buffer = ByteArrayOutputStream()
-        private var headerWritten = false
         private var lastReturnedSize = 0
         
         private val gzipStream: GZIPOutputStream? = if (format == CompressionFormat.GZIP) {
@@ -82,7 +81,13 @@ class Compression(private val v8Runtime: V8Runtime) {
             else -> null
         }
         
-        private val deflaterStream: DeflaterOutputStream? = deflater?.let {
+        private val deflaterStream: DeflaterOutputStream? = deflater?.let { 
+            // Write DEFLATE header before creating the stream
+            if (format == CompressionFormat.DEFLATE) {
+                buffer.write(0x78)  // CMF
+                buffer.write(0x9c)  // FLG
+                lastReturnedSize = 2  // Track that we've written the header
+            }
             DeflaterOutputStream(buffer, it, true)
         }
         
@@ -93,25 +98,6 @@ class Compression(private val v8Runtime: V8Runtime) {
             if (inputBytes.isEmpty()) {
                 return createUint8Array(ByteArray(0))
             }
-            
-            // Write header on first chunk
-            if (!headerWritten) {
-                headerWritten = true
-                when (format) {
-                    CompressionFormat.GZIP -> {
-                        // GZIPOutputStream writes header automatically
-                    }
-                    CompressionFormat.DEFLATE -> {
-                        buffer.write(0x78)  // CMF
-                        buffer.write(0x9c)  // FLG
-                    }
-                    CompressionFormat.DEFLATE_RAW -> {
-                        // No header for raw deflate
-                    }
-                }
-            }
-            
-            val beforeSize = buffer.size()
             
             // Write to appropriate stream
             when (format) {
@@ -125,10 +111,10 @@ class Compression(private val v8Runtime: V8Runtime) {
                 }
             }
             
-            // Return compressed chunk
+            // Return compressed chunk (all new data since last call)
             val allData = buffer.toByteArray()
-            val compressed = if (beforeSize < allData.size) {
-                allData.sliceArray(beforeSize until allData.size)
+            val compressed = if (lastReturnedSize < allData.size) {
+                allData.sliceArray(lastReturnedSize until allData.size)
             } else {
                 ByteArray(0)
             }
@@ -139,9 +125,7 @@ class Compression(private val v8Runtime: V8Runtime) {
         }
         
         fun flush(): V8Value {
-            val beforeSize = buffer.size()
-            
-            // Close streams to finalize
+            // Finalize compression
             gzipStream?.finish()
             deflaterStream?.finish()
             deflater?.finish()
@@ -168,14 +152,12 @@ class Compression(private val v8Runtime: V8Runtime) {
      * Decompression stream object exposed to JavaScript with transform() and flush() methods
      */
     inner class DecompressionStreamObject(private val format: CompressionFormat) {
-        private var inputBuffer = ByteArrayOutputStream()
-        private var headerSkipped = false
-        private var footerBytes = ByteArrayOutputStream()
+        private val inputBuffer = ByteArrayOutputStream()
         
-        private val inflater: Inflater? = when (format) {
-            CompressionFormat.DEFLATE -> Inflater(false)
-            CompressionFormat.DEFLATE_RAW -> Inflater(true)
-            else -> null
+        private val inflater: Inflater = when (format) {
+            CompressionFormat.GZIP -> Inflater(true)  // true for GZIP (nowrap mode)
+            CompressionFormat.DEFLATE -> Inflater(false)  // false for zlib wrapper
+            CompressionFormat.DEFLATE_RAW -> Inflater(true)  // true for raw deflate (no wrapper)
         }
         
         fun transform(data: V8Value): V8Value {
@@ -183,136 +165,110 @@ class Compression(private val v8Runtime: V8Runtime) {
                 ?: throw RuntimeException("Invalid input data")
             
             if (inputBytes.isEmpty()) {
-                return createUint8Array(ByteArray(0))
-            }
-            
-            // Accumulate input
-            inputBuffer.write(inputBytes)
-            
-            var inputData = inputBuffer.toByteArray()
-            
-            // Skip header on first chunk
-            if (!headerSkipped) {
-                val bytesToSkip = when (format) {
-                    CompressionFormat.GZIP -> 10
-                    CompressionFormat.DEFLATE -> 2
-                    CompressionFormat.DEFLATE_RAW -> 0
-                }
-                
-                if (inputData.size < bytesToSkip) {
-                    return v8Runtime.createV8ValueNull()
-                }
-                
-                headerSkipped = true
-                if (bytesToSkip > 0) {
-                    inputData = inputData.sliceArray(bytesToSkip until inputData.size)
-                }
-            }
-            
-            // Buffer footer bytes for gzip/deflate
-            val footerSize = when (format) {
-                CompressionFormat.GZIP -> 8
-                CompressionFormat.DEFLATE -> 4
-                CompressionFormat.DEFLATE_RAW -> 0
-            }
-            
-            if (footerSize > 0) {
-                footerBytes.write(inputData)
-                val allFooterData = footerBytes.toByteArray()
-                if (allFooterData.size <= footerSize) {
-                    return v8Runtime.createV8ValueNull()
-                }
-                inputData = allFooterData.sliceArray(0 until allFooterData.size - footerSize)
-                footerBytes.reset()
-                footerBytes.write(allFooterData.sliceArray(allFooterData.size - footerSize until allFooterData.size))
-            }
-            
-            if (inputData.isEmpty()) {
                 return v8Runtime.createV8ValueNull()
             }
             
-            // Decompress chunk
-            val decompressed = try {
-                when (format) {
-                    CompressionFormat.GZIP -> {
-                        val inputStream = ByteArrayInputStream(inputBuffer.toByteArray())
-                        val outputStream = ByteArrayOutputStream()
-                        GZIPInputStream(inputStream).use { it.copyTo(outputStream) }
-                        
-                        // Clear input buffer after successful decompression
-                        inputBuffer.reset()
-                        outputStream.toByteArray()
+            // For GZIP format, accumulate data and try to decompress
+            if (format == CompressionFormat.GZIP) {
+                inputBuffer.write(inputBytes)
+                
+                // Try to decompress accumulated data
+                try {
+                    val decompressed = ByteArrayOutputStream()
+                    val gzipInput = GZIPInputStream(ByteArrayInputStream(inputBuffer.toByteArray()))
+                    val buffer = ByteArray(8192)
+                    var count: Int
+                    while (gzipInput.read(buffer).also { count = it } != -1) {
+                        decompressed.write(buffer, 0, count)
                     }
-                    CompressionFormat.DEFLATE, CompressionFormat.DEFLATE_RAW -> {
-                        inflater!!.setInput(inputData)
-                        val outputStream = ByteArrayOutputStream()
-                        val buffer = ByteArray(8192)
-                        
-                        while (!inflater.needsInput() && !inflater.finished()) {
-                            val count = inflater.inflate(buffer)
-                            if (count > 0) {
-                                outputStream.write(buffer, 0, count)
-                            }
-                        }
-                        
-                        outputStream.toByteArray()
+                    
+                    // Successfully decompressed - clear input buffer
+                    inputBuffer.reset()
+                    
+                    val result = decompressed.toByteArray()
+                    return if (result.isNotEmpty()) {
+                        createUint8Array(result)
+                    } else {
+                        v8Runtime.createV8ValueNull()
+                    }
+                } catch (e: Exception) {
+                    // Not enough data yet or incomplete stream - keep accumulating
+                    return v8Runtime.createV8ValueNull()
+                }
+            }
+            
+            // For DEFLATE and DEFLATE_RAW, use Inflater for streaming decompression
+            inflater.setInput(inputBytes)
+            
+            val decompressed = ByteArrayOutputStream()
+            val buffer = ByteArray(8192)
+            
+            try {
+                while (!inflater.needsInput() && !inflater.finished()) {
+                    val count = inflater.inflate(buffer)
+                    if (count > 0) {
+                        decompressed.write(buffer, 0, count)
+                    } else if (inflater.needsDictionary()) {
+                        throw RuntimeException("Decompression requires a preset dictionary")
                     }
                 }
             } catch (e: Exception) {
-                // Not enough data yet, return null
-                return v8Runtime.createV8ValueNull()
+                // Incomplete data, will continue on next chunk
             }
             
-            return createUint8Array(decompressed)
+            val result = decompressed.toByteArray()
+            return if (result.isNotEmpty()) {
+                createUint8Array(result)
+            } else {
+                v8Runtime.createV8ValueNull()
+            }
         }
         
         fun flush(): V8Value {
-            // Try to decompress any remaining data
-            val inputData = inputBuffer.toByteArray()
-            if (inputData.isEmpty()) {
-                cleanup()
-                return v8Runtime.createV8ValueNull()
-            }
+            val decompressed = ByteArrayOutputStream()
+            val buffer = ByteArray(8192)
             
-            val decompressed = try {
-                when (format) {
-                    CompressionFormat.GZIP -> {
-                        val inputStream = ByteArrayInputStream(inputData)
-                        val outputStream = ByteArrayOutputStream()
-                        GZIPInputStream(inputStream).use { it.copyTo(outputStream) }
-                        outputStream.toByteArray()
+            // Process any remaining buffered GZIP data
+            if (format == CompressionFormat.GZIP && inputBuffer.size() > 0) {
+                try {
+                    val gzipInput = GZIPInputStream(ByteArrayInputStream(inputBuffer.toByteArray()))
+                    var count: Int
+                    while (gzipInput.read(buffer).also { count = it } != -1) {
+                        decompressed.write(buffer, 0, count)
                     }
-                    CompressionFormat.DEFLATE, CompressionFormat.DEFLATE_RAW -> {
-                        val outputStream = ByteArrayOutputStream()
-                        val buffer = ByteArray(8192)
-                        
-                        while (!inflater!!.finished()) {
-                            val count = inflater.inflate(buffer)
-                            if (count > 0) {
-                                outputStream.write(buffer, 0, count)
-                            } else {
-                                break
-                            }
-                        }
-                        
-                        outputStream.toByteArray()
-                    }
+                } catch (e: Exception) {
+                    // Ignore incomplete data
                 }
-            } catch (e: Exception) {
-                ByteArray(0)
-            } finally {
-                cleanup()
             }
             
-            if (decompressed.isEmpty()) {
-                return v8Runtime.createV8ValueNull()
+            // Process any remaining data in the inflater for DEFLATE/DEFLATE_RAW
+            if (format != CompressionFormat.GZIP) {
+                try {
+                    while (!inflater.finished()) {
+                        val count = inflater.inflate(buffer)
+                        if (count > 0) {
+                            decompressed.write(buffer, 0, count)
+                        } else {
+                            break
+                        }
+                    }
+                } catch (e: Exception) {
+                    // Ignore incomplete data
+                }
             }
             
-            return createUint8Array(decompressed)
+            cleanup()
+            
+            val result = decompressed.toByteArray()
+            return if (result.isNotEmpty()) {
+                createUint8Array(result)
+            } else {
+                v8Runtime.createV8ValueNull()
+            }
         }
         
         private fun cleanup() {
-            inflater?.end()
+            inflater.end()
         }
     }
     
