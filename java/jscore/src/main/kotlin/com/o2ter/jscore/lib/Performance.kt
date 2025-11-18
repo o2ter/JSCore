@@ -41,7 +41,7 @@ import java.util.concurrent.ConcurrentHashMap
 class Performance(private val v8Runtime: V8Runtime) {
     
     // Store performance entries with thread-safe access
-    private val marks = ConcurrentHashMap<String, Double>()
+    private val marks = ConcurrentHashMap<String, MutableList<Double>>()
     private val measures = ConcurrentHashMap<String, Map<String, Any>>()
     
     companion object {
@@ -64,7 +64,7 @@ class Performance(private val v8Runtime: V8Runtime) {
      */
     fun mark(name: String): V8Value {
         val timestamp = now()
-        marks[name] = timestamp
+        marks.getOrPut(name) { mutableListOf() }.add(timestamp)
         
         // Return PerformanceMark object
         return v8Runtime.createJSObject(
@@ -82,13 +82,13 @@ class Performance(private val v8Runtime: V8Runtime) {
      */
     fun measure(name: String, startMark: String?, endMark: String?): V8Value {
         val endTime: Double = if (endMark != null) {
-            marks[endMark] ?: throw RuntimeException("The mark '$endMark' does not exist")
+            marks[endMark]?.lastOrNull() ?: throw RuntimeException("The mark '$endMark' does not exist")
         } else {
             now()
         }
         
         val startTime: Double = if (startMark != null) {
-            marks[startMark] ?: throw RuntimeException("The mark '$startMark' does not exist")
+            marks[startMark]?.lastOrNull() ?: throw RuntimeException("The mark '$startMark' does not exist")
         } else {
             0.0 // Start from time origin
         }
@@ -116,15 +116,17 @@ class Performance(private val v8Runtime: V8Runtime) {
         
         when (type) {
             "mark" -> {
-                marks.forEach { (name, timestamp) ->
-                    entries.add(
-                        mapOf(
-                            "name" to name,
-                            "entryType" to "mark",
-                            "startTime" to timestamp,
-                            "duration" to 0.0
+                marks.forEach { (name, timestamps) ->
+                    timestamps.forEach { timestamp ->
+                        entries.add(
+                            mapOf(
+                                "name" to name,
+                                "entryType" to "mark",
+                                "startTime" to timestamp,
+                                "duration" to 0.0
+                            )
                         )
-                    )
+                    }
                 }
             }
             "measure" -> {
@@ -151,7 +153,7 @@ class Performance(private val v8Runtime: V8Runtime) {
         
         // Check marks
         if (type == null || type == "mark") {
-            marks[name]?.let { timestamp ->
+            marks[name]?.forEach { timestamp ->
                 entries.add(
                     mapOf(
                         "name" to name,
@@ -188,15 +190,17 @@ class Performance(private val v8Runtime: V8Runtime) {
         val entries = mutableListOf<Map<String, Any>>()
         
         // Add all marks
-        marks.forEach { (name, timestamp) ->
-            entries.add(
-                mapOf(
-                    "name" to name,
-                    "entryType" to "mark",
-                    "startTime" to timestamp,
-                    "duration" to 0.0
+        marks.forEach { (name, timestamps) ->
+            timestamps.forEach { timestamp ->
+                entries.add(
+                    mapOf(
+                        "name" to name,
+                        "entryType" to "mark",
+                        "startTime" to timestamp,
+                        "duration" to 0.0
+                    )
                 )
-            )
+            }
         }
         
         // Add all measures

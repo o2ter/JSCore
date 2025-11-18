@@ -325,9 +325,11 @@ class URLSession(
             } catch (e: Exception) {
                 engine.executeOnJSThreadAsync {
                     if (!v8Runtime.isClosed) {
-                        val errorMsg = v8Runtime.createV8ValueString(e.message ?: "Unknown error")
-                        resolver.reject(errorMsg)
-                        errorMsg.close()
+                        // Create a proper JavaScript Error object instead of string
+                        val errorObj = v8Runtime.getExecutor("new Error('${e.message?.replace("'", "\\'") ?: "Network request failed"}')").execute<V8ValueObject>()
+                        errorObj.use {
+                            resolver.reject(errorObj)
+                        }
                     }
                     
                     // Unregister HTTP request after error handling
