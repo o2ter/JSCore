@@ -135,14 +135,12 @@ class Performance(private val v8Runtime: V8Runtime) {
         // Sort by startTime
         entries.sortBy { it["startTime"] as? Double ?: 0.0 }
         
-        return v8Runtime.createV8ValueArray().use { array ->
-            entries.forEach { entry ->
-                v8Runtime.createJSObject(properties = entry).use { obj ->
-                    array.push(obj)
-                }
-            }
-            array
+        val array = v8Runtime.createV8ValueArray()
+        entries.forEach { entry ->
+            val obj = v8Runtime.createJSObject(properties = entry)
+            array.push(obj)
         }
+        return array
     }
     
     /**
@@ -175,14 +173,12 @@ class Performance(private val v8Runtime: V8Runtime) {
         // Sort by startTime
         entries.sortBy { it["startTime"] as? Double ?: 0.0 }
         
-        return v8Runtime.createV8ValueArray().use { array ->
-            entries.forEach { entry ->
-                v8Runtime.createJSObject(properties = entry).use { obj ->
-                    array.push(obj)
-                }
-            }
-            array
+        val array = v8Runtime.createV8ValueArray()
+        entries.forEach { entry ->
+            val obj = v8Runtime.createJSObject(properties = entry)
+            array.push(obj)
         }
+        return array
     }
     
     /**
@@ -209,14 +205,12 @@ class Performance(private val v8Runtime: V8Runtime) {
         // Sort by startTime
         entries.sortBy { it["startTime"] as? Double ?: 0.0 }
         
-        return v8Runtime.createV8ValueArray().use { array ->
-            entries.forEach { entry ->
-                v8Runtime.createJSObject(properties = entry).use { obj ->
-                    array.push(obj)
-                }
-            }
-            array
+        val array = v8Runtime.createV8ValueArray()
+        entries.forEach { entry ->
+            val obj = v8Runtime.createJSObject(properties = entry)
+            array.push(obj)
         }
+        return array
     }
     
     /**
