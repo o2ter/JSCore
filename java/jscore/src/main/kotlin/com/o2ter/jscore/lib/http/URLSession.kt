@@ -390,7 +390,12 @@ class URLSession(
             urlSessionBridge.bindFunction(JavetCallbackContext("shared",
                 JavetCallbackType.DirectCallNoThisAndResult,
                 IJavetDirectCallable.NoThisAndResult<Exception> { _ ->
-                    return@NoThisAndResult sharedInstance!!
+                    val instance = sharedInstance
+                    if (instance == null || instance.isClosed) {
+                        // Should never happen in normal flow, but return undefined instead of crashing
+                        return@NoThisAndResult v8Runtime.createV8ValueUndefined()
+                    }
+                    return@NoThisAndResult instance
                 }))
             
             nativeBridge.set("URLSession", urlSessionBridge)
