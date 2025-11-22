@@ -103,9 +103,9 @@ afterEvaluate {
     println("Checking local.properties in $project project...")
     val localPropertiesFile = File(project.rootDir, "local.properties")
     if (!localPropertiesFile.exists()) {
-        var gradle: Gradle? = gradle
-        loop@ while (gradle != null) {
-            var project: Project? = gradle.rootProject
+        var _gradle: Gradle? = gradle
+        loop@ while (_gradle != null) {
+            var project: Project? = _gradle.rootProject
             while (project != null) {
                 val parentLocalPropertiesFile = project.file("local.properties")
                 if (parentLocalPropertiesFile.exists()) {
@@ -116,7 +116,7 @@ afterEvaluate {
                 }
                 project = project.parent
             }
-            gradle = gradle.parent
+            _gradle = _gradle.parent
         }
     }
 }
