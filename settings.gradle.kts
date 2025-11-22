@@ -36,10 +36,10 @@ pluginManagement {
         gradlePluginPortal()
     }
     plugins {
-        kotlin("jvm") version "2.1.20"
-        kotlin("android") version "2.1.20"
-        id("com.android.library") version "8.12.3"
-        id("com.android.application") version "8.12.3"
+        kotlin("jvm") version "2.2.21"
+        kotlin("android") version "2.2.21"
+        id("com.android.library") version "8.13.1"
+        id("com.android.application") version "8.13.1"
     }
 }
 dependencyResolutionManagement {
