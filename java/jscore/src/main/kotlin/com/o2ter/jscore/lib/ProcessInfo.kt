@@ -30,6 +30,8 @@ import com.caoccao.javet.interop.callback.IJavetDirectCallable
 import com.caoccao.javet.values.reference.V8ValueObject
 import com.o2ter.jscore.PlatformContext
 import com.o2ter.jscore.createJSObject
+import java.lang.management.ManagementFactory.getRuntimeMXBean
+import java.net.InetAddress.getLocalHost
 
 /**
  * ProcessInfo native bridge
@@ -52,7 +54,7 @@ class ProcessInfo(
             }
             
             // Get command-line arguments
-            val jvmArgs = java.lang.management.ManagementFactory.getRuntimeMXBean().inputArguments
+            val jvmArgs = getRuntimeMXBean().inputArguments
             jvmArgs.forEachIndexed { index, arg ->
                 args.set(index, arg)
             }
@@ -67,11 +69,11 @@ class ProcessInfo(
             val pid = ProcessHandle.current().pid()
             
             // Process name
-            val processName = java.lang.management.ManagementFactory.getRuntimeMXBean().name
+            val processName = getRuntimeMXBean().name
             
             // Host name
             val hostName = try {
-                java.net.InetAddress.getLocalHost().hostName
+                getLocalHost().hostName
             } catch (e: Exception) {
                 "localhost"
             }
@@ -130,7 +132,7 @@ class ProcessInfo(
                     },
                     "systemUptime" to IJavetDirectCallable.NoThisAndResult<Exception> { _ ->
                         return@NoThisAndResult v8Runtime.createV8ValueDouble(
-                            java.lang.management.ManagementFactory.getRuntimeMXBean().uptime / 1000.0
+                            getRuntimeMXBean().uptime / 1000.0
                         )
                     },
                     "getuid" to IJavetDirectCallable.NoThisAndResult<Exception> { _ ->
