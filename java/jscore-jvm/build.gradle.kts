@@ -47,6 +47,9 @@ val hasIcuData = icuDataFile.exists() && icuDataFile.length() > 1_000_000
 
 dependencies {
     api(project(":jscore"))
+    
+    // Javet API for compile-time (platform-independent)
+    implementation(libs.javet)
 
     // Detect platform and architecture dynamically for Javet native library
     val os = OperatingSystem.current()

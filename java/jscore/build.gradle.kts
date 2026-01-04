@@ -55,8 +55,9 @@ dependencies {
     implementation(libs.kotlinx.coroutines.core)
     implementation(kotlin("reflect"))
     
-    // Javet - Unified V8 engine for both JVM and Android
-    implementation(libs.javet)
+    // Javet API for compile-time only (not bundled)
+    // Platform modules provide the actual runtime implementation
+    compileOnly(libs.javet)
     
     // OkHttp for WebSocket support
     implementation(libs.okhttp)
