@@ -286,4 +286,64 @@ class AndroidProcessInfo : ProcessInfoProvider {
     }
     
     override fun getgroups(): IntArray = intArrayOf()
+    
+    override val inputArguments: List<String>
+        get() = emptyList() // Android apps don't have command-line arguments
+    
+    override val processName: String
+        get() = "android:${android.os.Process.myPid()}"
+    
+    override fun getSystemUptime(): Double {
+        // SystemClock.elapsedRealtime() returns milliseconds since boot
+        return android.os.SystemClock.elapsedRealtime() / 1000.0
+    }
+    
+    override val hostName: String
+        get() = Build.DEVICE ?: "android-device"
+    
+    override val platform: String
+        get() = "android"
+    
+    override val architecture: String
+        get() {
+            val arch = Build.SUPPORTED_ABIS.firstOrNull() ?: System.getProperty("os.arch")
+            return when (arch?.lowercase()) {
+                "arm64-v8a", "aarch64" -> "arm64"
+                "armeabi-v7a", "armeabi", "arm" -> "arm"
+                "x86_64", "amd64" -> "x64"
+                "x86", "i386", "i686" -> "ia32"
+                else -> arch ?: "unknown"
+            }
+        }
+    
+    override val environment: Map<String, String>
+        get() = System.getenv()
+    
+    override val osVersionString: String
+        get() = Build.VERSION.RELEASE
+    
+    override val osVersion: ProcessInfoProvider.OSVersion
+        get() {
+            val versionParts = Build.VERSION.RELEASE.split(".")
+            return ProcessInfoProvider.OSVersion(
+                major = versionParts.getOrNull(0)?.toIntOrNull() ?: Build.VERSION.SDK_INT,
+                minor = versionParts.getOrNull(1)?.toIntOrNull() ?: 0,
+                patch = versionParts.getOrNull(2)?.toIntOrNull() ?: 0
+            )
+        }
+    
+    override val processIdentifier: Long
+        get() = android.os.Process.myPid().toLong()
+    
+    override fun getPhysicalMemory(): Long {
+        return Runtime.getRuntime().maxMemory()
+    }
+    
+    override fun getProcessorCount(): Int {
+        return Runtime.getRuntime().availableProcessors()
+    }
+    
+    override fun getActiveProcessorCount(): Int {
+        return Runtime.getRuntime().availableProcessors()
+    }
 }

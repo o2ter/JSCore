@@ -169,4 +169,71 @@ class JvmProcessInfo : ProcessInfoProvider {
     override fun getgid(): Int = -1
     override fun getegid(): Int = -1
     override fun getgroups(): IntArray = intArrayOf()
+    
+    override val inputArguments: List<String>
+        get() = java.lang.management.ManagementFactory.getRuntimeMXBean().inputArguments
+    
+    override val processName: String
+        get() = java.lang.management.ManagementFactory.getRuntimeMXBean().name
+    
+    override fun getSystemUptime(): Double {
+        return java.lang.management.ManagementFactory.getRuntimeMXBean().uptime / 1000.0
+    }
+    
+    override val hostName: String
+        get() = try {
+            java.net.InetAddress.getLocalHost().hostName
+        } catch (e: Exception) {
+            "localhost"
+        }
+    
+    override val platform: String
+        get() = when {
+            System.getProperty("os.name").lowercase().contains("android") -> "android"
+            System.getProperty("os.name").lowercase().contains("linux") -> "linux"
+            System.getProperty("os.name").lowercase().contains("mac") || 
+            System.getProperty("os.name").lowercase().contains("darwin") -> "darwin"
+            System.getProperty("os.name").lowercase().contains("windows") -> "win32"
+            else -> "unknown"
+        }
+    
+    override val architecture: String
+        get() = when (System.getProperty("os.arch").lowercase()) {
+            "amd64", "x86_64" -> "x64"
+            "x86", "i386", "i686" -> "ia32"
+            "aarch64", "arm64" -> "arm64"
+            "arm" -> "arm"
+            else -> System.getProperty("os.arch") // Return actual value as fallback
+        }
+    
+    override val environment: Map<String, String>
+        get() = System.getenv()
+    
+    override val osVersionString: String
+        get() = System.getProperty("os.version")
+    
+    override val osVersion: ProcessInfoProvider.OSVersion
+        get() {
+            val versionParts = System.getProperty("os.version").split(".")
+            return ProcessInfoProvider.OSVersion(
+                major = versionParts.getOrNull(0)?.toIntOrNull() ?: 0,
+                minor = versionParts.getOrNull(1)?.toIntOrNull() ?: 0,
+                patch = versionParts.getOrNull(2)?.toIntOrNull() ?: 0
+            )
+        }
+    
+    override val processIdentifier: Long
+        get() = ProcessHandle.current().pid()
+    
+    override fun getPhysicalMemory(): Long {
+        return Runtime.getRuntime().maxMemory()
+    }
+    
+    override fun getProcessorCount(): Int {
+        return Runtime.getRuntime().availableProcessors()
+    }
+    
+    override fun getActiveProcessorCount(): Int {
+        return Runtime.getRuntime().availableProcessors()
+    }
 }

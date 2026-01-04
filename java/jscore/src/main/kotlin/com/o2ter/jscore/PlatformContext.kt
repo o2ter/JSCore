@@ -99,7 +99,7 @@ interface SecureStorage {
 }
 
 /**
- * Process information interface for user/group IDs (POSIX)
+ * Process information interface for user/group IDs (POSIX) and system information
  */
 interface ProcessInfoProvider {
     fun getuid(): Int
@@ -107,4 +107,70 @@ interface ProcessInfoProvider {
     fun getgid(): Int
     fun getegid(): Int
     fun getgroups(): IntArray
+    
+    /**
+     * Get command-line arguments passed to the process
+     */
+    val inputArguments: List<String>
+    
+    /**
+     * Get the process name (e.g., PID@hostname)
+     */
+    val processName: String
+    
+    /**
+     * Get system uptime in seconds
+     */
+    fun getSystemUptime(): Double
+    
+    /**
+     * Get the hostname of the system
+     */
+    val hostName: String
+    
+    /**
+     * Get the platform name (e.g., "linux", "darwin", "win32", "android")
+     */
+    val platform: String
+    
+    /**
+     * Get the architecture (e.g., "x64", "arm64", "ia32")
+     */
+    val architecture: String
+    
+    /**
+     * Get environment variables
+     */
+    val environment: Map<String, String>
+    
+    /**
+     * Get OS version string
+     */
+    val osVersionString: String
+    
+    /**
+     * Get OS version as structured object
+     */
+    data class OSVersion(val major: Int, val minor: Int, val patch: Int)
+    val osVersion: OSVersion
+    
+    /**
+     * Get process identifier (PID)
+     */
+    val processIdentifier: Long
+    
+    /**
+     * Get physical memory in bytes
+     */
+    fun getPhysicalMemory(): Long
+    
+    /**
+     * Get processor count
+     */
+    fun getProcessorCount(): Int
+    
+    /**
+     * Get active processor count
+     */
+    fun getActiveProcessorCount(): Int
 }

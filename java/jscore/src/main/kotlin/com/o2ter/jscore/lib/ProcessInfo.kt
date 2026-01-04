@@ -30,8 +30,6 @@ import com.caoccao.javet.interop.callback.IJavetDirectCallable
 import com.caoccao.javet.values.reference.V8ValueObject
 import com.o2ter.jscore.PlatformContext
 import com.o2ter.jscore.createJSObject
-import java.lang.management.ManagementFactory.getRuntimeMXBean
-import java.net.InetAddress.getLocalHost
 
 /**
  * ProcessInfo native bridge
@@ -43,75 +41,39 @@ class ProcessInfo(
 ) {
     
     fun setupBridge(nativeBridge: V8ValueObject) {
-        // Get environment variables
+        // Get environment variables from platform context
         val env = v8Runtime.createV8ValueObject()
         val args = v8Runtime.createV8ValueArray()
         val osVersion = v8Runtime.createV8ValueObject()
         
         try {
-            System.getenv().forEach { (key, value) ->
+            platformContext.processInfo.environment.forEach { (key, value) ->
                 env.set(key, value)
             }
             
-            // Get command-line arguments
-            val jvmArgs = getRuntimeMXBean().inputArguments
-            jvmArgs.forEachIndexed { index, arg ->
+            // Get command-line arguments from platform context
+            platformContext.processInfo.inputArguments.forEachIndexed { index, arg ->
                 args.set(index, arg)
             }
             
-            // OS version information
-            val versionParts = System.getProperty("os.version").split(".")
-            osVersion.set("majorVersion", versionParts.getOrNull(0)?.toIntOrNull() ?: 0)
-            osVersion.set("minorVersion", versionParts.getOrNull(1)?.toIntOrNull() ?: 0)
-            osVersion.set("patchVersion", versionParts.getOrNull(2)?.toIntOrNull() ?: 0)
-            
-            // Process identifier (PID)
-            val pid = ProcessHandle.current().pid()
-            
-            // Process name
-            val processName = getRuntimeMXBean().name
-            
-            // Host name
-            val hostName = try {
-                getLocalHost().hostName
-            } catch (e: Exception) {
-                "localhost"
-            }
-            
-            // Platform
-            val platform = when {
-                System.getProperty("os.name").lowercase().contains("android") -> "android"
-                System.getProperty("os.name").lowercase().contains("linux") -> "linux"
-                System.getProperty("os.name").lowercase().contains("mac") || 
-                System.getProperty("os.name").lowercase().contains("darwin") -> "darwin"
-                System.getProperty("os.name").lowercase().contains("windows") -> "win32"
-                else -> "unknown"
-            }
-            
-            // Architecture
-            val arch = when (System.getProperty("os.arch").lowercase()) {
-                "amd64", "x86_64" -> "x64"
-                "x86", "i386", "i686" -> "ia32"
-                "aarch64", "arm64" -> "arm64"
-                "arm" -> "arm"
-                else -> System.getProperty("os.arch") // Return actual value as fallback
-            }
-            
-            // System resources
-            val runtime = Runtime.getRuntime()
+            // OS version information from platform context
+            val osVer = platformContext.processInfo.osVersion
+            osVersion.set("majorVersion", osVer.major)
+            osVersion.set("minorVersion", osVer.minor)
+            osVersion.set("patchVersion", osVer.patch)
             
             // Build the process info object with properties and methods
             val processInfoObject = v8Runtime.createJSObject(
                 properties = mapOf(
                     "environment" to env,
                     "arguments" to args,
-                    "processIdentifier" to pid.toInt(),
-                    "processName" to processName,
+                    "processIdentifier" to platformContext.processInfo.processIdentifier.toInt(),
+                    "processName" to platformContext.processInfo.processName,
                     "globallyUniqueString" to java.util.UUID.randomUUID().toString(),
-                    "hostName" to hostName,
-                    "platform" to platform,
-                    "arch" to arch,
-                    "operatingSystemVersionString" to System.getProperty("os.version"),
+                    "hostName" to platformContext.processInfo.hostName,
+                    "platform" to platformContext.processInfo.platform,
+                    "arch" to platformContext.processInfo.architecture,
+                    "operatingSystemVersionString" to platformContext.processInfo.osVersionString,
                     "operatingSystemVersion" to osVersion,
                     "deviceSpec" to platformContext.deviceInfo.spec,
                     "isRealDevice" to platformContext.deviceInfo.isRealDevice,
@@ -122,17 +84,17 @@ class ProcessInfo(
                 ),
                 methods = mapOf(
                     "physicalMemory" to IJavetDirectCallable.NoThisAndResult<Exception> { _ ->
-                        return@NoThisAndResult v8Runtime.createV8ValueLong(runtime.maxMemory())
+                        return@NoThisAndResult v8Runtime.createV8ValueLong(platformContext.processInfo.getPhysicalMemory())
                     },
                     "processorCount" to IJavetDirectCallable.NoThisAndResult<Exception> { _ ->
-                        return@NoThisAndResult v8Runtime.createV8ValueInteger(runtime.availableProcessors())
+                        return@NoThisAndResult v8Runtime.createV8ValueInteger(platformContext.processInfo.getProcessorCount())
                     },
                     "activeProcessorCount" to IJavetDirectCallable.NoThisAndResult<Exception> { _ ->
-                        return@NoThisAndResult v8Runtime.createV8ValueInteger(runtime.availableProcessors())
+                        return@NoThisAndResult v8Runtime.createV8ValueInteger(platformContext.processInfo.getActiveProcessorCount())
                     },
                     "systemUptime" to IJavetDirectCallable.NoThisAndResult<Exception> { _ ->
                         return@NoThisAndResult v8Runtime.createV8ValueDouble(
-                            getRuntimeMXBean().uptime / 1000.0
+                            platformContext.processInfo.getSystemUptime()
                         )
                     },
                     "getuid" to IJavetDirectCallable.NoThisAndResult<Exception> { _ ->
