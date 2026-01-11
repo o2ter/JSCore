@@ -362,20 +362,20 @@ private fun V8Runtime.createJSFunction(value: Function<*>): V8Value {
             val result = when (value) {
                 is Function0<*> -> value.invoke()
                 is Function1<*, *> -> {
-                    val arg0 = if (v8Values.isNotEmpty()) convertToAny(v8Values[0]) else null
+                    val arg0 = if (v8Values != null && v8Values.isNotEmpty()) convertToAny(v8Values[0]) else null
                     @Suppress("UNCHECKED_CAST")
                     (value as Function1<Any?, *>).invoke(arg0)
                 }
                 is Function2<*, *, *> -> {
-                    val arg0 = if (v8Values.size > 0) convertToAny(v8Values[0]) else null
-                    val arg1 = if (v8Values.size > 1) convertToAny(v8Values[1]) else null
+                    val arg0 = if (v8Values != null && v8Values.size > 0) convertToAny(v8Values[0]) else null
+                    val arg1 = if (v8Values != null && v8Values.size > 1) convertToAny(v8Values[1]) else null
                     @Suppress("UNCHECKED_CAST")
                     (value as Function2<Any?, Any?, *>).invoke(arg0, arg1)
                 }
                 is Function3<*, *, *, *> -> {
-                    val arg0 = if (v8Values.size > 0) convertToAny(v8Values[0]) else null
-                    val arg1 = if (v8Values.size > 1) convertToAny(v8Values[1]) else null
-                    val arg2 = if (v8Values.size > 2) convertToAny(v8Values[2]) else null
+                    val arg0 = if (v8Values != null && v8Values.size > 0) convertToAny(v8Values[0]) else null
+                    val arg1 = if (v8Values != null && v8Values.size > 1) convertToAny(v8Values[1]) else null
+                    val arg2 = if (v8Values != null && v8Values.size > 2) convertToAny(v8Values[2]) else null
                     @Suppress("UNCHECKED_CAST")
                     (value as Function3<Any?, Any?, Any?, *>).invoke(arg0, arg1, arg2)
                 }
@@ -383,7 +383,7 @@ private fun V8Runtime.createJSFunction(value: Function<*>): V8Value {
                     // Fall back to reflection if available
                     if (func != null) {
                         val args = arrayOfNulls<Any>(func.parameters.size)
-                        v8Values.forEachIndexed { index, entry ->
+                        v8Values?.forEachIndexed { index, entry ->
                             if (index < func.parameters.size) {
                                 val param = func.parameters[index]
                                 if (param.isOptional && entry.isNullOrUndefined) {
