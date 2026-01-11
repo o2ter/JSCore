@@ -61,9 +61,11 @@ fun V8Value.toNative(): Any? {
             // Convert JavaScript function to Kotlin lambda
             // Return a callback that can be invoked from Kotlin
             val jsFunction = this
+            // Set weak reference - V8 GC will handle lifecycle automatically
+            jsFunction.setWeak()
             return { args: List<Any?> ->
                 val v8Runtime = jsFunction.v8Runtime
-                if (v8Runtime != null) {
+                if (v8Runtime != null && !jsFunction.isClosed) {
                     val v8Args = args.map { arg -> v8Runtime.createJSObject(arg) }.toTypedArray()
                     try {
                         val result = jsFunction.call<V8Value>(null, *v8Args)
@@ -71,12 +73,16 @@ fun V8Value.toNative(): Any? {
                     } finally {
                         v8Args.forEach { it.close() }
                     }
+                } else {
+                    null
                 }
             }
         }
         this is V8ValueObject -> {
             // Convert JavaScript object to Kotlin Map
             val map = mutableMapOf<String, Any?>()
+            val self = this
+            self.setWeak()
             this.ownPropertyNames.use { propertyNames ->
                 for (i in 0 until propertyNames.length) {
                     val key = propertyNames.getString(i)
@@ -84,16 +90,20 @@ fun V8Value.toNative(): Any? {
                         if (value is V8ValueFunction) {
                             // Convert function to lambda
                             val jsFunction = value
+                            // Set weak reference - V8 GC will handle lifecycle automatically
+                            jsFunction.setWeak()
                             map[key] = { args: List<Any?> ->
                                 val v8Runtime = jsFunction.v8Runtime
-                                if (v8Runtime != null) {
+                                if (v8Runtime != null && !self.isClosed && !jsFunction.isClosed) {
                                     val v8Args = args.map { arg -> v8Runtime.createJSObject(arg) }.toTypedArray()
                                     try {
-                                        val result = jsFunction.call<V8Value>(this, *v8Args)
+                                        val result = jsFunction.call<V8Value>(self, *v8Args)
                                         result.use { it.toNative() }
                                     } finally {
                                         v8Args.forEach { it.close() }
                                     }
+                                } else {
+                                    null
                                 }
                             }
                         } else {
