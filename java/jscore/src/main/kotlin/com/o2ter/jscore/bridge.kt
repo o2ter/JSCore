@@ -63,12 +63,14 @@ fun V8Value.toNative(): Any? {
             val jsFunction = this
             return { args: List<Any?> ->
                 val v8Runtime = jsFunction.v8Runtime
-                val v8Args = args.map { arg -> v8Runtime.createJSObject(arg) }.toTypedArray()
-                try {
-                    val result = jsFunction.call<V8Value>(null, *v8Args)
-                    result.use { it.toNative() }
-                } finally {
-                    v8Args.forEach { it.close() }
+                if (v8Runtime != null) {
+                    val v8Args = args.map { arg -> v8Runtime.createJSObject(arg) }.toTypedArray()
+                    try {
+                        val result = jsFunction.call<V8Value>(null, *v8Args)
+                        result.use { it.toNative() }
+                    } finally {
+                        v8Args.forEach { it.close() }
+                    }
                 }
             }
         }
@@ -79,7 +81,24 @@ fun V8Value.toNative(): Any? {
                 for (i in 0 until propertyNames.length) {
                     val key = propertyNames.getString(i)
                     this.get<V8Value>(key).use { value ->
-                        map[key] = value.toNative()
+                        if (value is V8ValueFunction) {
+                            // Convert function to lambda
+                            val jsFunction = value
+                            map[key] = { args: List<Any?> ->
+                                val v8Runtime = jsFunction.v8Runtime
+                                if (v8Runtime != null) {
+                                    val v8Args = args.map { arg -> v8Runtime.createJSObject(arg) }.toTypedArray()
+                                    try {
+                                        val result = jsFunction.call<V8Value>(this, *v8Args)
+                                        result.use { it.toNative() }
+                                    } finally {
+                                        v8Args.forEach { it.close() }
+                                    }
+                                }
+                            }
+                        } else {
+                            map[key] = value.toNative()
+                        }
                     }
                 }
             }
