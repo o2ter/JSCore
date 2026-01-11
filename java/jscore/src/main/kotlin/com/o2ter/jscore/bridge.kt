@@ -58,19 +58,6 @@ fun V8Value.toNative(): Any? {
             list
         }
         this is V8ValueObject -> {
-            // Check if it's an Error object - get message and stack
-            val hasMessage = this.has("message")
-            val hasStack = this.has("stack")
-            if (hasMessage || hasStack) {
-                // It's likely an Error object, return string representation with message and stack
-                val message = if (hasMessage) this.getString("message") else "Unknown error"
-                val stack = if (hasStack) this.getString("stack") else ""
-                return if (stack.isNotEmpty()) {
-                    "$message\n$stack"
-                } else {
-                    message
-                }
-            }
             // Convert JavaScript object to Kotlin Map
             val map = mutableMapOf<String, Any?>()
             this.ownPropertyNames.use { propertyNames ->
