@@ -81,8 +81,6 @@ fun V8Value.toNative(): Any? {
         this is V8ValueObject -> {
             // Convert JavaScript object to Kotlin Map
             val map = mutableMapOf<String, Any?>()
-            val self = this
-            self.setWeak()
             this.ownPropertyNames.use { propertyNames ->
                 for (i in 0 until propertyNames.length) {
                     val key = propertyNames.getString(i)
@@ -92,6 +90,8 @@ fun V8Value.toNative(): Any? {
                             val jsFunction = value
                             // Set weak reference - V8 GC will handle lifecycle automatically
                             jsFunction.setWeak()
+                            val self = this
+                            self.setWeak()
                             map[key] = { args: List<Any?> ->
                                 val v8Runtime = jsFunction.v8Runtime
                                 if (v8Runtime != null && !self.isClosed && !jsFunction.isClosed) {
