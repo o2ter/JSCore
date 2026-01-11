@@ -55,6 +55,15 @@ class Console(
             }))
         nativeBridge.bindFunction(JavetCallbackContext("consoleError", JavetCallbackType.DirectCallNoThisAndNoResult,
             IJavetDirectCallable.NoThisAndNoResult<Exception> { v8Values ->
+                if (v8Values.size == 1) {
+                    val value = v8Values[0]
+                    if (value is V8ValueObject) {
+                        val message = value.getString("message") ?: "Unknown Error"
+                        val stack = value.getString("stack") ?: "No Stack Trace"
+                        platformContext.logger.error("JSConsole", "$message\n$stack")
+                        return@NoThisAndNoResult
+                    }
+                }
                 val message = v8Values.joinToString(" ") { it.toString() }
                 platformContext.logger.error("JSConsole", message)
             }))
