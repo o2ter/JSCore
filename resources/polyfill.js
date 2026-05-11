@@ -2373,7 +2373,6 @@
                 // Create a file-backed readable stream and consume it according to format
                 const stream = createFileReadableStream(filePath);
                 const reader = stream.getReader();
-                let totalLoaded = 0;
 
                 try {
                     if (format === 'arraybuffer') {
